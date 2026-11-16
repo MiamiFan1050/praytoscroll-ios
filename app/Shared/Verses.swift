@@ -6,6 +6,10 @@ struct Verse: Codable, Hashable, Identifiable, Sendable {
     var ref: String
     var text: String
     var theme: String?
+    /// King James Version (public domain; filled by tools/bible_text.py).
+    var kjv: String?
+    /// One line in our own words, shown under the verse in Scroll the Word.
+    var meaning: String?
 
     var id: Int { day }
 

@@ -371,7 +371,7 @@ final class AppModel {
     func startPrayer(style: UnlockStyle? = nil, source: SessionSource, gatedAppID: String? = nil,
                      personID: UUID? = nil, mood: PrayerMood? = nil, isSample: Bool = false,
                      verse: Verse? = nil, seedPrompt: String? = nil) {
-        let request = SessionRequest(style: style ?? settings.unlockStyle, source: source, gatedAppID: gatedAppID,
+        let request = SessionRequest(style: style ?? defaultSessionStyle, source: source, gatedAppID: gatedAppID,
                                      personID: personID, mood: mood, isSample: isSample,
                                      verse: verse, seedPrompt: seedPrompt)
         if activeSession != nil {
@@ -388,7 +388,17 @@ final class AppModel {
     }
 
     /// Minimum seconds before Amen unlocks, by style.
-    func minimumSeconds(for style: UnlockStyle, isSample: Bool) -> Double {
+    /// What a prayer starts as by default: the Unlock with choice (Prayer uses the prayer style).
+    var defaultSessionStyle: UnlockStyle {
+        settings.unlockMethod.style(prayerStyle: settings.unlockStyle)
+    }
+
+    /// The style for a method picked on the gate screen ("Ask me after each prayer").
+    func sessionStyle(for method: UnlockMethod) -> UnlockStyle {
+        method.style(prayerStyle: settings.unlockStyle)
+    }
+
+    func minimumSeconds(for style: UnlockStyle, isSample: Bool, readingWords: Int = 0) -> Double {
         #if DEBUG
         if isSample { return options.isUITest && !options.longMinimum ? 2 : 15 }
         if options.isUITest && !options.longMinimum { return 3 }
@@ -400,6 +410,8 @@ final class AppModel {
         case .guided: return Double(max(30, settings.guidedSeconds))
         case .verse: return 45
         case .forSomeone: return 40
+        case .readVerse: return Double(ReadingTime.verse(words: readingWords))
+        case .devotional: return Double(ReadingTime.devotional(words: readingWords))
         }
     }
 
@@ -660,6 +672,9 @@ final class AppModel {
         case "pray": startPrayer(source: .manual)
         case "gatepray": startPrayer(source: .gate, gatedAppID: "instagram")
         case "gateany": startPrayer(style: .quick, source: .gate, gatedAppID: GateEngine.anyAppID)
+        case "gateask":
+            updateSettings { $0.askUnlockEachTime = true }
+            startPrayer(source: .gate, gatedAppID: "instagram")
         case "quick": startPrayer(style: .quick, source: .manual)
         case "someone": startPrayer(style: .forSomeone, source: .manual, personID: suggestedPerson()?.id)
         case "choose": startPrayer(style: .forSomeone, source: .manual)

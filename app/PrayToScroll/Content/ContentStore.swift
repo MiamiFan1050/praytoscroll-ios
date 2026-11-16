@@ -286,9 +286,17 @@ final class ContentStore: @unchecked Sendable {
     let copy: CopyBook
     /// Mood pools ("tempted", "anxious", …) from prompts.json (top-level keys or a "moods" object), else built-in.
     let moodPrompts: [PrayerMood: [String]]
+    /// devotionals.json (Unlock with → Devotional).
+    let devotionals: [Devotional]
 
     init(bundle: Bundle = .main) {
         let decoder = JSONDecoder()
+        if let data = ContentStore.data(named: "devotionals", bundle: bundle),
+           let list = try? decoder.decode([Devotional].self, from: data), !list.isEmpty {
+            devotionals = list
+        } else {
+            devotionals = [.fallback]
+        }
         if let data = ContentStore.data(named: "prompts", bundle: bundle),
            let library = try? decoder.decode(PromptLibrary.self, from: data) {
             prompts = library

@@ -137,11 +137,13 @@ struct HomeView: View {
     }
 
     private var styleSummary: String {
-        switch model.settings.unlockStyle {
+        switch model.defaultSessionStyle {
         case .guided: return "Guided · \(SettingsFormat.length(model.settings.guidedSeconds))"
         case .quick: return "Quick · 30 sec"
         case .verse: return "Today's verse"
         case .forSomeone: return "For someone"
+        case .readVerse: return "Read a verse"
+        case .devotional: return "Devotional · about a minute"
         }
     }
 

@@ -137,6 +137,8 @@ enum DemoSeeder {
                 case .guided: length = 125
                 case .verse: length = 70
                 case .forSomeone: length = 55
+                case .readVerse: length = 25
+                case .devotional: length = 80
                 }
                 let isGate = rng.next() % 3 != 0
                 let session = PrayerSession(startedAt: start, completedAt: start.addingTimeInterval(length), style: style,

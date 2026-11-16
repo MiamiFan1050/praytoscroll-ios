@@ -132,6 +132,48 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(status.label.contains("1:59:") || status.label.contains("2:00:"), "Home counts down the 2 h picked: \(status.label)")
     }
 
+    func testUnlockWithDevotionalShowsTheReadingThenAmen() {
+        let app = launch(["-route", "settings"])
+        let unlockWith = app.buttons["settings.unlockWith"]
+        for _ in 0..<6 where !unlockWith.isHittable { app.swipeUp() }
+        XCTAssertTrue(unlockWith.waitForExistence(timeout: 10))
+        unlockWith.tap()
+        XCTAssertTrue(app.buttons["unlockWith.prayer"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["unlockWith.prayer"].isSelected, "Prayer is the default")
+        app.buttons["unlockWith.devotional"].tap()
+        XCTAssertTrue(app.buttons["unlockWith.devotional"].isSelected)
+        app.navigationBars.buttons.element(boundBy: 0).tap()   // back to Settings
+        app.buttons["Done"].firstMatch.tap()
+
+        let pray = app.buttons["home.prayNow"]
+        XCTAssertTrue(pray.waitForExistence(timeout: 10))
+        pray.tap()
+        XCTAssertTrue(app.staticTexts["reading.title"].waitForExistence(timeout: 10), "a devotional, not a prayer prompt")
+        XCTAssertTrue(app.staticTexts["reading.ref"].exists)
+        XCTAssertTrue(app.staticTexts["reading.body"].exists)
+        let prayer = app.staticTexts["reading.prayer"]
+        for _ in 0..<4 where !prayer.isHittable { app.swipeUp() }
+        XCTAssertTrue(prayer.label.hasSuffix("Amen."), "ends with its one-line prayer")
+        sayAmen(in: app)
+        XCTAssertTrue(app.descendants(matching: .any)["celebration.title"].waitForExistence(timeout: 10),
+                      "a devotional completes like a prayer")
+    }
+
+    func testGateScreenLetsYouPickHowToUnlockWhenAskIsOn() {
+        let app = launch(["-route", "gateask"])
+        let devotional = app.buttons["session.method.devotional"]
+        XCTAssertTrue(devotional.waitForExistence(timeout: 10), "Ask me after each prayer offers the method on the gate screen")
+        XCTAssertTrue(app.buttons["session.method.prayer"].isSelected)
+        devotional.tap()
+        XCTAssertTrue(app.staticTexts["reading.title"].waitForExistence(timeout: 5))
+        app.buttons["session.method.verse"].tap()
+        XCTAssertTrue(app.staticTexts["reading.ref"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["reading.title"].exists, "a verse has no devotional title")
+        XCTAssertTrue(app.buttons["session.method.verse"].isSelected)
+        sayAmen(in: app)
+        XCTAssertTrue(app.descendants(matching: .any)["celebration.unlockChoices"].waitForExistence(timeout: 10))
+    }
+
     func testTheAllAppsAutomationOffersEveryAppAfterTheAmen() {
         let app = launch(["-route", "gateany"])
         sayAmen(in: app)

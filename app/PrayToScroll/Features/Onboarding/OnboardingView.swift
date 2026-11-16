@@ -497,11 +497,11 @@ struct OnboardingView: View {
             header(text("unlockStyle.headline", "How do you want to pray?"),
                    text("unlockStyle.subline", "Choose your default. You can switch any time."))
             VStack(spacing: 10) {
-                ForEach(UnlockStyle.allCases) { style in
-                    let isOn = model.settings.unlockStyle == style
+                ForEach(UnlockStyle.prayerStyles) { style in
+                    let isOn = model.settings.unlockMethod == .prayer && model.settings.unlockStyle == style
                     Button {
                         Haptics.selection()
-                        model.updateSettings { $0.unlockStyle = style }
+                        model.updateSettings { $0.unlockStyle = style; $0.unlockMethod = .prayer }
                     } label: {
                         HStack(spacing: 14) {
                             IconBadge(systemImage: style.symbol, tint: Palette.warmGold, size: 44)
@@ -524,7 +524,8 @@ struct OnboardingView: View {
                     .accessibilityIdentifier("style.\(style.rawValue)")
                 }
             }
-            if model.settings.unlockStyle == .guided {
+            readingChoices
+            if model.settings.unlockMethod == .prayer, model.settings.unlockStyle == .guided {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Guided length").font(.akSubheadlineSemibold).foregroundStyle(Palette.cream.opacity(0.8))
                     HStack(spacing: 8) {
@@ -543,6 +544,44 @@ struct OnboardingView: View {
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: model.settings.unlockStyle)
+        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: model.settings.unlockMethod)
+    }
+
+    /// Unlock with: reading instead of praying (Settings → Unlock with has the same choice).
+    private var readingChoices: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Or unlock by reading")
+                .font(.akFootnote.weight(.semibold))
+                .foregroundStyle(Palette.warmGold)
+            HStack(spacing: 10) {
+                ForEach([UnlockMethod.verse, .devotional]) { method in
+                    let isOn = model.settings.unlockMethod == method
+                    Button {
+                        Haptics.selection()
+                        model.updateSettings { $0.unlockMethod = method }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Image(systemName: method.symbol).foregroundStyle(Palette.warmGold)
+                                Spacer()
+                                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(isOn ? Palette.gold : Palette.cream.opacity(0.3))
+                            }
+                            Text(method.title).font(.akHeadline).foregroundStyle(Palette.cream)
+                            Text(method == .verse ? "A verse and what it means." : "A verse, a short reading, a prayer.")
+                                .font(.akFootnote).foregroundStyle(Palette.cream.opacity(0.65))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .akCard(padding: 14, cornerRadius: 20, highlighted: isOn)
+                    }
+                    .buttonStyle(PressScaleStyle())
+                    .accessibilityAddTraits(isOn ? .isSelected : [])
+                    .accessibilityIdentifier("onboarding.unlockWith.\(method.rawValue)")
+                }
+            }
+        }
+        .padding(.top, 6)
     }
 
     private var windowPage: some View {

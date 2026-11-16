@@ -93,7 +93,8 @@ private struct PrayingView: View {
     var body: some View {
         GeometryReader { geo in
             let compact = geo.size.height < 720
-            let ringSize = min(geo.size.width * 0.56, compact ? 170 : 228)
+            let reading = flow.currentStep?.kind == .reading
+            let ringSize = reading ? (compact ? 84 : 112) : min(geo.size.width * 0.56, compact ? 170 : 228)
             VStack(spacing: 0) {
                 topBar
                     .padding(.horizontal, 20)
@@ -102,6 +103,12 @@ private struct PrayingView: View {
                 if let app = flow.gatedApp {
                     waitingPill(app)
                         .padding(.top, 10)
+                }
+
+                if flow.canSwitchMethod {
+                    UnlockMethodPicker(flow: flow)
+                        .padding(.top, 10)
+                        .padding(.horizontal, 16)
                 }
 
                 if flow.showWelcomeBack {
@@ -257,6 +264,12 @@ private struct PrayingView: View {
     private var stepContent: some View {
         if let step = flow.currentStep {
             switch step.kind {
+            case .reading:
+                if let card = step.reading {
+                    ReadingStepView(card: card, scale: model.settings.sessionTextScale)
+                        .id(card.ref + card.title)
+                        .transition(.opacity)
+                }
             case .verseReveal:
                 VerseRevealView(flow: flow, scale: model.settings.sessionTextScale)
             case .prompt:

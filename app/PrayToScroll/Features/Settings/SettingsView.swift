@@ -91,8 +91,19 @@ struct SettingsView: View {
 
     private var prayerSection: some View {
         Section {
+            NavigationLink {
+                UnlockWithView()
+            } label: {
+                HStack {
+                    settingsLabel("Unlock with", model.settings.unlockMethod.symbol)
+                    Spacer()
+                    Text(model.settings.unlockMethod.title)
+                        .font(.akFootnote).foregroundStyle(Theme.textSecondary)
+                }
+            }
+            .accessibilityIdentifier("settings.unlockWith")
             Picker(selection: model.binding(\.unlockStyle)) {
-                ForEach(UnlockStyle.allCases) { Label($0.title, systemImage: $0.symbol).tag($0) }
+                ForEach(UnlockStyle.prayerStyles) { Label($0.title, systemImage: $0.symbol).tag($0) }
             } label: { settingsLabel("Default prayer", "hands.and.sparkles.fill") }
             if model.settings.unlockStyle == .guided {
                 Picker(selection: model.binding(\.guidedSeconds)) {

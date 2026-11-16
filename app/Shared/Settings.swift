@@ -5,8 +5,17 @@ enum UnlockStyle: String, Codable, CaseIterable, Identifiable, Sendable {
     case guided
     case verse
     case forSomeone
+    /// Unlock with: read a verse (Settings → Unlock with).
+    case readVerse
+    /// Unlock with: a 60–90 second devotional.
+    case devotional
 
     var id: String { rawValue }
+
+    /// The prayer styles (the reading ones are picked under Unlock with).
+    static let prayerStyles: [UnlockStyle] = [.quick, .guided, .verse, .forSomeone]
+
+    var isReading: Bool { self == .readVerse || self == .devotional }
 
     var title: String {
         switch self {
@@ -14,6 +23,8 @@ enum UnlockStyle: String, Codable, CaseIterable, Identifiable, Sendable {
         case .guided: return "Guided prayer"
         case .verse: return "Verse + prayer"
         case .forSomeone: return "Pray for someone"
+        case .readVerse: return "Read a verse"
+        case .devotional: return "Devotional"
         }
     }
 
@@ -23,6 +34,8 @@ enum UnlockStyle: String, Codable, CaseIterable, Identifiable, Sendable {
         case .guided: return "Guided"
         case .verse: return "Verse"
         case .forSomeone: return "For someone"
+        case .readVerse: return "Verse"
+        case .devotional: return "Devotional"
         }
     }
 
@@ -32,6 +45,8 @@ enum UnlockStyle: String, Codable, CaseIterable, Identifiable, Sendable {
         case .guided: return "Adoration, Confession, Thanksgiving, Supplication. You choose the length."
         case .verse: return "Read today's verse line by line, then pray it."
         case .forSomeone: return "Lift up a friend, then let them know you prayed."
+        case .readVerse: return UnlockMethod.verse.subtitle
+        case .devotional: return UnlockMethod.devotional.subtitle
         }
     }
 
@@ -41,6 +56,8 @@ enum UnlockStyle: String, Codable, CaseIterable, Identifiable, Sendable {
         case .guided: return "list.bullet.indent"
         case .verse: return "book.pages.fill"
         case .forSomeone: return "person.2.fill"
+        case .readVerse: return UnlockMethod.verse.symbol
+        case .devotional: return UnlockMethod.devotional.symbol
         }
     }
 }
@@ -133,6 +150,8 @@ struct AppSettings: Codable, Equatable, Sendable {
     var unlockCustom: Bool = false
     /// "Ask me after each prayer": the Amen screen offers the unlock lengths, the default preselected.
     var askUnlockEachTime: Bool = false
+    /// Unlock with: Prayer (default), Read a verse or Devotional.
+    var unlockMethod: UnlockMethod = .prayer
     var lastMood: PrayerMood?
     var sessionTextScale: Double = 1
     var windowEndNudge: Bool = true
@@ -164,6 +183,7 @@ struct AppSettings: Codable, Equatable, Sendable {
         dailyKeyResetHour = try c.decodeIfPresent(Int.self, forKey: .dailyKeyResetHour) ?? d.dailyKeyResetHour
         unlockCustom = try c.decodeIfPresent(Bool.self, forKey: .unlockCustom) ?? d.unlockCustom
         askUnlockEachTime = try c.decodeIfPresent(Bool.self, forKey: .askUnlockEachTime) ?? d.askUnlockEachTime
+        unlockMethod = (try? c.decodeIfPresent(UnlockMethod.self, forKey: .unlockMethod)) ?? d.unlockMethod
         lastMood = try? c.decodeIfPresent(PrayerMood.self, forKey: .lastMood)
         sessionTextScale = try c.decodeIfPresent(Double.self, forKey: .sessionTextScale) ?? d.sessionTextScale
         windowEndNudge = try c.decodeIfPresent(Bool.self, forKey: .windowEndNudge) ?? d.windowEndNudge
