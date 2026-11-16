@@ -110,8 +110,12 @@ def check_verses():
                 err("verses.json day %s: %s" % (d, "; ".join(problems)))
             if json.loads(raw).get("translation_id") != fv.TRANSLATION:
                 err("verses.json day %s: cached response is not %s" % (d, fv.TRANSLATION))
-            if "Yahweh" in text:
-                err("verses.json day %s: says Yahweh (expected the LORD)" % d)
+        if "Yahweh" in text or re.search(r"\bYah\b", text):
+            err("verses.json day %s: says Yahweh (expected the LORD)" % d)
+        if re.search(r"\bthe\s+the\b", text, re.I):
+            err("verses.json day %s: doubled 'the'" % d)
+        if BRITISH.search(text):
+            err("verses.json day %s: British spelling %r" % (d, BRITISH.search(text).group(0)))
     if sorted(days) != list(range(1, 367)):
         err("verses.json: days are not exactly 1..366")
     cap = int(366 * 0.15)
@@ -288,6 +292,8 @@ def check_copy():
         err("copy.json: undocumented placeholders %s" % sorted(used - documented))
     if documented - used - {"{name}"}:
         warn("copy.json: documented but unused placeholders %s" % sorted(documented - used))
+    if not is_str(data.get("translationCredit")) or "World English Bible" not in data["translationCredit"]:
+        err("copy.json: translationCredit missing")
     if data.get("appName") != APP_NAME:
         err("copy.json: appName must be %s" % APP_NAME)
     if not any(APP_NAME in x for x in walk_strings(data.get("onboarding"))):
@@ -321,7 +327,7 @@ BRITISH = re.compile(
     r"judgements|defence|offence|offences|pretence|licence|fulfil|fulfils|fulfilment|enrol|wilful|"
     r"skilful|cheque|plough\w*|mould\w*|counsell\w*|travell\w*|marvell\w*|jewell\w*|worshipp\w*|"
     r"quarrell\w*|practis\w*|realis\w*|recognis\w*|organis\w*|apologis\w*|baptis\w*|"
-    r"sympathis\w*|idolis\w*|scandalis\w*|tranquill\w*|learnt|spelt|dreamt|spoilt)\b",
+    r"sympathis\w*|idolis\w*|scandalis\w*|tranquill\w*|learnt|spelt|dreamt|spoilt|burnt)\b",
     re.I)
 
 
@@ -362,7 +368,7 @@ def main():
     print("challenges.json: %s" % c)
     print("copy.json:       %s" % k)
     bc, bex = british_report()
-    print("British spellings in verses.json (WEBBE, kept verbatim): %d occurrences in %d forms"
+    print("British spellings in verses.json: %d occurrences in %d forms"
           % (sum(bc.values()), len(bc)))
     if bc:
         print("                 " + ", ".join("%s %d" % kv for kv in sorted(bc.items(), key=lambda kv: -kv[1])))

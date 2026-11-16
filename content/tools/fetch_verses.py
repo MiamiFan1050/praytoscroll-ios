@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Build content/verses.json: 366 daily verses, World English Bible British Edition (WEBBE,
-public domain; it renders the divine name as "the LORD", where the US WEB has "Yahweh").
+"""Build content/verses.json: 366 daily verses, World English Bible (US edition, public domain).
+God's name, which the WEB prints as "Yahweh", is rendered "the LORD" (see render_divine_name;
+credit line in copy.json: translationCredit). US spelling is kept.
 
-Every verse text comes from https://bible-api.com/<ref>?translation=webbe. Nothing is typed
+Every verse text comes from https://bible-api.com/<ref>?translation=web. Nothing is typed
 from memory. Raw API responses are cached in tools/cache/ so reruns cost no requests.
 
 Usage:  python3 tools/fetch_verses.py          (from content/, or any cwd)
@@ -24,7 +25,7 @@ import urllib.parse
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TRANSLATION = "webbe"  # cache/web/ keeps the earlier US-edition responses
+TRANSLATION = "web"  # cache/webbe/ keeps the British-edition responses from an earlier trial
 CACHE = os.path.join(HERE, "cache", TRANSLATION)
 OUT = os.path.join(os.path.dirname(HERE), "verses.json")
 API = "https://bible-api.com/{}?translation=" + TRANSLATION
@@ -440,7 +441,7 @@ ALTERNATES = {
     "forgiveness": ["Ephesians 2:8-9", "Isaiah 38:17", "Colossians 3:13", "Psalm 32:1", "Psalm 25:7"],
     "hope": ["Romans 15:4", "Romans 8:24-25", "Psalm 39:7", "Psalm 130:5", "Psalm 62:5"],
     "identity": ["1 John 5:4", "Ephesians 1:4", "Romans 14:8", "Psalm 18:19", "Psalm 149:4"],
-    "rest": ["Isaiah 30:18", "Psalm 23:6", "Psalm 116:7", "Psalm 3:5", "Psalm 91:1-2", "Psalm 121:3-4"],
+    "rest": ["Psalm 23:6", "Psalm 116:7", "Psalm 3:5", "Psalm 91:1-2", "Psalm 121:3-4"],
     "courage": ["1 Peter 3:14", "Romans 1:16", "Psalm 31:24", "Psalm 34:4", "Psalm 3:3", "Psalm 27:3"],
     "strength": ["Micah 7:8", "Isaiah 25:4", "Psalm 94:18", "Psalm 119:28", "Psalm 138:3", "Psalm 18:2"],
     "anxiety": ["Philippians 4:5", "Psalm 91:4", "Psalm 91:11", "Psalm 57:1", "Psalm 120:1", "Psalm 145:18"],
@@ -449,6 +450,46 @@ ALTERNATES = {
     "gratitude": ["Psalm 34:1", "Psalm 30:11-12", "Psalm 116:12", "Psalm 40:5", "Psalm 8:1", "Psalm 19:1"],
     "peace": ["Philippians 4:9", "1 Peter 3:11", "Psalm 34:14", "Psalm 37:11"],
 }
+
+# God's name: the WEB prints "Yahweh"; the app shows "the LORD". Every rendering was checked by
+# eye. Overrides are exact WEB phrases (after quote fixing) for cases the rules below get wrong.
+DIVINE_NAME_OVERRIDES = {
+    "Psalm 4:8": [(u"for you, Yahweh alone, make", u"for you alone, LORD, make")],
+    "Isaiah 40:28": [(u"God, Yahweh, The Creator", u"God, the LORD, The Creator")],
+}
+VOCATIVE_NEXT = r"(?:you|be|we|I|have|hear|let|remember|show|teach|lead|why|how)\b"
+
+
+def render_divine_name(ref, text):
+    """Return (text, problems). "Yahweh" -> "the LORD" / "The LORD" / "LORD" (vocative)."""
+    problems = []
+    for old, new in DIVINE_NAME_OVERRIDES.get(ref, []):
+        if old not in text:
+            problems.append("divine-name override not found: %r" % old)
+        text = text.replace(old, new)
+    text = re.sub(r"\bLord Yahweh\b", "Lord GOD", text)
+    text = re.sub(r"\bO Yahweh\b", "O LORD", text)
+
+    def repl(m):
+        before, after = m.string[:m.start()], m.string[m.end():]
+        poss = m.group(1) or ""
+        sentence_start = before.strip() == "" or re.search(u"(?:[.!?][\u201d\u2019]?\\s+|[\u201c\u2018])$", before)
+        vocative = not poss and (
+            (re.search(r",\s$", before) and re.match(r"[,.!?]", after))
+            or (sentence_start and re.match(r",\s+" + VOCATIVE_NEXT, after)))
+        if vocative:
+            return "LORD"
+        if re.search(r"\bthe\s+$", before, re.I):
+            return "LORD" + poss
+        return ("The" if sentence_start else "the") + " LORD" + poss
+
+    text = re.sub(u"\\bYahweh(\u2019s)?\\b", repl, text)
+    if "Yahweh" in text or re.search(r"\bYah\b", text):
+        problems.append("divine name left unrendered")
+    if re.search(r"\bthe\s+the\b", text, re.I):
+        problems.append("doubled 'the'")
+    return text, problems
+
 
 REF_RE = re.compile(r"^(?P<book>.+?) (?P<ch>\d+):(?P<v1>\d+)(?:-(?P<v2>\d+))?$")
 LETTER = re.compile(r"[A-Za-z]")
@@ -603,6 +644,8 @@ def parse(ref, raw):
         problems.append("expected %d verses, got %d" % (expected, len(verses)))
     text = " ".join(clean_verse(v.get("text", "")) for v in verses)
     text = balance_quotes(text)
+    text, name_problems = render_divine_name(ref, text)
+    problems.extend(name_problems)
     keys = [(v.get("book_id"), v.get("chapter"), v.get("verse")) for v in verses]
     if not text:
         problems.append("empty text")
