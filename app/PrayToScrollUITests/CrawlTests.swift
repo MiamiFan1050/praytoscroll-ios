@@ -83,7 +83,7 @@ final class CrawlTests: XCTestCase {
         crawl(Target(number: 22, name: "saved-verses", tab: "Scroll", path: ["word.saved"], marker: "Saved verses", cover: .navBar("Saved verses")))
     }
     func test23GateGuide() {
-        crawl(Target(number: 23, name: "gate-guide", args: route("gate"), path: ["gate.row.instagram"], marker: "guide.next", cover: .marker, scrolls: false))
+        crawl(Target(number: 23, name: "gate-guide", args: route("gate"), path: ["gate.guide.instagram"], marker: "guide.next", cover: .marker, scrolls: false))
     }
     func test24EmergencyPass() {
         crawl(Target(number: 24, name: "emergency-pass", tab: "Today", path: ["I need it now"], marker: "emergency.use", cover: .marker, scrolls: false))
