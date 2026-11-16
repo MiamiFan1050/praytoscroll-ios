@@ -72,7 +72,8 @@ struct HomeView: View {
     }
 
     private var greeting: String {
-        let hour = Calendar.current.component(.hour, from: Date())
+        // The demo (screenshots) shows 9:41 in the status bar, so it greets the morning.
+        let hour = model.options.isDemo ? 9 : Calendar.current.component(.hour, from: Date())
         let part: String
         switch hour {
         case 5..<12: part = "Good morning"
@@ -145,7 +146,7 @@ struct HomeView: View {
             model.selectedTab = .progress
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                StreakFlame(streak: model.streak.current, lit: model.streak.prayedToday, size: 64, showsNumber: false)
+                StreakFlame(streak: model.streak.current, lit: model.streak.current > 0 || model.streak.prayedToday, size: 64, showsNumber: false)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Spacer(minLength: 0)
                 HStack(alignment: .firstTextBaseline, spacing: 4) {

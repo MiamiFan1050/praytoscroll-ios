@@ -45,7 +45,7 @@ struct StatsView: View {
     private var streakHero: some View {
         let streak = model.streak
         return HStack(spacing: 18) {
-            StreakFlame(streak: streak.current, lit: streak.prayedToday, size: 96, showsNumber: false)
+            StreakFlame(streak: streak.current, lit: streak.current > 0 || streak.prayedToday, size: 96, showsNumber: false)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("\(streak.current)")

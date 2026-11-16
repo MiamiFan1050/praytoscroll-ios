@@ -117,12 +117,12 @@ enum DemoSeeder {
         request("Getting back on his feet after the layoff", luke, created: 18)
         request("A job that fits", luke, created: 44, answered: 26, note: "Starts at the hardware store Monday.")
 
-        // Sessions: a 12-day streak (yesterday back to 13 days ago, with a free freeze 9 days ago),
+        // Sessions: a 13-day streak (yesterday back to 14 days ago, with a free freeze 9 days ago),
         // plus three months of honest history before it.
         let styles: [UnlockStyle] = [.guided, .quick, .verse, .forSomeone, .guided, .quick]
         let gateApps = ["instagram", "tiktok", "youtube", "x"]
-        var streakDays: [Int] = Array(1...13).filter { $0 != 9 }
-        let history = (15...95).filter { _ in Double(rng.next() % 1000) / 1000 < 0.66 }
+        var streakDays: [Int] = Array(1...14).filter { $0 != 9 }
+        let history = (16...95).filter { _ in Double(rng.next() % 1000) / 1000 < 0.66 }
         streakDays += history
         for dayOffset in streakDays {
             let sessionsToday = 1 + Int(rng.next() % 3)
@@ -163,13 +163,23 @@ enum DemoSeeder {
             context.insert(JournalEntry(text: entry.1, createdAt: daysAgo(entry.0, hour: 21, minute: 12),
                                         person: entry.2, style: entry.3))
         }
+        // A few verses saved from Scroll the Word.
+        let verses = VerseProvider.shared.verses
+        if !verses.isEmpty {
+            let todayIndex = today.dayOfYear(calendar: calendar)
+            for offset in [3, 11, 19, 27, 34, 46, 58, 71, 89] {
+                let saved = SavedVerse(verse: verses[(todayIndex + offset * 7) % verses.count])
+                saved.savedAt = daysAgo(offset % 30, hour: 22)
+                context.insert(saved)
+            }
+        }
         try? context.save()
 
         // Milestones the history has earned.
         let prayed = Set(streakDays.map { today.adding(days: -$0, calendar: calendar) })
         let longest = StreakEngine.longestChain(prayed: prayed, frozen: store.frozenDays, calendar: calendar)
         var updated = store.settings
-        updated.awardedMilestones = MilestoneEngine.milestones.filter { $0 <= max(longest, 12) }
+        updated.awardedMilestones = MilestoneEngine.milestones.filter { $0 <= longest }
         store.settings = updated
     }
 }

@@ -144,7 +144,7 @@ struct BreathCue: View {
                 .textCase(.uppercase)
                 .foregroundStyle(Palette.warmGold.opacity(0.75))
                 .contentTransition(.opacity)
-                .animation(.easeInOut(duration: 0.8), value: t < 4)
+                .animation(.easeInOut(duration: 0.35), value: t < 4)
         }
         .opacity(reduceMotion ? 0 : 1)
         .accessibilityHidden(true)

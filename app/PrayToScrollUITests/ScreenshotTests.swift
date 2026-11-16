@@ -9,9 +9,10 @@ final class ScreenshotTests: XCTestCase {
         continueAfterFailure = false
     }
 
-    private func launch(route: String? = nil, extra: [String] = []) -> XCUIApplication {
+    /// `fastTimers` (-uitest) shortens prayer minimums; screens that show the countdown run with real timers.
+    private func launch(route: String? = nil, fastTimers: Bool = true, extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-demo", "-uitest", "-appearance", "dark"] + extra
+        app.launchArguments = ["-demo", "-appearance", "dark"] + (fastTimers ? ["-uitest"] : []) + extra
         if let route { app.launchArguments += ["-route", route] }
         app.launch()
         return app
@@ -43,7 +44,7 @@ final class ScreenshotTests: XCTestCase {
     }
 
     func test02GatePrayer() {
-        let app = launch(route: "gatepray")
+        let app = launch(route: "gatepray", fastTimers: false)
         waitFor(app.descendants(matching: .any)["session.prompt"])
         snap("02-prayer", settle: 2)
     }
@@ -101,5 +102,20 @@ final class ScreenshotTests: XCTestCase {
         let app = launch(route: "someone")
         waitFor(app.descendants(matching: .any)["session.prompt"])
         snap("10-someone", settle: 2)
+    }
+
+    /// Not a store shot: the home-screen icon + "Pray to Scroll" label, to check it isn't truncated.
+    func test99HomeScreenLabel() {
+        let app = launch()
+        XCTAssertTrue(app.buttons["home.prayNow"].waitForExistence(timeout: 10))
+        XCUIDevice.shared.press(.home)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let icon = springboard.icons["Pray to Scroll"]
+        XCTAssertTrue(icon.waitForExistence(timeout: 10))
+        for _ in 0..<4 where !icon.isHittable {
+            springboard.swipeLeft()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+        }
+        snap("99-home-label")
     }
 }

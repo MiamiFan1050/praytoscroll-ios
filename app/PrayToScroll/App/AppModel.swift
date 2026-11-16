@@ -107,6 +107,9 @@ final class AppModel {
         Haptics.enabled = loaded.hapticsEnabled
         if options.isDemo {
             DemoSeeder.seedData(context: modelContainer.mainContext, store: sharedStore)
+            var seeded = sharedStore.settings
+            if let forced = options.appearance { seeded.appearance = forced }
+            self.settings = seeded
         }
         reloadGateState()
         refreshStreak()

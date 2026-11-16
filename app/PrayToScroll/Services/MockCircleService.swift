@@ -18,7 +18,7 @@ final class MockCircleService: CircleService, @unchecked Sendable {
         let circle = PrayerCircle(code: code, name: "Lighthouse Small Group", createdAt: Date().addingTimeInterval(-86_400 * 40), ownerID: "me")
         let people: [(String, String, Int, Int)] = [
             ("Sarah", "🌻", 19, 31),
-            ("Mark", "🕊️", 16, 12),
+            ("Mark", "🕊️", 16, 13),
             ("James", "⛰️", 14, 9),
             ("Grace", "🌿", 11, 22),
             ("Daniel", "🔥", 8, 5),
@@ -31,7 +31,7 @@ final class MockCircleService: CircleService, @unchecked Sendable {
         }
         let second = PrayerCircle(code: "R4NB8T", name: "Morrison Family", createdAt: Date().addingTimeInterval(-86_400 * 12), ownerID: "demo-9")
         let family = [
-            CircleMember(id: "me", displayName: "Mark", emoji: "🕊️", prayersThisWeek: 16, streak: 12, weekKey: week, updatedAt: Date(), isMe: true),
+            CircleMember(id: "me", displayName: "Mark", emoji: "🕊️", prayersThisWeek: 16, streak: 13, weekKey: week, updatedAt: Date(), isMe: true),
             CircleMember(id: "fam-1", displayName: "Mom", emoji: "🌷", prayersThisWeek: 21, streak: 64, weekKey: week, updatedAt: Date(), isMe: false),
             CircleMember(id: "fam-2", displayName: "Luke", emoji: "⚾️", prayersThisWeek: 7, streak: 4, weekKey: week, updatedAt: Date(), isMe: false),
         ]
