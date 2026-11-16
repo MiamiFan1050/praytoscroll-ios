@@ -7,6 +7,8 @@ struct LaunchOptions: Sendable {
     let showOnboarding: Bool
     /// `-uitest`: shorter prayer minimums and no animations that would slow tests.
     let isUITest: Bool
+    /// `-longMinimum` with `-uitest`: keep the real-length minimum, for tests that check Amen starts locked.
+    let longMinimum: Bool
     /// `-route <name>`: open a screen directly (demo only): pray, gatepray, quick, someone, choose, gate, answered, circle,
     /// stats, journal, word, settings, verified, troubleshoot (see AppModel.openDemoRoute).
     let route: String?
@@ -19,6 +21,7 @@ struct LaunchOptions: Sendable {
         isDemo = arguments.contains("-demo")
         showOnboarding = arguments.contains("-onboarding")
         isUITest = arguments.contains("-uitest")
+        longMinimum = arguments.contains("-longMinimum")
         if let index = arguments.firstIndex(of: "-route"), arguments.indices.contains(index + 1) {
             route = arguments[index + 1]
         } else {

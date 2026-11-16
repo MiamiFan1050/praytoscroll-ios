@@ -41,7 +41,7 @@ final class FlowTests: XCTestCase {
     }
 
     func testAmenStaysLockedUntilTheMinimumTime() {
-        let app = launch(["-route", "quick"])
+        let app = launch(["-route", "quick", "-longMinimum"])
         let amen = app.descendants(matching: .any)["amenButton"]
         XCTAssertTrue(amen.waitForExistence(timeout: 10))
         XCTAssertNotEqual(amen.value as? String ?? "", "", "Amen starts disabled")

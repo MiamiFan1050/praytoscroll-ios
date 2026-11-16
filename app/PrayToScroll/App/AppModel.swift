@@ -340,8 +340,8 @@ final class AppModel {
 
     /// Minimum seconds before Amen unlocks, by style.
     func minimumSeconds(for style: UnlockStyle, isSample: Bool) -> Double {
-        if isSample { return options.isUITest ? 2 : 15 }
-        if options.isUITest { return 3 }
+        if isSample { return options.isUITest && !options.longMinimum ? 2 : 15 }
+        if options.isUITest && !options.longMinimum { return 3 }
         switch style {
         case .quick: return 30
         case .guided: return Double(max(30, settings.guidedSeconds))
