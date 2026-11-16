@@ -1,0 +1,63 @@
+DEFINE SCHEMA
+
+    // Prayer Circles live in the PUBLIC database of iCloud.com.amenkeyapp.ios.
+    // Only nicknames, an emoji and weekly counts are stored, under random per-install member ids.
+    // Import (needs Xcode + a CloudKit management token; viral-29/Mark do Apple-side steps):
+    //   xcrun cktool import-schema --team-id ZV8C94YFWU --container-id iCloud.com.amenkeyapp.ios \
+    //     --environment development --file CloudKit/schema.ckdb
+    // then deploy Development -> Production in the CloudKit Console before release.
+
+    RECORD TYPE Circle (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        code            STRING QUERYABLE,
+        name            STRING,
+        createdAt       TIMESTAMP,
+        ownerID         STRING QUERYABLE,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE CircleMember (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        circleCode      STRING QUERYABLE,
+        memberID        STRING QUERYABLE,
+        displayName     STRING,
+        emoji           STRING,
+        prayersThisWeek INT64 QUERYABLE SORTABLE,
+        weekKey         STRING QUERYABLE,
+        streak          INT64,
+        hidden          INT64,
+        updatedAt       TIMESTAMP SORTABLE,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    // Reports are not world-readable: only the reporter and the developer (CloudKit Console) see them.
+    // App Review 1.2: review new reports within 24 hours and remove offending members/circles.
+    RECORD TYPE CircleReport (
+        "___createTime" TIMESTAMP SORTABLE,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        circleCode      STRING QUERYABLE,
+        memberID        STRING QUERYABLE,
+        reason          STRING,
+        reporterID      STRING,
+        createdAt       TIMESTAMP SORTABLE,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud"
+    );

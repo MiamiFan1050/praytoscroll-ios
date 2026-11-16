@@ -219,7 +219,9 @@ final class CloudKitCircleService: CircleService, @unchecked Sendable {
         record["streak"] = streak as CKRecordValue
         record["hidden"] = (hidden ? 1 : 0) as CKRecordValue
         record["updatedAt"] = Date() as CKRecordValue
-        _ = try await db.modifyRecords(saving: [record], deleting: [], savePolicy: .allKeys, atomically: true)
+        // .allKeys overwrites my own row without a change tag. Per-record failures come back in the results, not as a throw.
+        let (saved, _) = try await db.modifyRecords(saving: [record], deleting: [], savePolicy: .allKeys, atomically: false)
+        if case .failure(let error)? = saved[record.recordID] { throw error }
     }
 
     private static func circle(from record: CKRecord) -> PrayerCircle {
