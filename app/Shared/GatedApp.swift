@@ -6,7 +6,7 @@ struct GatedApp: Identifiable, Codable, Hashable, Sendable {
     var name: String
     /// URL used to send the person back to the app after they pray, e.g. `instagram://`.
     var urlString: String
-    /// Tile color (hex RGB) used for the app's monogram tile. No third-party logos are drawn.
+    /// Tile color (hex RGB) for the app's letter tile. House colors only: no third-party logos, glyphs or brand colors.
     var colorHex: UInt32
     var secondaryHex: UInt32
     var isCustom: Bool
@@ -16,7 +16,6 @@ struct GatedApp: Identifiable, Codable, Hashable, Sendable {
     var monogram: String {
         switch id {
         case "x": return "X"
-        case "youtube": return "▶"
         default: return String(name.prefix(1)).uppercased()
         }
     }
@@ -63,15 +62,15 @@ struct GatedApp: Identifiable, Codable, Hashable, Sendable {
 
 enum AppCatalog {
     static let all: [GatedApp] = [
-        GatedApp(id: "instagram", name: "Instagram", urlString: "instagram://", colorHex: 0xE1306C, secondaryHex: 0xF77737, isCustom: false),
-        GatedApp(id: "tiktok", name: "TikTok", urlString: "snssdk1233://", colorHex: 0x25F4EE, secondaryHex: 0xFE2C55, isCustom: false),
-        GatedApp(id: "youtube", name: "YouTube", urlString: "youtube://", colorHex: 0xFF3B30, secondaryHex: 0xC4161C, isCustom: false),
-        GatedApp(id: "x", name: "X", urlString: "twitter://", colorHex: 0x2B2B2B, secondaryHex: 0x000000, isCustom: false),
-        GatedApp(id: "snapchat", name: "Snapchat", urlString: "snapchat://", colorHex: 0xFFE14D, secondaryHex: 0xF5C400, isCustom: false),
-        GatedApp(id: "facebook", name: "Facebook", urlString: "fb://", colorHex: 0x3B82F6, secondaryHex: 0x1D4ED8, isCustom: false),
-        GatedApp(id: "reddit", name: "Reddit", urlString: "reddit://", colorHex: 0xFF5722, secondaryHex: 0xD9400F, isCustom: false),
-        GatedApp(id: "threads", name: "Threads", urlString: "barcelona://", colorHex: 0x3A3A3C, secondaryHex: 0x111111, isCustom: false),
-        GatedApp(id: "pinterest", name: "Pinterest", urlString: "pinterest://", colorHex: 0xE60023, secondaryHex: 0xAD081B, isCustom: false),
+        GatedApp(id: "instagram", name: "Instagram", urlString: "instagram://", colorHex: 0x2FB3A3, secondaryHex: 0x1C7F74, isCustom: false),
+        GatedApp(id: "tiktok", name: "TikTok", urlString: "snssdk1233://", colorHex: 0xE07A5F, secondaryHex: 0xB4513A, isCustom: false),
+        GatedApp(id: "youtube", name: "YouTube", urlString: "youtube://", colorHex: 0x7C6CF2, secondaryHex: 0x4B3FC4, isCustom: false),
+        GatedApp(id: "x", name: "X", urlString: "twitter://", colorHex: 0x2FB3A3, secondaryHex: 0x1C7F74, isCustom: false),
+        GatedApp(id: "snapchat", name: "Snapchat", urlString: "snapchat://", colorHex: 0x5B8DEF, secondaryHex: 0x3461C4, isCustom: false),
+        GatedApp(id: "facebook", name: "Facebook", urlString: "fb://", colorHex: 0xE07A5F, secondaryHex: 0xB4513A, isCustom: false),
+        GatedApp(id: "reddit", name: "Reddit", urlString: "reddit://", colorHex: 0x2FB3A3, secondaryHex: 0x1C7F74, isCustom: false),
+        GatedApp(id: "threads", name: "Threads", urlString: "barcelona://", colorHex: 0x5B8DEF, secondaryHex: 0x3461C4, isCustom: false),
+        GatedApp(id: "pinterest", name: "Pinterest", urlString: "pinterest://", colorHex: 0x7C6CF2, secondaryHex: 0x4B3FC4, isCustom: false),
     ]
 
     static func app(id: String, customApps: [GatedApp] = []) -> GatedApp? {
