@@ -19,7 +19,7 @@ struct GateStatusCard: View {
                 detail: "Turn it on in Settings whenever you're ready.", actionTitle: "Settings") { model.showSettings = true }
         } else if apps.isEmpty || (model.protectedCount == 0 && model.setupMarked.isEmpty) {
             row(symbol: "key.fill", tint: Theme.goldIcon, title: "Set up your Prayer Gate",
-                detail: "About a minute per app. Your apps will wait for your Amen.", actionTitle: "Set up") { model.showGateSetup = true }
+                detail: "One automation, about a minute. Your apps will wait for your Amen.", actionTitle: "Set up") { model.showGateSetup = true }
         } else if model.isPaused(now: now), let until = model.pausedUntil {
             row(symbol: "pause.circle.fill", tint: Theme.goldIcon,
                 title: "Paused until \(until.formatted(.dateTime.weekday(.abbreviated).hour().minute()))",

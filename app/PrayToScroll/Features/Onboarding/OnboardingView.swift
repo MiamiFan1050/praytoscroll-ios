@@ -643,7 +643,7 @@ struct OnboardingView: View {
                         .foregroundStyle(Palette.cream.opacity(0.6))
                 }
             }
-            Label("About a minute per app. We'll show every tap.", systemImage: "clock.fill")
+            Label("One automation for all your apps, about a minute. We'll show every tap.", systemImage: "clock.fill")
                 .font(.akFootnote.weight(.semibold))
                 .foregroundStyle(Palette.warmGold)
         }

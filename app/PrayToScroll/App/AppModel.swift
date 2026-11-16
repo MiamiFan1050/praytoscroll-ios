@@ -212,7 +212,10 @@ final class AppModel {
     }
 
     func setupStatus(for app: GatedApp, now: Date = Date()) -> GateSetupStatus {
-        GateSetupStatus.status(lastFired: gateFired[app.id], markedSetUpAt: setupMarked[app.id], now: now)
+        // The all-apps automation fires as "app": it protects every gated app it was set up for.
+        let fired = [gateFired[app.id], gateFired[GateEngine.anyAppID]].compactMap { $0 }.max()
+        let marked = [setupMarked[app.id], setupMarked[GateEngine.anyAppID]].compactMap { $0 }.max()
+        return GateSetupStatus.status(lastFired: fired, markedSetUpAt: marked, now: now)
     }
 
     var protectedCount: Int {
@@ -225,6 +228,17 @@ final class AppModel {
         store.setupMarked = marked
         reloadGateState()
     }
+
+    /// "I've added it" for the one automation that covers every gated app.
+    func markAllAppsSetUp() {
+        var marked = store.setupMarked
+        marked[GateEngine.anyAppID] = Date()
+        store.setupMarked = marked
+        reloadGateState()
+    }
+
+    /// The app "Test my gate" opens: the first gated app we can open by URL.
+    var testableGatedApp: GatedApp? { settings.gatedApps.first { $0.openURL != nil } }
 
     var canUseEmergencyPass: Bool {
         GateEngine.canUseEmergencyPass(now: Date(), lastUsed: emergencyLastUsed, calendar: .current)
@@ -645,6 +659,7 @@ final class AppModel {
         switch route {
         case "pray": startPrayer(source: .manual)
         case "gatepray": startPrayer(source: .gate, gatedAppID: "instagram")
+        case "gateany": startPrayer(style: .quick, source: .gate, gatedAppID: GateEngine.anyAppID)
         case "quick": startPrayer(style: .quick, source: .manual)
         case "someone": startPrayer(style: .forSomeone, source: .manual, personID: suggestedPerson()?.id)
         case "choose": startPrayer(style: .forSomeone, source: .manual)

@@ -132,6 +132,15 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(status.label.contains("1:59:") || status.label.contains("2:00:"), "Home counts down the 2 h picked: \(status.label)")
     }
 
+    func testTheAllAppsAutomationOffersEveryAppAfterTheAmen() {
+        let app = launch(["-route", "gateany"])
+        sayAmen(in: app)
+        XCTAssertTrue(app.buttons["celebration.backTo.instagram"].waitForExistence(timeout: 10),
+                      "one automation can't say which app opened, so each gated app is offered")
+        XCTAssertTrue(app.buttons["celebration.backTo.tiktok"].exists)
+        XCTAssertTrue(app.buttons["celebration.done"].exists)
+    }
+
     func testDeepLinkJoinOpensTogether() {
         let app = launch([])
         XCTAssertTrue(app.buttons["home.prayNow"].waitForExistence(timeout: 10))

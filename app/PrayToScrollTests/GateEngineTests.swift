@@ -85,6 +85,37 @@ final class GateEngineTests: XCTestCase {
         XCTAssertEqual(GateEngine.decide(appID: "instagram", now: now.addingTimeInterval(10), snapshot: snap), .verifyTest)
     }
 
+    func testOneAutomationForAllAppsUsesTheSameRules() {
+        let now = TestCalendar.date(2026, 11, 16, 9, 0)
+        let any = GateEngine.anyAppID
+        var snap = snapshot()
+        XCTAssertEqual(GateEngine.canonicalID("app", customApps: []), any)
+        XCTAssertEqual(GateEngine.decide(appID: any, now: now, snapshot: snap), .requirePrayer, "locked: pray first")
+        snap.unlockedUntil = now.addingTimeInterval(900)
+        XCTAssertEqual(GateEngine.decide(appID: any, now: now.addingTimeInterval(60), snapshot: snap),
+                       .allow(until: snap.unlockedUntil, reason: .unlocked), "one window opens every app")
+        snap.unlockedUntil = nil
+        snap.launchPasses = ["tiktok": now.addingTimeInterval(GateEngine.launchPassSeconds)]
+        XCTAssertEqual(GateEngine.decide(appID: any, now: now.addingTimeInterval(5), snapshot: snap),
+                       .allow(until: snap.launchPasses["tiktok"], reason: .launchPass),
+                       "reopening TikTok after the Amen doesn't loop, even though the automation can't say it's TikTok")
+        XCTAssertEqual(GateEngine.decide(appID: any, now: now.addingTimeInterval(31), snapshot: snap), .requirePrayer)
+        snap.gateEnabled = false
+        XCTAssertEqual(GateEngine.decide(appID: any, now: now, snapshot: snap), .allow(until: nil, reason: .gateOff))
+    }
+
+    func testOneAutomationAnswersWhicheverAppIsBeingTested() {
+        let now = TestCalendar.date(2026, 11, 16, 9, 0)
+        var snap = snapshot()
+        snap.testPending = ["instagram": now.addingTimeInterval(-30), "tiktok": now.addingTimeInterval(-5)]
+        XCTAssertEqual(GateEngine.decide(appID: GateEngine.anyAppID, now: now, snapshot: snap), .verifyTest)
+        XCTAssertEqual(GateEngine.testedApp(GateEngine.anyAppID, now: now, snapshot: snap), "tiktok", "the most recent test")
+        XCTAssertEqual(GateEngine.testedApp("instagram", now: now, snapshot: snap), "instagram")
+        XCTAssertNil(GateEngine.testedApp("x", now: now, snapshot: snap))
+        XCTAssertNil(GateEngine.testedApp(GateEngine.anyAppID, now: now.addingTimeInterval(GateEngine.testWindowSeconds), snapshot: snap),
+                     "old tests don't count")
+    }
+
     func testGateOffAndPause() {
         let now = TestCalendar.date(2026, 11, 16, 9, 0)
         var snap = snapshot()

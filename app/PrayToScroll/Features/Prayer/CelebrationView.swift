@@ -250,6 +250,38 @@ struct CelebrationView: View {
                 .font(.akHeadline)
                 .foregroundStyle(Palette.cream.opacity(0.7))
                 .frame(minHeight: 44)
+            } else if flow.request.gatedAppID == GateEngine.anyAppID, !model.settings.gatedApps.isEmpty {
+                // The all-apps automation can't say which app opened: offer each one.
+                VStack(spacing: 10) {
+                    Text("Back to").akOverline(color: Palette.warmGold)
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 10)], spacing: 10) {
+                        ForEach(model.settings.gatedApps) { app in
+                            Button {
+                                saveJournalIfNeeded()
+                                model.openApp(app)
+                                onDone()
+                            } label: {
+                                Text(app.name)
+                                    .font(.akHeadline)
+                                    .foregroundStyle(Palette.midnight)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.8)
+                                    .frame(maxWidth: .infinity, minHeight: 50)
+                                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Palette.goldButton))
+                            }
+                            .buttonStyle(PressScaleStyle())
+                            .accessibilityIdentifier("celebration.backTo.\(app.id)")
+                        }
+                    }
+                }
+                Button("Stay in \(AppConstants.appName)") {
+                    saveJournalIfNeeded()
+                    onDone()
+                }
+                .font(.akHeadline)
+                .foregroundStyle(Palette.cream.opacity(0.7))
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("celebration.done")
             } else {
                 PrimaryButton("Done", systemImage: "checkmark") {
                     saveJournalIfNeeded()

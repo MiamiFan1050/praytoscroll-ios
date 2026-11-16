@@ -58,7 +58,7 @@ struct GateTroubleshooterView: View {
         [
             ("bolt.fill", "Run Immediately is on", "In the automation, choose Run Immediately (not Run After Confirmation)."),
             ("bell.slash.fill", "Notify When Run is off", "Optional, but it removes the banner every time \(app.name) opens."),
-            ("app.badge.checkmark.fill", "The automation is for \(app.name)", "Open the automation and check the app under When."),
+            ("app.badge.checkmark.fill", "\(app.name) is ticked", "Open the automation and check \(app.name) is one of the apps under When."),
             ("togglepower", "The automation is switched on", "Automations you import arrive switched off. Tap it and turn it on."),
             ("arrow.clockwise", "Not just restarted", "After a restart, automations can take about 2 minutes to wake up."),
             ("moon.fill", "No Focus mode blocking it", "Some Focus filters stop automations. Try again with Focus off."),

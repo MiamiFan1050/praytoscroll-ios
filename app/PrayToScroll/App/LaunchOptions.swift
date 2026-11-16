@@ -9,7 +9,7 @@ struct LaunchOptions: Sendable {
     let isUITest: Bool
     /// `-longMinimum` with `-uitest`: keep the real-length minimum, for tests that check Amen starts locked.
     let longMinimum: Bool
-    /// `-route <name>`: open a screen directly (demo only): pray, gatepray, quick, someone, choose, gate, answered, circle,
+    /// `-route <name>`: open a screen directly (demo only): pray, gatepray, gateany, quick, someone, choose, gate, answered, circle,
     /// stats, journal, word, settings, verified, troubleshoot (see AppModel.openDemoRoute).
     let route: String?
     /// `-appearance light|dark`

@@ -1,36 +1,62 @@
 import SwiftUI
 
-/// Step-by-step Shortcuts automation guide for one app, with drawn (not screenshotted) mock screens.
+/// The Shortcuts setup, drawn (not screenshotted): ONE automation for every gated app, running "Pray First" with its
+/// App field empty. iOS 17–26 builds automations in the Automation tab; iOS 27 adds them inside a shortcut
+/// (Edit → Automation, per Apple's Shortcuts guide). If an iPhone only lets you tick one app, the same steps repeat
+/// per app. `app` is only the one "Test my gate" opens.
 struct GateGuideView: View {
     let app: GatedApp
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var step = 0
 
-    private var intentName: String { app.hasPresetIntent ? "Pray Before \(app.name)" : "Pray First (Any App)" }
+    private let intentName = "Pray First"
+    private static var isShortcuts27: Bool {
+        ProcessInfo.processInfo.isOperatingSystemAtLeast(OperatingSystemVersion(majorVersion: 27, minorVersion: 0, patchVersion: 0))
+    }
+
+    private var appNames: String {
+        let names = model.settings.gatedApps.map(\.name)
+        return names.isEmpty ? app.name : ListFormatter.localizedString(byJoining: names)
+    }
 
     private var steps: [GuideStep] {
-        [
-            GuideStep(title: "Open Shortcuts and tap Automation",
-                      body: "It's the middle tab at the bottom of Apple's Shortcuts app.",
+        let pick = "Tick every app you chose: \(appNames). You pick the real apps here. Our list is just so we can send you back to them."
+        if Self.isShortcuts27 {
+            return [
+                GuideStep(title: "Open Shortcuts and tap +",
+                          body: "This makes a new, empty shortcut.",
+                          mock: .newShortcut("New Shortcut")),
+                GuideStep(title: "Add “\(intentName)”",
+                          body: "Search \(AppConstants.appName) and tap \(intentName). Leave its App field empty.",
+                          mock: .action(intentName)),
+                GuideStep(title: "Tap Edit, Automation, then App",
+                          body: pick + " Keep Is Opened.",
+                          mock: .appTrigger(appNames)),
+                GuideStep(title: "Let it run on its own",
+                          body: "If Shortcuts asks how to run it, choose to run it without asking, and turn off notifications. Then tap Done.",
+                          mock: .appTrigger(appNames)),
+                GuideStep(title: "Test it",
+                          body: "Tap Test my gate. \(app.name) opens and \(AppConstants.appName) should step in within a second. Only one app allowed? Repeat for each.",
+                          mock: .finished(appNames, intentName)),
+            ]
+        }
+        return [
+            GuideStep(title: "Open Shortcuts, tap Automation, then +",
+                      body: "Automation is the middle tab. On your first one, the button says New Automation.",
                       mock: .tabs),
-            GuideStep(title: "Tap +, then choose App",
-                      body: "Scroll the list of triggers if you don't see App right away.",
+            GuideStep(title: "Tap App, then Choose",
+                      body: pick + " Then tap Done.",
                       mock: .triggers),
-            GuideStep(title: "Pick \(app.name), Is Opened, Run Immediately",
-                      body: "You'll pick the real app in Shortcuts. This list is just so we can send you back to it. Then turn OFF Notify When Run, so you don't get a banner every time.",
-                      mock: .appTrigger(app.name)),
-            GuideStep(title: "Tap Next, then Create New Shortcut",
-                      body: "You'll land on an empty shortcut, ready for one action.",
-                      mock: .newShortcut),
+            GuideStep(title: "Is Opened, Run Immediately",
+                      body: "Keep Is Opened ticked. Choose Run Immediately, turn off Notify When Run, and tap Next.",
+                      mock: .appTrigger(appNames)),
             GuideStep(title: "Add “\(intentName)”",
-                      body: !app.hasPresetIntent
-                        ? "Search \(AppConstants.appName), add Pray First (Any App), and set its App field to \(app.name). Don't add an Open App step."
-                        : "Search \(AppConstants.appName) and tap it. Don't add an Open App step: \(AppConstants.appName) reopens \(app.name) for you.",
+                      body: "Tap New Blank Automation (or Create New Shortcut), search \(AppConstants.appName) and tap \(intentName). Leave its App field empty: one automation covers every app.",
                       mock: .action(intentName)),
             GuideStep(title: "Tap Done. Then test it.",
-                      body: "Tap Test my gate below. \(app.name) opens, and \(AppConstants.appName) should step in within a second.",
-                      mock: .finished(app.name, intentName)),
+                      body: "Tap Test my gate. \(app.name) opens and \(AppConstants.appName) should step in within a second. Only one app allowed? Repeat for each.",
+                      mock: .finished(appNames, intentName)),
         ]
     }
 
@@ -53,7 +79,7 @@ struct GateGuideView: View {
                     .padding(.bottom, 16)
             }
         }
-        .navigationTitle("Set up \(app.name)")
+        .navigationTitle("Set up the gate")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
@@ -109,15 +135,15 @@ struct GateGuideView: View {
         VStack(spacing: 10) {
             if step == steps.count - 1 {
                 PrimaryButton("Test my gate", systemImage: "checkmark.shield.fill") {
-                    model.markSetUp(app)
-                    model.testGate(app)
+                    model.markAllAppsSetUp()
+                    model.testGate(model.testableGatedApp ?? app)
                 }
-                .disabled(app.openURL == nil)
+                .disabled((model.testableGatedApp ?? app).openURL == nil)
                 HStack {
                     Button("Open Shortcuts") { openShortcuts() }
                     Spacer()
                     Button("I've added it") {
-                        model.markSetUp(app)
+                        model.markAllAppsSetUp()
                         dismiss()
                     }
                     .fontWeight(.semibold)
@@ -145,7 +171,7 @@ struct GateGuideView: View {
 
     private func openShortcuts() {
         let fallback = URL(string: "shortcuts://")!
-        guard let deep = URL(string: "shortcuts://create-automation") else { return }
+        guard let deep = URL(string: Self.isShortcuts27 ? "shortcuts://create-shortcut" : "shortcuts://create-automation") else { return }
         UIApplication.shared.open(deep) { opened in
             if !opened { UIApplication.shared.open(fallback) }
         }
@@ -161,7 +187,7 @@ struct GuideStep {
 /// Simplified, hand-drawn renditions of the Shortcuts screens (no Apple screenshots).
 struct ShortcutsMock: View {
     enum Kind {
-        case tabs, triggers, appTrigger(String), newShortcut, action(String), finished(String, String)
+        case tabs, triggers, appTrigger(String), newShortcut(String), action(String), finished(String, String)
     }
     let kind: Kind
     let app: GatedApp
@@ -212,7 +238,7 @@ struct ShortcutsMock: View {
         case .appTrigger(let name):
             VStack(spacing: 8) {
                 titleBar("When")
-                mockRow(icon: "app.fill", text: "App: \(name)", tint: Theme.goldIcon, highlighted: true)
+                mockRow(icon: "app.fill", text: "App: \(name)", tint: .purple, highlighted: true)
                 checkRow("Is Opened", on: true)
                 checkRow("Is Closed", on: false)
                 HStack(spacing: 0) {
@@ -230,11 +256,11 @@ struct ShortcutsMock: View {
                 .background(RoundedRectangle(cornerRadius: 12).fill(row))
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Palette.gold, lineWidth: 2))
             }
-        case .newShortcut:
+        case .newShortcut(let label):
             VStack(spacing: 14) {
-                titleBar("Do")
+                titleBar("Shortcuts")
                 Spacer()
-                Text("Create New Shortcut")
+                Text(label)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, minHeight: 46)

@@ -81,13 +81,14 @@ enum AppCatalog {
         GatedApp(id: "pinterest", name: "Pinterest", urlString: "pinterest://", colorHex: 0x7C6CF2, secondaryHex: 0x4B3FC4, isCustom: false),
     ]
 
-    /// "Add another": popular apps by name, each with the URL scheme that opens it (empty = none we could verify,
-    /// so after the Amen the person opens it themselves). The real app is picked in Shortcuts; this list only lets
+    /// "Add another": popular apps by name, each with the URL scheme that opens it. A scheme is listed only when
+    /// it's registered in a shipping build's Info.plist or two independent sources agree (checked 2026-11-16, not
+    /// on a device); empty = not verified, so after the Amen the person opens it themselves. The real app is picked in Shortcuts; this list only lets
     /// us send them back to it. Sorted by name in the picker.
     static let more: [GatedApp] = [
         entry("discord", "Discord", "discord://"),
         entry("twitch", "Twitch", "twitch://"),
-        entry("bereal", "BeReal", "bereal://"),
+        entry("bereal", "BeReal", ""),
         entry("netflix", "Netflix", "nflx://"),
         entry("spotify", "Spotify", "spotify://"),
         entry("whatsapp", "WhatsApp", "whatsapp://"),
@@ -104,17 +105,17 @@ enum AppCatalog {
         entry("hinge", "Hinge", ""),
         entry("bumble", "Bumble", "bumble://"),
         entry("amazon", "Amazon", "com.amazon.mobile.shopping://"),
-        entry("temu", "Temu", ""),
+        entry("temu", "Temu", "temu://"),
         entry("shein", "SHEIN", ""),
         entry("ebay", "eBay", "ebay://"),
         entry("max", "Max", ""),
         entry("peacock", "Peacock", ""),
-        entry("paramountplus", "Paramount+", ""),
-        entry("youtubemusic", "YouTube Music", "youtubemusic://"),
+        entry("paramountplus", "Paramount+", "pplus://"),
+        entry("youtubemusic", "YouTube Music", ""),
         entry("clashofclans", "Clash of Clans", "clashofclans://"),
         entry("clashroyale", "Clash Royale", "clashroyale://"),
         entry("brawlstars", "Brawl Stars", "brawlstars://"),
-        entry("minecraft", "Minecraft", "minecraft://"),
+        entry("minecraft", "Minecraft", ""),
         entry("pokemongo", "Pokémon GO", ""),
         entry("candycrush", "Candy Crush Saga", ""),
         entry("subwaysurfers", "Subway Surfers", ""),
@@ -122,16 +123,16 @@ enum AppCatalog {
         entry("genshin", "Genshin Impact", ""),
         entry("monopolygo", "Monopoly GO!", ""),
         entry("royalmatch", "Royal Match", ""),
-        entry("capcut", "CapCut", ""),
+        entry("capcut", "CapCut", "capcut://"),
         entry("lemon8", "Lemon8", ""),
-        entry("vsco", "VSCO", "vsco://"),
+        entry("vsco", "VSCO", ""),
         entry("quora", "Quora", "quora://"),
         entry("signal", "Signal", "sgnl://"),
-        entry("kindle", "Kindle", "kindle://"),
-        entry("audible", "Audible", "audible://"),
+        entry("kindle", "Kindle", ""),
+        entry("audible", "Audible", ""),
         entry("soundcloud", "SoundCloud", "soundcloud://"),
-        entry("pandora", "Pandora", "pandora://"),
-        entry("crunchyroll", "Crunchyroll", ""),
+        entry("pandora", "Pandora", ""),
+        entry("crunchyroll", "Crunchyroll", "crunchyroll://"),
         entry("bluesky", "Bluesky", "bluesky://"),
         entry("espn", "ESPN", "sportscenter://"),
         entry("chesscom", "Chess.com", ""),
@@ -139,7 +140,7 @@ enum AppCatalog {
         entry("duolingo", "Duolingo", "duolingo://"),
         entry("steam", "Steam", ""),
         entry("ninegag", "9GAG", ""),
-        entry("imgur", "Imgur", "imgur://"),
+        entry("imgur", "Imgur", ""),
         entry("nextdoor", "Nextdoor", ""),
     ]
 

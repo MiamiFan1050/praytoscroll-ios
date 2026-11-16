@@ -12,26 +12,31 @@ enum GateIntentRunner {
         let key = GateEngine.canonicalID(appID, customApps: store.settings.customApps)
         let now = Date()
         store.recordGateFired(appID: key, at: now)
-        let decision = GateEngine.decide(appID: key, now: now, snapshot: store.gateSnapshot)
+        let snapshot = store.gateSnapshot
+        let decision = GateEngine.decide(appID: key, now: now, snapshot: snapshot)
 
+        // The all-apps automation answers a test for whichever app is being tested.
+        var target = key
         let verify: Bool
         switch decision {
         case .allow:
             return
         case .verifyTest:
             verify = true
-            store.clearTest(appID: key)
+            target = GateEngine.testedApp(key, now: now, snapshot: snapshot) ?? key
+            store.clearTest(appID: target)
+            if target != key { store.recordGateFired(appID: target, at: now) }
         case .requirePrayer:
             verify = false
         }
-
-        store.setPendingGate(appID: verify ? "verify:" + key : key, at: now)
+        let destination = target
+        store.setPendingGate(appID: verify ? "verify:" + destination : destination, at: now)
 
         #if compiler(>=6.2)
         if #available(iOS 26.0, *) {
             do {
                 try await intent.continueInForeground(alwaysConfirm: false)
-                AppModel.shared.handleIntentContinuation(appID: key, verify: verify)
+                AppModel.shared.handleIntentContinuation(appID: destination, verify: verify)
                 return
             } catch {
                 // Fall through to the iOS 17–25 path below.
@@ -39,20 +44,21 @@ enum GateIntentRunner {
         }
         #endif
 
-        let appName = AppCatalog.app(id: key, customApps: store.settings.customApps)?.name ?? "your app"
+        let appName = AppCatalog.app(id: destination, customApps: store.settings.customApps)?.name ?? "your apps"
         let dialog: IntentDialog = verify
             ? IntentDialog(stringLiteral: "\(appName) is protected. Tap to see it in \(AppConstants.appName).")
             : IntentDialog(stringLiteral: "Pray first, then \(appName). \(AppConstants.slogan)")
         throw intent.needsToContinueInForegroundError(dialog) {
-            AppModel.shared.handleIntentContinuation(appID: key, verify: verify)
+            AppModel.shared.handleIntentContinuation(appID: destination, verify: verify)
         }
     }
 }
 
-/// Gate for any app, including custom URL-scheme apps. Preset apps have their own parameterless intents.
+/// The gate for every app: ONE Shortcuts automation (App → choose all your apps → Is Opened) with App left empty.
+/// Setting App (or using a "Pray Before <app>" action) still works for one app per automation.
 struct PrayFirstIntent: AppIntent, ForegroundContinuableIntent {
-    static let title: LocalizedStringResource = "Pray First (Any App)"
-    static let description = IntentDescription("Use this in a Shortcuts automation for any app you added, including custom apps. Pick the same app in the App field.", categoryName: "Prayer Gate")
+    static let title: LocalizedStringResource = "Pray First"
+    static let description = IntentDescription("Use this in one Shortcuts automation for all your gated apps. Leave App empty, or pick one app.", categoryName: "Prayer Gate")
     static let openAppWhenRun: Bool = false
 #if compiler(>=6.2)
     @available(iOS 26.0, *)
@@ -70,7 +76,7 @@ struct PrayFirstIntent: AppIntent, ForegroundContinuableIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        try await GateIntentRunner.run(appID: app?.id ?? "app", intent: self)
+        try await GateIntentRunner.run(appID: app?.id ?? GateEngine.anyAppID, intent: self)
         return .result()
     }
 }

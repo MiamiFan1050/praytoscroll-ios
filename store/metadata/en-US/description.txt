@@ -6,7 +6,7 @@ Pray to Scroll puts a short prayer between you and your most distracting apps. O
 
 HOW THE PRAYER GATE WORKS
 • Pick the apps that pull you in: Instagram, TikTok, YouTube, X, Snapchat, Facebook, Reddit, Threads, Pinterest, or your own.
-• Set up the gate in about a minute per app with Apple's Shortcuts app. Pray to Scroll walks you through every tap and shows a check mark once each app is protected.
+• Set up the gate once for all your apps, in about a minute, with Apple's Shortcuts app. Pray to Scroll walks you through every tap and shows a check mark once your apps are protected.
 • When you open a gated app, Pray to Scroll opens first. Pray, hold Amen, tap Continue, and the gate stays quiet as long as you choose: 5 minutes to 3 hours, a custom time, or the rest of the day.
 • Need it now? Once a day, an emergency pass lets you straight through for 5 minutes, counted honestly in your stats.
 
