@@ -89,7 +89,7 @@ final class TapThroughTests: XCTestCase {
         gated.tap()
         XCTAssertTrue(app.descendants(matching: .any)["gate.title"].waitForExistence(timeout: 6))
         pause(2.0)
-        let instagram = app.descendants(matching: .any)["gate.row.instagram"]
+        let instagram = app.buttons["gate.guide.instagram"]
         if instagram.waitForExistence(timeout: 3), instagram.isHittable {
             instagram.tap()
             let guide = app.buttons["guide.next"]

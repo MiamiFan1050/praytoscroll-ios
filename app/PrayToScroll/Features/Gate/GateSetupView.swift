@@ -190,6 +190,7 @@ struct GateAppRow: View {
                         .overlay(Capsule().strokeBorder(Theme.stroke, lineWidth: status.isProtected ? 1 : 0))
                 }
                 .buttonStyle(PressScaleStyle())
+                .accessibilityIdentifier("gate.guide.\(app.id)")
                 Button(action: onTest) {
                     Label("Test my gate", systemImage: "checkmark.shield")
                         .font(.akSubheadlineSemibold)
@@ -203,6 +204,8 @@ struct GateAppRow: View {
             }
         }
         .akCard()
+        // The row is its own element so its id doesn't spill onto (and override) the buttons inside it.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("gate.row.\(app.id)")
     }
 }
