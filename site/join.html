@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Join my Prayer Circle · Pray to Scroll</title>
+  <meta name="description" content="You're invited to a Prayer Circle on Pray to Scroll. Pray first. Scroll after.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0E1726">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/style.css">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Pray to Scroll">
+  <meta property="og:title" content="Join my Prayer Circle on Pray to Scroll">
+  <meta property="og:description" content="Let's keep each other praying. Pray first. Scroll after.">
+  <meta property="og:image" content="https://praytoscroll.vercel.app/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body class="join">
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="./" aria-label="Pray to Scroll home">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="#E9B949" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 31V19.5a11.5 11.5 0 0 1 23 0V31z"/><path d="M32 31v25M32 45.5h7.5M32 52h5.5"/></g><path d="M32 14.5v12M27.5 19.5h9" stroke="#F5D58A" stroke-width="2.6" stroke-linecap="round"/></svg>
+        <span>Pray to Scroll</span>
+      </a>
+      <nav class="nav" aria-label="Main"><a href="support.html#circles">Help</a></nav>
+    </div>
+  </header>
+
+  <main class="join-main">
+    <div class="join-card">
+      <!-- Mascot slot: assets/mascot.png; falls back to the key mark until the art lands. -->
+      <img class="mark" src="assets/mascot.png" alt="" width="96" height="96" onerror="this.onerror=null;this.src='assets/favicon.svg'">
+
+      <!-- Valid invite -->
+      <div id="invite" hidden>
+        <h1>You're invited to a Prayer Circle</h1>
+        <p>A friend wants you to pray alongside them this week.</p>
+        <div class="code-label" style="margin-top:24px">Circle code</div>
+        <div class="code" id="code" aria-live="polite"></div>
+        <button class="copy-btn" id="copy" type="button">Copy code</button>
+        <div class="join-actions">
+          <a class="btn btn-gold" id="open" href="prayscroll://join">Open in Pray to Scroll</a>
+          <a class="btn btn-ghost" href="#">Get it on the App Store</a>
+        </div>
+        <p class="join-help">New to Pray to Scroll? Install it, then tap <b>Circles &rarr; Join</b> and enter the code above.</p>
+      </div>
+
+      <!-- Missing or malformed code -->
+      <div id="invalid" hidden>
+        <h1>This invite is missing its code</h1>
+        <p>Ask your friend to send the link again, or open Pray to Scroll and enter their six-character code under <b style="color:var(--cream)">Circles &rarr; Join</b>.</p>
+        <div class="join-actions">
+          <a class="btn btn-gold" href="prayscroll://">Open Pray to Scroll</a>
+          <a class="btn btn-ghost" href="#">Get it on the App Store</a>
+        </div>
+      </div>
+
+      <noscript>
+        <h1>Join a Prayer Circle</h1>
+        <p>Open Pray to Scroll, tap <b>Circles &rarr; Join</b> and enter the six-character code from your friend's link (the letters after <b>c=</b>).</p>
+      </noscript>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <nav aria-label="Footer">
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+        <a href="support.html">Support</a>
+      </nav>
+      <p>&copy; 2026 Mark Morrison</p>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var raw = "";
+      try { raw = new URLSearchParams(window.location.search).get("c") || ""; } catch (e) {}
+      var code = raw.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      var valid = code.length === 6;
+      document.getElementById(valid ? "invite" : "invalid").hidden = false;
+      if (!valid) return;
+
+      var box = document.getElementById("code");
+      for (var i = 0; i < code.length; i++) {
+        var s = document.createElement("span");
+        s.textContent = code.charAt(i);
+        box.appendChild(s);
+      }
+      box.setAttribute("aria-label", "Circle code " + code.split("").join(" "));
+      document.getElementById("open").href = "prayscroll://join?c=" + encodeURIComponent(code);
+
+      var btn = document.getElementById("copy");
+      btn.addEventListener("click", function () {
+        function done() { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = "Copy code"; }, 1800); }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code).then(done, fallback);
+        } else { fallback(); }
+        function fallback() {
+          var t = document.createElement("textarea");
+          t.value = code; t.setAttribute("readonly", ""); t.style.position = "fixed"; t.style.opacity = "0";
+          document.body.appendChild(t); t.select();
+          try { document.execCommand("copy"); done(); } catch (e) {}
+          document.body.removeChild(t);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

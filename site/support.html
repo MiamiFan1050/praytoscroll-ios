@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Support · Pray to Scroll</title>
+  <meta name="description" content="Pray to Scroll help: how the Prayer Gate works, setting up the Shortcuts automation, troubleshooting, Prayer Circles and your data.">
+  <meta name="theme-color" content="#0E1726">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body class="doc">
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="./" aria-label="Pray to Scroll home">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="#E9B949" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 31V19.5a11.5 11.5 0 0 1 23 0V31z"/><path d="M32 31v25M32 45.5h7.5M32 52h5.5"/></g><path d="M32 14.5v12M27.5 19.5h9" stroke="#F5D58A" stroke-width="2.6" stroke-linecap="round"/></svg>
+        <span>Pray to Scroll</span>
+      </a>
+      <nav class="nav" aria-label="Main">
+        <a class="hide-sm" href="privacy.html">Privacy</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="doc-hero">
+    <div class="wrap">
+      <span class="eyebrow">Help</span>
+      <h1>Support</h1>
+      <p>Answers to the most common questions. Can't find yours? <a href="https://docs.google.com/forms/d/e/1FAIpQLSd970nDhpb_sqjTqumvty5jvxK4t3gkhYplR6XmVWjTiQun6Q/viewform" style="color:var(--gold)">Contact us</a>, a real person reads every message.</p>
+    </div>
+  </div>
+
+  <main id="main" class="prose faq">
+    <ul class="toc" aria-label="Topics">
+      <li><a href="#gate">The Prayer Gate</a></li>
+      <li><a href="#setup">Shortcuts setup</a></li>
+      <li><a href="#trouble">Troubleshooting</a></li>
+      <li><a href="#using">Using Pray to Scroll</a></li>
+      <li><a href="#circles">Prayer Circles</a></li>
+      <li><a href="#data">Your data</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+
+    <h2 id="gate">The Prayer Gate</h2>
+
+    <details open>
+      <summary>How does the Prayer Gate work?</summary>
+      <div class="answer">
+        <p>You create a personal automation in Apple's Shortcuts app: &ldquo;When Instagram is opened, run Pray to Scroll &rsaquo; Pray First.&rdquo; From then on:</p>
+        <ol>
+          <li>You open Instagram (or any app you've gated).</li>
+          <li>Shortcuts runs Pray to Scroll's <strong>Pray First</strong> action. If you're still inside your unlock window, it does nothing and you carry on.</li>
+          <li>If not, Pray to Scroll opens on the prayer screen. Pray, then press and hold <strong>Amen</strong>.</li>
+          <li>Tap <strong>Continue to Instagram</strong>. The gate stays quiet for the window you chose (5, 15, 30 or 60 minutes).</li>
+        </ol>
+      </div>
+    </details>
+
+    <details>
+      <summary>Does Pray to Scroll use Screen Time? Does it block apps?</summary>
+      <div class="answer">
+        <p>Not in this version. Pray to Scroll's lock is the Prayer Gate: a Shortcuts automation you control that opens Pray to Scroll, and a prayer, before your app. It doesn't lock apps at the system level, and you can turn the automation off at any time. We're working on an optional, stricter mode built on Apple's Screen Time. It isn't available yet.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Do I need an account?</summary>
+      <div class="answer">
+        <p>No. There's no sign-up, email or password. Everything works on your iPhone. Prayer Circles use your iCloud sign-in behind the scenes, and we never see your Apple ID.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Can I pray without setting up the gate?</summary>
+      <div class="answer">
+        <p>Yes. Tap <strong>Pray now</strong> on the Home screen any time, or use the &ldquo;Pray now&rdquo; widget. Your streak and stats count either way.</p>
+      </div>
+    </details>
+
+    <h2 id="setup">Setting up the Shortcuts automation</h2>
+
+    <details open>
+      <summary>How do I set up the automation, step by step?</summary>
+      <div class="answer">
+        <p>It takes about a minute per app. Pray to Scroll shows the same steps in the app (Settings &rarr; Gated apps), with an <strong>Open Shortcuts</strong> button.</p>
+        <ol class="numbered">
+          <li>Open the <strong>Shortcuts</strong> app and tap the <strong>Automation</strong> tab at the bottom.</li>
+          <li>Tap <strong>+</strong> in the top corner (or <strong>New Automation</strong> if this is your first one).</li>
+          <li>Scroll down and choose <strong>App</strong>.</li>
+          <li>Tap <strong>Choose</strong>, select the app you want to gate (for example Instagram), and tap <strong>Done</strong>.</li>
+          <li>Make sure <strong>Is Opened</strong> is ticked and <strong>Is Closed</strong> is not.</li>
+          <li>Select <strong>Run Immediately</strong>. You can also turn off <strong>Notify When Run</strong>. Tap <strong>Next</strong>.</li>
+          <li>Tap <strong>New Blank Automation</strong>, then <strong>Add Action</strong>.</li>
+          <li>Search for <strong>Pray to Scroll</strong> and choose <strong>Pray First</strong>.</li>
+          <li>Tap the app field in the action and pick the same app, so Pray to Scroll knows where to send you after you pray. Tap <strong>Done</strong>.</li>
+          <li>Open the app once to test it. Pray to Scroll should appear, and the app will show as <strong>Protected &#10003;</strong> in Pray to Scroll.</li>
+        </ol>
+        <p class="callout">Gating more than one app? Repeat these steps once for each app, so every automation sends you back to the right place after you pray.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Can I gate an app that isn't on Pray to Scroll's list?</summary>
+      <div class="answer">
+        <p>Yes. Add it as a custom app in Pray to Scroll with its URL scheme (so &ldquo;Continue&rdquo; can open it), then create the automation above for that app in Shortcuts.</p>
+      </div>
+    </details>
+
+    <h2 id="trouble">Troubleshooting</h2>
+
+    <details open>
+      <summary>The automation doesn't fire. What should I check?</summary>
+      <div class="answer">
+        <ol>
+          <li><strong>Are you inside your unlock window?</strong> After you pray, the gate stays quiet on purpose for 5&ndash;60 minutes. The Home screen shows how much time is left.</li>
+          <li><strong>Is the automation turned on?</strong> In Shortcuts &rarr; Automation, open it and check it isn't disabled.</li>
+          <li><strong>Is it set to Run Immediately?</strong> &ldquo;Run After Confirmation&rdquo; waits for you to tap a notification first.</li>
+          <li><strong>Is &ldquo;Is Opened&rdquo; ticked</strong> for the right app?</li>
+          <li><strong>Is the action Pray to Scroll's Pray First?</strong> If it shows an error or a blank action, delete the action and add it again.</li>
+          <li><strong>Did you update iOS or reinstall Pray to Scroll recently?</strong> Open Pray to Scroll once, then check the automation still lists Pray First. If not, recreate it.</li>
+          <li><strong>Still nothing?</strong> Restart your iPhone, then delete the automation and create it again using the steps above.</li>
+        </ol>
+        <p>Once the gate has run for an app, Pray to Scroll marks it <strong>Protected &#10003;</strong> in Settings &rarr; Gated apps, so you can see at a glance which ones are working.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>&ldquo;Pray First&rdquo; doesn't appear when I search in Shortcuts.</summary>
+      <div class="answer">
+        <p>Open Pray to Scroll once (Shortcuts learns about an app's actions after it has been opened), then search again for &ldquo;Pray to Scroll&rdquo;. If it still doesn't show, restart your iPhone.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>A banner says &ldquo;Running your automation&rdquo; every time.</summary>
+      <div class="answer">
+        <p>That's iOS telling you the automation ran. Open the automation in Shortcuts and turn off <strong>Notify When Run</strong>.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>&ldquo;Continue to [app]&rdquo; doesn't open my app.</summary>
+      <div class="answer">
+        <p>Check the app is installed and that the Pray First action in your automation has the matching app selected. For a custom app, check its URL scheme in Pray to Scroll.</p>
+      </div>
+    </details>
+
+    <h2 id="using">Using Pray to Scroll</h2>
+
+    <details>
+      <summary>How do I change the unlock window?</summary>
+      <div class="answer">
+        <p>Open Pray to Scroll &rarr; <strong>Settings</strong> &rarr; <strong>Unlock window</strong>, and choose 5, 15, 30 or 60 minutes. The new window applies from your next prayer.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>How do I change how I pray to unlock?</summary>
+      <div class="answer">
+        <p>Settings &rarr; <strong>Unlock style</strong>: Quick prayer (30 seconds), Guided (1&ndash;3 minutes through Adoration, Confession, Thanksgiving and Supplication), Verse + prayer, or Pray for someone.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What is Scroll the Word?</summary>
+      <div class="answer">
+        <p>A full-screen feed of Bible verses that you swipe through one at a time, like a short-video app. It's the healthy thing to scroll after you pray. Verses come from the World English Bible, built into the app.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What is the emergency pass?</summary>
+      <div class="answer">
+        <p>Once a day, tap <strong>I need it now</strong> on the prayer screen to open your app for 5 minutes without praying. It's counted honestly in your stats, and it resets each day.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>How do streaks and streak freezes work?</summary>
+      <div class="answer">
+        <p>Pray at least once a day to keep your streak. You get one streak freeze each week to cover a missed day. Milestones arrive at 3, 7, 14, 21, 30, 50, 100 and 365 days.</p>
+      </div>
+    </details>
+
+    <h2 id="circles">Prayer Circles</h2>
+
+    <details>
+      <summary>How do Prayer Circles work?</summary>
+      <div class="answer">
+        <p>A circle is a small group of friends who encourage each other. Create one in the Circles tab and Pray to Scroll gives you a six-character code and an invite link to share. Friends join with the code or the link. Each week, the circle shows everyone's prayer count and streak, and the count starts fresh the next week.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>What can other members see about me?</summary>
+      <div class="answer">
+        <p>Only the nickname you choose, your weekly prayer count and your streak. Never your journal, prayer list, requests or the names of people you pray for.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Circles say I need iCloud.</summary>
+      <div class="answer">
+        <p>Circles use Apple's CloudKit, so you need to be signed in to iCloud in the Settings app. Everything else in Pray to Scroll works without iCloud.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>How do I leave a circle?</summary>
+      <div class="answer">
+        <p>Open the circle and tap <strong>Leave circle</strong>. Your membership record is deleted.</p>
+      </div>
+    </details>
+
+    <h2 id="data">Your data</h2>
+
+    <details>
+      <summary>How do I delete my data?</summary>
+      <div class="answer">
+        <ul>
+          <li><strong>Everything on your device:</strong> Settings &rarr; <strong>Reset all data</strong>, or delete the app.</li>
+          <li><strong>Circle records:</strong> leave each circle first to delete your record right away. Otherwise circle records expire on their own, or <a href="https://docs.google.com/forms/d/e/1FAIpQLSd970nDhpb_sqjTqumvty5jvxK4t3gkhYplR6XmVWjTiQun6Q/viewform">contact us</a> with your circle code and nickname and we'll remove it.</li>
+        </ul>
+        <p>Full details are in the <a href="privacy.html">Privacy Policy</a>.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Which Bible translation does Pray to Scroll use?</summary>
+      <div class="answer">
+        <p>The World English Bible (WEB), a modern English translation in the public domain.</p>
+      </div>
+    </details>
+
+    <div class="contact-card">
+      <h2 id="contact">Contact us</h2>
+      <p>Questions, bugs or ideas? <a href="https://docs.google.com/forms/d/e/1FAIpQLSd970nDhpb_sqjTqumvty5jvxK4t3gkhYplR6XmVWjTiQun6Q/viewform">Contact us</a>. If something isn't working, tell us your iPhone model and iOS version.</p>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <nav aria-label="Footer">
+        <a href="./">Home</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+        <a href="support.html">Support</a>
+      </nav>
+      <p>&copy; 2026 Mark Morrison</p>
+    </div>
+  </footer>
+</body>
+</html>

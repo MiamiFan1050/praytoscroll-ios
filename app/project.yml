@@ -1,0 +1,191 @@
+# Pray to Scroll: XcodeGen spec (v1.0, Prayer Gate).
+#   xcodegen generate                              -> PrayToScroll.xcodeproj (v1.0, no Screen Time)
+#   xcodegen generate --spec project-strictlock.yml -> v1.1 build with Strict Lock (FamilyControls)
+name: PrayToScroll
+options:
+  bundleIdPrefix: com.amenkeyapp
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+  groupSortPosition: top
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: ZV8C94YFWU
+    CODE_SIGN_STYLE: Manual
+    "CODE_SIGN_IDENTITY[sdk=iphonesimulator*]": "-"
+    PROVISIONING_PROFILE_SPECIFIER: ""
+    # The app's name lives here (Info.plist CFBundleDisplayName) and is read at runtime by AppConstants.appName.
+    APP_DISPLAY_NAME: "Pray to Scroll"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    DEAD_CODE_STRIPPING: YES
+    ENABLE_PREVIEWS: YES
+  configs:
+    Debug:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+    Release:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: ""
+      SWIFT_COMPILATION_MODE: wholemodule
+
+targets:
+  PrayToScroll:
+    type: application
+    platform: iOS
+    sources:
+      - path: PrayToScroll
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.amenkeyapp.ios
+        PRODUCT_NAME: PrayToScroll
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+    info:
+      path: PrayToScroll/Info.plist
+      properties:
+        CFBundleDisplayName: $(APP_DISPLAY_NAME)
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        CFBundleURLTypes:
+          - CFBundleURLName: com.amenkeyapp.ios
+            CFBundleTypeRole: Editor
+            CFBundleURLSchemes:
+              - prayscroll
+              - amenkey
+        LSApplicationQueriesSchemes:
+          - instagram
+          - snssdk1233
+          - tiktok
+          - youtube
+          - twitter
+          - x
+          - snapchat
+          - fb
+          - reddit
+          - barcelona
+          - pinterest
+          - shortcuts
+          - sms
+        AKWebBase: https://praytoscroll.app
+        AKAppStoreID: ""
+    entitlements:
+      path: PrayToScroll/PrayToScroll.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.amenkeyapp.ios
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.amenkeyapp.ios
+        com.apple.developer.icloud-services:
+          - CloudKit
+    dependencies:
+      - target: PrayToScrollWidget
+        embed: true
+        codeSign: true
+
+  PrayToScrollWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: PrayToScrollWidget
+      - path: Shared
+      - path: PrayToScroll/Resources/verses.json
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.amenkeyapp.ios.widget
+        PRODUCT_NAME: PrayToScrollWidget
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+    info:
+      path: PrayToScrollWidget/Info.plist
+      properties:
+        CFBundleDisplayName: $(APP_DISPLAY_NAME)
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: PrayToScrollWidget/PrayToScrollWidget.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.amenkeyapp.ios
+
+  PrayToScrollTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: PrayToScrollTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.amenkeyapp.ios.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/PrayToScroll.app/PrayToScroll
+        BUNDLE_LOADER: $(TEST_HOST)
+    dependencies:
+      - target: PrayToScroll
+
+  PrayToScrollUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: PrayToScrollUITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.amenkeyapp.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: PrayToScroll
+    dependencies:
+      - target: PrayToScroll
+
+schemes:
+  PrayToScroll:
+    build:
+      targets:
+        PrayToScroll: all
+        PrayToScrollWidget: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: false
+      targets:
+        - PrayToScrollTests
+        - PrayToScrollUITests
+    archive:
+      config: Release
+  PrayToScrollUnit:
+    build:
+      targets:
+        PrayToScroll: all
+    test:
+      config: Debug
+      targets:
+        - PrayToScrollTests
+  PrayToScrollScreenshots:
+    build:
+      targets:
+        PrayToScroll: all
+    test:
+      config: Debug
+      targets:
+        - PrayToScrollUITests

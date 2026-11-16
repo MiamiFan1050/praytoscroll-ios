@@ -1,0 +1,43 @@
+Thank you for reviewing Pray to Scroll.
+
+NO ACCOUNT NEEDED
+There is no sign-in, no account and no paywall. Every feature is free and there are no in-app purchases. All personal data (prayer list, journal, streaks, settings) is stored on the device.
+
+WHAT THE APP DOES
+Pray to Scroll puts a short prayer in front of apps the user chooses, using a "Prayer Gate": a Shortcuts personal automation ("When Instagram is opened, run Pray to Scroll > Pray First") that the user creates with our in-app guide. Version 1.0 does not use Screen Time / FamilyControls and does not block apps at the system level; the name, subtitle and description say "pauses", never "blocks". The automation can be turned off at any time, and a daily emergency pass opens the app for 5 minutes without praying.
+
+1) FASTEST TEST, NO SHORTCUTS SETUP (about 30 seconds)
+1. Launch Pray to Scroll and go through onboarding (any answers work; the Shortcuts step is optional for this test).
+2. On the Home screen, tap "Pray now".
+3. Follow the prayer prompt. When the timer ring completes, press and hold "Amen" for about 1 second.
+4. You will see the celebration screen: the streak increases and the unlock window starts ("Unlocked for 15 min").
+5. The Home status card now shows the time left in the unlock window.
+
+2) TEST THE GATE SCREEN EXACTLY AS THE AUTOMATION OPENS IT
+In Safari, type this into the address bar and tap Go, then tap Open:
+prayscroll://pray?app=instagram
+This opens the same prayer screen the automation shows. After Amen it offers "Continue to Instagram" (opens only if Instagram is installed).
+
+3) OPTIONAL: FULL PRAYER GATE WITH SHORTCUTS (about 1 minute)
+1. Open the Shortcuts app > Automation tab > + (or "New Automation").
+2. Choose "App", tap Choose, pick an app installed on the device (for example Instagram or YouTube), tap Done.
+3. Keep "Is Opened" ticked, select "Run Immediately", tap Next.
+4. Tap "New Blank Automation" > Add Action, search "Pray to Scroll" and choose "Pray First". Set its app to the same app. Tap Done.
+5. Open that app. Pray to Scroll appears with a prayer. Hold Amen and tap Continue to return. For the chosen window (15 min by default) the gate stays silent; change it in Settings.
+The in-app guide shows the same steps and marks each app "Protected" after its gate first runs.
+
+SCROLL THE WORD
+A full-screen, swipe-up feed of Bible verses (bundled public-domain World English Bible), the healthy thing to scroll after praying. No setup needed.
+
+PRAYER CIRCLES (OPTIONAL)
+A small friends leaderboard using Apple's CloudKit public database (container iCloud.com.amenkeyapp.ios). It needs iCloud sign-in; without it, the Circles screen shows an explanation. A circle record stores only a chosen nickname, the 6-character circle code, a weekly prayer count and a streak. No chat, profiles, photos or other user content. To test: Circles > Create circle, choose a nickname; the code and invite link appear. Joining with that code from a second Apple ID shows both members. Leaving a circle deletes the user's record.
+
+PERMISSIONS AND PRIVACY
+- Notifications: requested during onboarding, used only for local reminders.
+- Contacts: "Pray for someone" uses Apple's contact picker (CNContactPickerViewController), so there is no Contacts permission prompt. Only the picked name is stored, on the device.
+- Messages: "Let them know" opens Apple's message composer (MFMessageComposeViewController) prefilled with "I just prayed for you" and an app link; the user decides whether to send. Without Messages, the share sheet is used.
+- No analytics, ads or tracking SDKs, so no App Tracking Transparency prompt.
+- Bible text is the public-domain World English Bible, bundled in the app.
+
+CONTACT
+Support and privacy questions: https://docs.google.com/forms/d/e/1FAIpQLSd970nDhpb_sqjTqumvty5jvxK4t3gkhYplR6XmVWjTiQun6Q/viewform

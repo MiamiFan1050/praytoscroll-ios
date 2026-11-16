@@ -1,0 +1,183 @@
+{
+  "appName": "Pray to Scroll",
+  "tagline": "Knees before feeds.",
+  "placeholders": {
+    "{name}": "The user's first name (from onboarding). In prompts.json it means the person being prayed for instead.",
+    "{hours}": "Hours a day from the scroll quiz, with its unit, e.g. \"3 hours\", \"1 hour\", \"2.5 hours\".",
+    "{days}": "Full days a year from the mirror math: hours × 365 ÷ 24, rounded to a whole number.",
+    "{streak}": "Current streak in days, as a number.",
+    "{verseRef}": "Today's verse reference from verses.json, e.g. \"Psalm 46:10\".",
+    "{verseText}": "Today's verse text from verses.json."
+  },
+  "onboarding": {
+    "welcome": {
+      "headline": "Knees before feeds.",
+      "subline": "Pray to Scroll puts a short prayer between you and the apps that eat your day. Pray, press and hold Amen, and you’re in.",
+      "cta": "Get started"
+    },
+    "scrollQuiz": {
+      "headline": "How many hours a day do you scroll?",
+      "subline": "No judgment. If you’re not sure, check Screen Time. Most of us guess low.",
+      "cta": "Continue"
+    },
+    "mirror": {
+      "headline": "That’s {days} days a year.",
+      "subline": "{hours} a day adds up to {days} full days every year. What if a few minutes of that went to God first?",
+      "cta": "I want that"
+    },
+    "promise": {
+      "headline": "Here’s the deal.",
+      "subline": "When you open a gated app, Pray to Scroll asks for a moment with God first. It can be 30 seconds. Then you press and hold Amen, and the app is yours.",
+      "cta": "I’m in"
+    },
+    "chooseApps": {
+      "headline": "Which apps pull you in?",
+      "subline": "Pick the ones you open without thinking. Pray to Scroll will ask you to pray before they open.",
+      "cta": "Continue"
+    },
+    "unlockStyle": {
+      "headline": "How do you want to pray?",
+      "subline": "Choose your default. You can switch styles any time, even mid-week.",
+      "cta": "Continue",
+      "options": {
+        "quick": {
+          "title": "Quick prayer",
+          "detail": "30 seconds. One prompt, then Amen."
+        },
+        "guided": {
+          "title": "Guided",
+          "detail": "1 to 3 minutes: praise, confess, give thanks, ask."
+        },
+        "verse": {
+          "title": "Verse + prayer",
+          "detail": "Read today’s verse, then pray it back to God."
+        },
+        "forSomeone": {
+          "title": "Pray for someone",
+          "detail": "Pick a person, pray for them, and let them know."
+        }
+      }
+    },
+    "window": {
+      "headline": "How long should Amen unlock?",
+      "subline": "After you pray, your apps stay open this long. Shorter windows mean more moments with God. 15 minutes is a good place to start.",
+      "cta": "Continue"
+    },
+    "reminders": {
+      "headline": "A gentle nudge, once a day.",
+      "subline": "Pick a prayer time and Pray to Scroll will remind you then. You’ll also get a heads-up if your streak is at risk, and a verse in the morning. Never spam.",
+      "cta": "Turn on reminders",
+      "secondary": "Not now"
+    },
+    "name": {
+      "headline": "What should we call you?",
+      "subline": "Just your first name, so Pray to Scroll can greet you like a friend.",
+      "placeholder": "First name",
+      "cta": "Continue"
+    },
+    "gateSetup": {
+      "headline": "Set up your Prayer Gate.",
+      "subline": "A quick Shortcuts automation lets Pray to Scroll know when you open a gated app. It takes about a minute per app, and we’ll walk you through every tap.",
+      "cta": "Show me how",
+      "secondary": "I’ll do this later"
+    },
+    "firstPrayer": {
+      "headline": "Let’s pray. Right now.",
+      "subline": "Your first prayer takes about 30 seconds. When you’re done, press and hold Amen to unlock.",
+      "cta": "Start praying"
+    }
+  },
+  "notifications": {
+    "dailyReminder": [
+      {
+        "title": "Time to pray",
+        "body": "A quiet minute with God is waiting, {name}. Your feed can wait too."
+      },
+      {
+        "title": "Pray first",
+        "body": "Before the next scroll, one short prayer. Hold Amen when you’re done."
+      },
+      {
+        "title": "Your prayer time",
+        "body": "God isn’t in a hurry. For one minute, neither are you."
+      },
+      {
+        "title": "Hey {name}",
+        "body": "Take 30 seconds with God. You’ll be glad you did."
+      },
+      {
+        "title": "Knees before feeds",
+        "body": "Unlock your day the best way: a short prayer, right now."
+      }
+    ],
+    "streakAtRisk": [
+      {
+        "title": "Keep your {streak}-day streak",
+        "body": "You haven’t prayed today yet. Thirty seconds is all it takes."
+      },
+      {
+        "title": "Still time today",
+        "body": "Your {streak}-day streak is one quick prayer away from growing."
+      },
+      {
+        "title": "A quiet moment before bed?",
+        "body": "One short prayer keeps your {streak}-day streak going. God’s listening."
+      },
+      {
+        "title": "{streak} days and counting",
+        "body": "Pray tonight and keep it going. Even a whisper counts."
+      }
+    ],
+    "morningVerse": [
+      {
+        "title": "Good morning, {name}",
+        "body": "Today’s verse: {verseText} ({verseRef})"
+      },
+      {
+        "title": "{verseRef}",
+        "body": "{verseText}"
+      },
+      {
+        "title": "Start here today",
+        "body": "{verseText} ({verseRef}) Pray it before you scroll."
+      }
+    ]
+  },
+  "celebrations": [
+    "Prayed instead of scrolled. That’s the whole thing.",
+    "Amen. You started in the right place.",
+    "That minute mattered. Go enjoy the next ones.",
+    "God heard every word, even the ones you didn’t say.",
+    "Prayer first, feed second. You’re getting good at this.",
+    "Another day, another Amen. Your streak grows.",
+    "You chose God before the scroll. Quietly huge.",
+    "Unlocked, with a lighter heart.",
+    "One more moment the algorithm didn’t get.",
+    "Small prayer, real change. Keep going.",
+    "Heart checked in. Apps unlocked.",
+    "You showed up, and so did God."
+  ],
+  "emptyStates": {
+    "people": {
+      "title": "Who’s on your heart?",
+      "message": "Add the people you want to pray for. Pray to Scroll will remind you who hasn’t been prayed for in a while.",
+      "action": "Add someone"
+    },
+    "journal": {
+      "title": "Your prayer journal starts here",
+      "message": "After you pray, jot down a line about what’s on your heart. One day you’ll look back and see how far God has brought you.",
+      "action": "Write an entry"
+    },
+    "circles": {
+      "title": "Pray better together",
+      "message": "Start a Prayer Circle with friends, share the code, and cheer each other on through the week.",
+      "action": "Create a circle",
+      "secondaryAction": "Join with a code"
+    },
+    "answeredPrayers": {
+      "title": "Answers will show up here",
+      "message": "When a prayer is answered, mark it Answered. This wall becomes a record of God’s faithfulness you can come back to.",
+      "action": "Open your prayer list"
+    }
+  }
+}

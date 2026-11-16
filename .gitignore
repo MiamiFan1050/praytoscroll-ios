@@ -1,0 +1,16 @@
+.DS_Store
+signing/
+*.p12
+*.p8
+*.pem
+*.mobileprovision
+.vercel/
+site/.vercel/
+app/*.xcodeproj/
+app/build/
+build/
+DerivedData/
+out/
+*.xcresult
+art/*.log
+content/tools/cache/

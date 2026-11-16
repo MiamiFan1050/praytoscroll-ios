@@ -1,0 +1,86 @@
+name: CI (build, test, screenshots)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Tools
+        run: |
+          brew install xcodegen >/dev/null
+          xcodebuild -version
+          mkdir -p out
+
+      - name: Generate project
+        run: cd app && xcodegen generate
+
+      - name: Pick simulator
+        run: |
+          UDID=$(bash ci/pick_sim.sh)
+          echo "SIM=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID" || true
+
+      - name: Build + unit tests
+        run: |
+          set -o pipefail
+          cd app
+          xcodebuild -project PrayToScroll.xcodeproj -scheme PrayToScrollUnit \
+            -destination "id=$SIM" -derivedDataPath ../build \
+            -resultBundlePath ../out/unit.xcresult \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee ../out/unit.log | grep -E "error:|warning: .*(deprecated|unused)|Test Case .*(passed|failed)|Executed|\*\* (BUILD|TEST)" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" ../out/unit.log
+
+      - name: UI tests + screenshots
+        if: always()
+        run: |
+          set -o pipefail
+          cd app
+          xcrun simctl status_bar "$SIM" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+          xcodebuild -project PrayToScroll.xcodeproj -scheme PrayToScrollScreenshots \
+            -destination "id=$SIM" -derivedDataPath ../build \
+            -resultBundlePath ../out/ui.xcresult \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee ../out/ui.log | grep -E "error:|Test Case .*(passed|failed)|Executed|\*\* (BUILD|TEST)" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" ../out/ui.log
+
+      - name: Export screenshots from the result bundle
+        if: always()
+        run: |
+          mkdir -p out/screenshots
+          if [ -d out/ui.xcresult ]; then
+            xcrun xcresulttool export attachments --path out/ui.xcresult --output-path out/screenshots 2>/dev/null || true
+          fi
+          ls -la out/screenshots | head -60
+
+      - name: Release-config compile check (device, unsigned)
+        if: always()
+        run: |
+          set -o pipefail
+          cd app
+          xcodebuild -project PrayToScroll.xcodeproj -scheme PrayToScroll -configuration Release \
+            -destination "generic/platform=iOS" -derivedDataPath ../build-release \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee ../out/release.log | grep -E "error:|\*\* BUILD" || true
+          grep -q "\*\* BUILD SUCCEEDED \*\*" ../out/release.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-out
+          path: |
+            out/*.log
+            out/screenshots
+          if-no-files-found: ignore
+          retention-days: 7
