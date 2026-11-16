@@ -24,6 +24,7 @@ for dirpath, _, files in sorted(os.walk(os.path.join(root, "PrayToScrollTests"))
     for f in sorted(files):
         if not f.endswith(".swift"): continue
         src = open(os.path.join(dirpath, f)).read()
+        if "HOSTED-ONLY" in src.split("\n", 1)[0]: continue
         for cls in re.finditer(r"class (\w+): XCTestCase \{(.*?)\n\}", src, re.S):
             for m in re.finditer(r"func (test\w+)\(\)( throws)?", cls.group(2)):
                 print(f'runCase({cls.group(1)}.self, "{cls.group(1)}.{m.group(1)}") {{ try $0.{m.group(1)}() }}')

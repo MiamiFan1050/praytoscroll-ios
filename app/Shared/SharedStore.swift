@@ -207,10 +207,16 @@ final class SharedStore: @unchecked Sendable {
 
     // MARK: Reset
 
-    func resetAll() {
+    /// Erases every "ak." key. `keepingCircleMemberID` holds the circle id back until its rows are deleted.
+    func resetAll(keepingCircleMemberID: Bool = false) {
         for key in defaults.dictionaryRepresentation().keys where key.hasPrefix("ak.") {
+            if keepingCircleMemberID, key == Key.circleMemberID { continue }
             defaults.removeObject(forKey: key)
         }
+    }
+
+    func forgetCircleMemberID() {
+        defaults.removeObject(forKey: Key.circleMemberID)
     }
 
     // MARK: Prompt bags

@@ -43,7 +43,7 @@ struct HomeView: View {
             ShareCardSheet(kind: kind).environment(model)
         }
         .sheet(isPresented: $showEmergency) {
-            EmergencyPassSheet(app: model.settings.gatedApps.first)
+            EmergencyPassSheet(app: nil)   // the pass opens every gated app, so don't name (and launch) just the first
                 .environment(model)
                 .presentationDetents([.medium])
         }

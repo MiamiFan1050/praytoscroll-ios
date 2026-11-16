@@ -11,7 +11,7 @@ concurrency:
 jobs:
   test:
     runs-on: macos-15
-    timeout-minutes: 70
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
@@ -53,6 +53,7 @@ jobs:
           xcodebuild -project PrayToScroll.xcodeproj -scheme PrayToScrollScreenshots \
             -destination "id=$SIM" -derivedDataPath ../build \
             -resultBundlePath ../out/ui.xcresult \
+            -skip-testing:PrayToScrollUITests/CrawlTests -skip-testing:PrayToScrollUITests/TapThroughTests \
             CODE_SIGNING_ALLOWED=NO test 2>&1 | tee ../out/ui.log | grep -E "error:|Test Case .*(passed|failed)|Executed|\*\* (BUILD|TEST)" || true
           grep -q "\*\* TEST SUCCEEDED \*\*" ../out/ui.log
 
@@ -74,6 +75,53 @@ jobs:
             -destination "generic/platform=iOS" -derivedDataPath ../build-release \
             CODE_SIGNING_ALLOWED=NO build 2>&1 | tee ../out/release.log | grep -E "error:|\*\* BUILD" || true
           grep -q "\*\* BUILD SUCCEEDED \*\*" ../out/release.log
+          # App Store requires a privacy manifest (UserDefaults is a required-reason API) in the app and the widget.
+          find ../build-release/Build/Products -name PrivacyInfo.xcprivacy -path "*.app/*" | tee ../out/privacy-manifests.txt
+          [ "$(grep -c . ../out/privacy-manifests.txt)" -ge 2 ]
+
+      - name: QA crawl (tap every control on every tab and route)
+        if: always()
+        run: |
+          set -o pipefail
+          mkdir -p out/qa
+          cd app
+          TEST_RUNNER_QA_DIR="$GITHUB_WORKSPACE/out/qa" xcodebuild -project PrayToScroll.xcodeproj -scheme PrayToScrollScreenshots \
+            -destination "id=$SIM" -derivedDataPath ../build \
+            -resultBundlePath ../out/crawl.xcresult \
+            -only-testing:PrayToScrollUITests/CrawlTests \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee ../out/crawl.log | grep -E "error:|Test Case .*(passed|failed)|Executed|\*\* (BUILD|TEST)" || true
+          cd ..
+          python3 app/tools/qa_crawl_report.py out/qa out/crawl.xcresult
+          grep -q "\*\* TEST SUCCEEDED \*\*" out/crawl.log
+
+      - name: Tap-through video
+        if: always()
+        run: |
+          set -o pipefail
+          QA="$GITHUB_WORKSPACE/out/qa"
+          mkdir -p "$QA"
+          rm -f "$QA/rec.start" "$QA/rec.stop"
+          xcrun simctl status_bar "$SIM" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+          # The test writes rec.start / rec.stop, so the video holds only the walk-through.
+          (
+            for i in $(seq 1 1500); do [ -f "$QA/rec.start" ] && break; sleep 0.2; done
+            xcrun simctl io "$SIM" recordVideo --codec=h264 --force "$QA/tapthrough.mp4" &
+            REC=$!
+            for i in $(seq 1 1500); do [ -f "$QA/rec.stop" ] && break; sleep 0.2; done
+            kill -INT "$REC"
+            wait "$REC" || true
+          ) &
+          WATCH=$!
+          cd app
+          TEST_RUNNER_QA_DIR="$QA" xcodebuild -project PrayToScroll.xcodeproj -scheme PrayToScrollScreenshots \
+            -destination "id=$SIM" -derivedDataPath ../build \
+            -resultBundlePath ../out/tapthrough.xcresult \
+            -only-testing:PrayToScrollUITests/TapThroughTests \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee ../out/tapthrough.log | grep -E "error:|Test Case .*(passed|failed)|Executed|\*\* (BUILD|TEST)" || true
+          touch "$QA/rec.start" "$QA/rec.stop"
+          wait "$WATCH" || true
+          ls -la "$QA"
+          grep -q "\*\* TEST SUCCEEDED \*\*" ../out/tapthrough.log
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -84,3 +132,11 @@ jobs:
             out/screenshots
           if-no-files-found: ignore
           retention-days: 7
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa
+          path: out/qa
+          if-no-files-found: ignore
+          retention-days: 14

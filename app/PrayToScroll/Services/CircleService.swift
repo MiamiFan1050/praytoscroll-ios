@@ -162,3 +162,12 @@ enum CircleBlockList {
         defaults.removeObject(forKey: key)
     }
 }
+
+extension AppSettings {
+    /// What circles see: the chosen nickname, else the first name, and never a name the filter rejects.
+    var circleName: String {
+        let chosen = NameFilter.clean(circleNickname)
+        let name = chosen.isEmpty ? NameFilter.clean(displayName) : chosen
+        return NameFilter.isAllowed(name) ? name : "friend"
+    }
+}

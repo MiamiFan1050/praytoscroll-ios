@@ -600,7 +600,7 @@ struct CircleFormSheet: View {
                 }
             }
             .onAppear {
-                nickname = model.settings.firstName
+                nickname = model.settings.circleNickname.isEmpty ? model.settings.firstName : model.settings.circleNickname
                 emoji = model.settings.circleDisplayEmoji
                 if case .join(let prefill) = mode { code = prefill }
             }
@@ -621,6 +621,7 @@ struct CircleFormSheet: View {
                     guard let parsed = CircleCode.extract(from: code) else { throw CircleError.invalidCode }
                     circle = try await model.circles.join(code: parsed, displayName: name, emoji: emoji)
                 }
+                model.updateSettings { $0.circleNickname = name }   // reportCircleProgress sends this, not the first name
                 model.reportCircleProgress()
                 Haptics.success()
                 working = false

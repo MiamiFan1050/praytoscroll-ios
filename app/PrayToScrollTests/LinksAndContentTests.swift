@@ -103,6 +103,19 @@ final class LinksAndContentTests: XCTestCase {
         XCTAssertEqual(NameFilter.clean("  Mark    M  "), "Mark M")
     }
 
+    func testCirclesSeeTheChosenNicknameNeverAnUnfilteredName() {
+        var settings = AppSettings()
+        settings.firstName = "Mark"
+        XCTAssertEqual(settings.circleName, "Mark", "no nickname yet: the first name")
+        settings.circleNickname = "  Lighthouse   Guy "
+        XCTAssertEqual(settings.circleName, "Lighthouse Guy", "the nickname picked when joining wins")
+        settings.circleNickname = ""
+        settings.firstName = "sh1t"
+        XCTAssertEqual(settings.circleName, "friend", "a name the filter rejects never reaches a circle")
+        settings.firstName = ""
+        XCTAssertEqual(settings.circleName, "friend")
+    }
+
     // MARK: Bundled content
 
     func testBundledContentLoads() {

@@ -70,6 +70,20 @@ func XCTAssertGreaterThanOrEqual<T: Comparable>(_ a: @autoclosure () throws -> T
     } catch { ShimResults.fail("threw \(error)", file, line) }
 }
 
+func XCTAssertGreaterThan<T: Comparable>(_ a: @autoclosure () throws -> T, _ b: @autoclosure () throws -> T, _ message: @autoclosure () -> String = "", file: StaticString = #filePath, line: UInt = #line) {
+    do {
+        let x = try a(), y = try b()
+        if !(x > y) { ShimResults.fail("XCTAssertGreaterThan failed: \(x) <= \(y) \(message())", file, line) }
+    } catch { ShimResults.fail("threw \(error)", file, line) }
+}
+
+func XCTAssertLessThanOrEqual<T: Comparable>(_ a: @autoclosure () throws -> T, _ b: @autoclosure () throws -> T, _ message: @autoclosure () -> String = "", file: StaticString = #filePath, line: UInt = #line) {
+    do {
+        let x = try a(), y = try b()
+        if x > y { ShimResults.fail("XCTAssertLessThanOrEqual failed: \(x) > \(y) \(message())", file, line) }
+    } catch { ShimResults.fail("threw \(error)", file, line) }
+}
+
 func XCTUnwrap<T>(_ expression: @autoclosure () throws -> T?, _ message: @autoclosure () -> String = "", file: StaticString = #filePath, line: UInt = #line) throws -> T {
     guard let value = try expression() else {
         ShimResults.fail("XCTUnwrap failed \(message())", file, line)

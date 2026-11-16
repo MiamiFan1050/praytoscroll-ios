@@ -88,12 +88,13 @@ final class AppModel {
     private var testingApp: GatedApp?
     private var testStartedAt: Date?
 
-    init(options: LaunchOptions = .current) {
+    /// `store` is injectable so unit tests can drive the real gate/streak code against scratch defaults.
+    init(options: LaunchOptions = .current, store injected: SharedStore? = nil) {
         self.options = options
-        if options.isDemo {
+        if options.isDemo, injected == nil {
             UserDefaults.standard.removePersistentDomain(forName: AppConstants.demoSuite)
         }
-        let sharedStore = SharedStore.shared
+        let sharedStore = injected ?? SharedStore.shared
         let modelContainer = AppModel.makeContainer(inMemory: options.isDemo)
         self.store = sharedStore
         self.container = modelContainer
@@ -516,7 +517,7 @@ final class AppModel {
     func reportCircleProgress() {
         let prayers = prayersThisWeek()
         let streakNow = streak.current
-        let name = settings.displayName
+        let name = settings.circleName   // the nickname they chose for circles, never the private first name
         let emoji = settings.circleDisplayEmoji
         Task {
             try? await circles.reportProgress(displayName: name, emoji: emoji, prayersThisWeek: prayers, streak: streakNow)
@@ -599,10 +600,19 @@ final class AppModel {
         try? context.delete(model: JournalEntry.self)
         try? context.delete(model: PrayerRequest.self)
         try? context.delete(model: Person.self)
+        try? context.delete(model: SavedVerse.self)
         try? context.save()
+        // Delete my circle rows BEFORE the member id goes: resetAll() would otherwise mint a new id first,
+        // and the old nickname/count rows would stay in the public database.
         let codes = store.circleCodes
-        Task { try? await circles.deleteMyData(codes: codes) }
-        store.resetAll()
+        let memberID = store.circleMemberID
+        let circles = self.circles
+        let store = self.store
+        store.resetAll(keepingCircleMemberID: !codes.isEmpty)
+        Task {
+            try? await circles.deleteMyData(codes: codes)
+            if !codes.isEmpty, store.circleMemberID == memberID { store.forgetCircleMemberID() }
+        }
         settings = AppSettings()
         store.settings = settings
         ReminderService.shared.cancelAll()

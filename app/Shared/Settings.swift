@@ -144,6 +144,8 @@ struct AppSettings: Codable, Equatable, Sendable {
     var completedChallengeIDs: [String] = []
     var awardedMilestones: [Int] = []
     var circleDisplayEmoji: String = "🕊️"
+    /// The nickname picked when joining or creating a circle (falls back to the first name).
+    var circleNickname: String = ""
 
     init() {}
 
@@ -171,6 +173,7 @@ struct AppSettings: Codable, Equatable, Sendable {
         completedChallengeIDs = try c.decodeIfPresent([String].self, forKey: .completedChallengeIDs) ?? d.completedChallengeIDs
         awardedMilestones = try c.decodeIfPresent([Int].self, forKey: .awardedMilestones) ?? d.awardedMilestones
         circleDisplayEmoji = try c.decodeIfPresent(String.self, forKey: .circleDisplayEmoji) ?? d.circleDisplayEmoji
+        circleNickname = try c.decodeIfPresent(String.self, forKey: .circleNickname) ?? d.circleNickname
     }
 
     private static let defaultValue = AppSettings()
