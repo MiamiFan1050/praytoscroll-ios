@@ -91,27 +91,40 @@ final class AppModel {
     /// `store` is injectable so unit tests can drive the real gate/streak code against scratch defaults.
     init(options: LaunchOptions = .current, store injected: SharedStore? = nil) {
         self.options = options
-        if options.isDemo, injected == nil {
+        #if DEBUG
+        let demo = options.isDemo
+        if demo, injected == nil {
             UserDefaults.standard.removePersistentDomain(forName: AppConstants.demoSuite)
         }
+        #else
+        let demo = false
+        #endif
         let sharedStore = injected ?? SharedStore.shared
-        let modelContainer = AppModel.makeContainer(inMemory: options.isDemo)
+        let modelContainer = AppModel.makeContainer(inMemory: demo)
         self.store = sharedStore
         self.container = modelContainer
-        self.circles = options.isDemo ? MockCircleService.demo() : CloudKitCircleService()
-        if options.isDemo {
+        #if DEBUG
+        self.circles = demo ? MockCircleService.demo() : CloudKitCircleService()
+        if demo {
             DemoSeeder.seedDefaults(store: sharedStore, options: options)
         }
+        #else
+        self.circles = CloudKitCircleService()
+        #endif
         var loaded = sharedStore.settings
+        #if DEBUG
         if let forced = options.appearance { loaded.appearance = forced }
+        #endif
         self.settings = loaded
         Haptics.enabled = loaded.hapticsEnabled
-        if options.isDemo {
+        #if DEBUG
+        if demo {
             DemoSeeder.seedData(context: modelContainer.mainContext, store: sharedStore)
             var seeded = sharedStore.settings
             if let forced = options.appearance { seeded.appearance = forced }
             self.settings = seeded
         }
+        #endif
         reloadGateState()
         refreshStreak()
     }
@@ -169,7 +182,12 @@ final class AppModel {
         gateFired = store.gateFiredDates
         setupMarked = store.setupMarked
         emergencyUses = store.emergencyUses
-        shortcutsInstalled = options.isDemo || UIApplication.shared.canOpenURL(URL(string: "shortcuts://")!)
+        #if DEBUG
+        let demo = options.isDemo
+        #else
+        let demo = false
+        #endif
+        shortcutsInstalled = demo || UIApplication.shared.canOpenURL(URL(string: "shortcuts://")!)
     }
 
     /// The moment apps are open until, from whichever unlock is active.
@@ -341,8 +359,12 @@ final class AppModel {
 
     /// Minimum seconds before Amen unlocks, by style.
     func minimumSeconds(for style: UnlockStyle, isSample: Bool) -> Double {
+        #if DEBUG
         if isSample { return options.isUITest && !options.longMinimum ? 2 : 15 }
         if options.isUITest && !options.longMinimum { return 3 }
+        #else
+        if isSample { return 15 }
+        #endif
         switch style {
         case .quick: return 30
         case .guided: return Double(max(30, settings.guidedSeconds))
@@ -566,6 +588,8 @@ final class AppModel {
     }
 
     /// `-route <name>` in demo mode jumps straight to a screen (debugging + screenshots).
+    #if DEBUG
+    /// Debug builds only: `-route <name>` opens a screen directly for UI tests and screenshots.
     func openDemoRoute(_ route: String) {
         switch route {
         case "pray": startPrayer(source: .manual)
@@ -592,6 +616,7 @@ final class AppModel {
         default: break
         }
     }
+    #endif
 
     // MARK: Reset
 

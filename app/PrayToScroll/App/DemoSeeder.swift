@@ -1,3 +1,5 @@
+#if DEBUG
+// Debug builds only: demo data / mock circles for UI tests and screenshots. Not in the Release binary.
 import Foundation
 import SwiftData
 
@@ -183,3 +185,4 @@ enum DemoSeeder {
         store.settings = updated
     }
 }
+#endif

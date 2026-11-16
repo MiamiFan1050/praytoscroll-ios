@@ -11,7 +11,10 @@ final class DestructiveTests: XCTestCase {
         let app = launchDemo(["-route", "settings"])
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 10))
         let erase = app.buttons.matching(NSPredicate(format: "label == 'Erase all data'")).firstMatch
-        for _ in 0..<12 where !(erase.exists && erase.isHittable) { app.swipeUp() }
+        for _ in 0..<12 {
+            if erase.exists, erase.isHittable { break }
+            app.swipeUp()
+        }
         XCTAssertTrue(erase.isHittable, "Erase all data is reachable in Settings")
         erase.tap()
         // The confirmation's button has the same title: tap the one that's on top now.
@@ -42,9 +45,10 @@ final class DestructiveTests: XCTestCase {
         let confirm = firstHittable(app.buttons.matching(NSPredicate(format: "label == 'Leave circle'")))
         XCTAssertNotNil(confirm, "leaving asks first")
         confirm?.tap()
-        XCTAssertTrue(app.buttons["circles.create"].waitForExistence(timeout: 10), "back on Together")
+        // Back on Together: the list (with its "New circle" button; `circles.create` is only the empty state's).
+        XCTAssertTrue(app.buttons["New circle"].waitForExistence(timeout: 10), "back on Together")
         XCTAssertTrue(waitUntil(5) { !app.descendants(matching: .any)["circle.row.K7Q2MX"].exists }, "the circle is gone")
-        XCTAssertTrue(app.descendants(matching: .any)["circle.row.R4NB8T"].exists, "the other circle stays")
+        XCTAssertTrue(app.descendants(matching: .any)["circle.row.R4NB8T"].waitForExistence(timeout: 5), "the other circle stays")
     }
 
     func testReportAndBlockHideMembers() {

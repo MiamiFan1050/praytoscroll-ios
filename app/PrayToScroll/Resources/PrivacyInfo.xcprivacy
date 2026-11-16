@@ -8,13 +8,13 @@
 	<array/>
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array>
-		<!-- Prayer Circles only (optional): the nickname and emoji you choose, stored in the app's iCloud public database
-		     under a random per-install id. Not linked to you, never used for tracking. -->
+		<!-- Matches the App Store privacy label. Prayer Circles only (optional): the random member id and the nickname +
+		     emoji you choose (User ID), stored in the app's CloudKit public database under your iCloud account. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
-			<string>NSPrivacyCollectedDataTypeOtherUserContent</string>
+			<string>NSPrivacyCollectedDataTypeUserID</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
-			<false/>
+			<true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>
 			<false/>
 			<key>NSPrivacyCollectedDataTypePurposes</key>
@@ -22,12 +22,12 @@
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
 		</dict>
-		<!-- Prayer Circles only: your weekly prayer count and streak, shown on the circle's board. -->
+		<!-- Prayer Circles only: your weekly prayer count and streak on the circle's board. -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
-			<false/>
+			<true/>
 			<key>NSPrivacyCollectedDataTypeTracking</key>
 			<false/>
 			<key>NSPrivacyCollectedDataTypePurposes</key>

@@ -17,7 +17,9 @@ struct LaunchOptions: Sendable {
 
     static let current = LaunchOptions(arguments: ProcessInfo.processInfo.arguments)
 
+    /// Debug builds only (UI tests + screenshots). A Release build never reads launch arguments.
     init(arguments: [String]) {
+        #if DEBUG
         isDemo = arguments.contains("-demo")
         showOnboarding = arguments.contains("-onboarding")
         isUITest = arguments.contains("-uitest")
@@ -32,5 +34,13 @@ struct LaunchOptions: Sendable {
         } else {
             appearance = nil
         }
+        #else
+        isDemo = false
+        showOnboarding = false
+        isUITest = false
+        longMinimum = false
+        route = nil
+        appearance = nil
+        #endif
     }
 }

@@ -73,7 +73,11 @@ struct HomeView: View {
 
     private var greeting: String {
         // The demo (screenshots) shows 9:41 in the status bar, so it greets the morning.
+        #if DEBUG
         let hour = model.options.isDemo ? 9 : Calendar.current.component(.hour, from: Date())
+        #else
+        let hour = Calendar.current.component(.hour, from: Date())
+        #endif
         let part: String
         switch hour {
         case 5..<12: part = "Good morning"

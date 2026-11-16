@@ -15,10 +15,12 @@ final class SharedStore: @unchecked Sendable {
 
     /// The real store uses the app group. A `-demo` launch uses its own domain, wiped on every launch.
     static func makeDefaults() -> UserDefaults {
+        #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-demo") {
             let demo = UserDefaults(suiteName: AppConstants.demoSuite) ?? .standard
             return demo
         }
+        #endif
         return UserDefaults(suiteName: AppConstants.appGroup) ?? .standard
     }
 

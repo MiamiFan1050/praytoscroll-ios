@@ -19,8 +19,10 @@ enum AppConstants {
     static let widgetKindVerse = "PrayToScrollVerseWidget"
     static let widgetKindPrayNow = "PrayToScrollPrayNowWidget"
 
-    /// Demo data lives in its own defaults domain so screenshots never touch a real user's data.
+    #if DEBUG
+    /// Demo data (Debug builds only) lives in its own defaults domain so screenshots never touch a real user's data.
     static let demoSuite = "com.amenkeyapp.ios.demo"
+    #endif
 
     /// Average length of one scroll session, used for the "time reclaimed" estimate.
     static let averageScrollSessionMinutes = 7.0

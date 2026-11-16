@@ -68,7 +68,8 @@ run() {
 }
 cd "$WORK"
 if [ "$what" = app ] || [ "$what" = all ]; then
-  run app $(find PrayToScroll Shared -name "*.swift")
+  run app -D DEBUG $(find PrayToScroll Shared -name "*.swift")
+  run app-release $(find PrayToScroll Shared -name "*.swift")
 fi
 if [ "$what" = widget ] || [ "$what" = all ]; then
   run widget -application-extension $(find PrayToScrollWidget Shared -name "*.swift")
@@ -83,6 +84,6 @@ fi
 if { [ "$what" = tests ] || [ "$what" = all ]; } && [ -d PrayToScrollTests ]; then
   # Unit tests compile against the app sources directly, with a small XCTest stand-in (no XCTest in the CLT).
   prep_tests
-  run tests $(find PrayToScroll Shared PrayToScrollTests -name "*.swift") "$WORK/XCTestShim.swift"
+  run tests -D DEBUG $(find PrayToScroll Shared PrayToScrollTests -name "*.swift") "$WORK/XCTestShim.swift"
 fi
 exit $status

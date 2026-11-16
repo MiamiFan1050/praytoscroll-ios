@@ -34,10 +34,12 @@ struct RootView: View {
         }
         .task {
             model.sceneBecameActive()
+            #if DEBUG
             if model.options.isDemo, let route = model.options.route {
                 try? await Task.sleep(nanoseconds: 400_000_000)
                 model.openDemoRoute(route)
             }
+            #endif
         }
     }
 }

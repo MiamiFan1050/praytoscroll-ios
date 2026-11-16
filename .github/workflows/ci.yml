@@ -114,12 +114,15 @@ jobs:
         run: |
           set -o pipefail
           QA="$GITHUB_WORKSPACE/out/qa"
-          rm -f "$QA/rec.start" "$QA/rec.stop"
-          # The test writes rec.start / rec.stop, so the video holds only the walk-through.
+          rm -f "$QA/rec.start" "$QA/rec.ready" "$QA/rec.stop"
+          # The test writes rec.start / rec.stop, so the video holds only the walk-through. rec.ready tells the test
+          # the recorder is really running (it takes a few seconds), so the video opens on Home.
           (
             for i in $(seq 1 3000); do [ -f "$QA/rec.start" ] && break; sleep 0.2; done
-            xcrun simctl io "$SIM" recordVideo --codec=h264 --force "$QA/tapthrough.mp4" &
+            xcrun simctl io "$SIM" recordVideo --codec=h264 --force "$QA/tapthrough.mp4" > "$GITHUB_WORKSPACE/out/recorder.log" 2>&1 &
             REC=$!
+            for i in $(seq 1 150); do grep -q "Recording started" "$GITHUB_WORKSPACE/out/recorder.log" 2>/dev/null && break; sleep 0.2; done
+            touch "$QA/rec.ready"
             for i in $(seq 1 1500); do [ -f "$QA/rec.stop" ] && break; sleep 0.2; done
             kill -INT "$REC"
             wait "$REC" || true
@@ -133,6 +136,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO test 2>&1 | tee ../out/tapthrough.log | grep -E "error:|Test Case .*(passed|failed)|Executed|\*\* (BUILD|TEST)" || true
           touch "$QA/rec.start" "$QA/rec.stop"
           wait "$WATCH" || true
+          cat ../out/recorder.log || true
           ls -la "$QA"
           grep -q "\*\* TEST SUCCEEDED \*\*" ../out/tapthrough.log
 

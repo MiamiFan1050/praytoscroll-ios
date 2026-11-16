@@ -14,113 +14,118 @@ final class TapThroughTests: XCTestCase {
         let app = launchDemo()
         let home = app.buttons["home.prayNow"]
         XCTAssertTrue(home.waitForExistence(timeout: 15))
-        pause(1.0)
+        pause(0.5)
         writeQAMarker("rec.start")
-        pause(2.0)   // the recorder starts up
+        // CI writes rec.ready once simctl says "Recording started", so the video opens on Home, not mid-prayer.
+        _ = waitUntil(30) { qaMarkerExists("rec.ready") }
+        pause(0.8)
         let started = Date()
 
         // Home
-        pause(2.5)
-        app.swipeUp()
         pause(1.5)
-        app.swipeDown()
+        app.swipeUp()
         pause(1.0)
+        app.swipeDown()
+        pause(0.5)
 
         // Pray → Amen
         home.tap()
-        pause(1.5)
+        pause(1.0)
         let next = app.buttons["session.next"]
-        for _ in 0..<6 where !app.descendants(matching: .any)["amenButton"].exists {
-            if next.waitForExistence(timeout: 3) { pause(1.2); next.tap() }
+        for _ in 0..<6 {
+            if app.descendants(matching: .any)["amenButton"].exists { break }
+            if next.waitForExistence(timeout: 3) { pause(0.8); next.tap() }
         }
         prayToAmen(app)
         XCTAssertTrue(app.descendants(matching: .any)["celebration.title"].waitForExistence(timeout: 10))
-        pause(3.5)
+        pause(2.5)
         app.buttons["celebration.done"].tap()
-        pause(1.5)
+        pause(1.0)
 
         // Scroll the Word
         app.tabBars.buttons["Scroll"].tap()
-        pause(2.5)
-        for _ in 0..<3 { app.swipeUp(); pause(1.6) }
-        firstHittable(app.buttons.matching(identifier: "word.save"))?.tap()
         pause(1.5)
+        for _ in 0..<2 { app.swipeUp(); pause(1.2) }
+        firstHittable(app.buttons.matching(identifier: "word.save"))?.tap()
+        pause(1.0)
         firstHittable(app.buttons.matching(NSPredicate(format: "label == 'Share'")))?.tap()
         if app.buttons["Close"].waitForExistence(timeout: 5) {
-            pause(2.5)
+            pause(1.8)
             app.buttons["Close"].tap()
         }
-        pause(1.0)
+        pause(0.8)
 
         // Pray for someone
         app.tabBars.buttons["People"].tap()
-        pause(2.0)
+        pause(1.5)
         let dad = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Dad'")).firstMatch
         XCTAssertTrue(dad.waitForExistence(timeout: 5))
         dad.tap()
-        pause(2.0)
+        pause(1.5)
         let prayForHim = app.buttons["person.pray"]
         XCTAssertTrue(prayForHim.waitForExistence(timeout: 5))
         prayForHim.tap()
-        pause(1.0)
+        pause(0.8)
         prayToAmen(app)
         if app.buttons["letknow.skip"].waitForExistence(timeout: 6) {
-            pause(2.5)
+            pause(1.8)
             app.buttons["letknow.skip"].tap()
         }
         XCTAssertTrue(app.descendants(matching: .any)["celebration.title"].waitForExistence(timeout: 10))
-        pause(2.5)
+        pause(1.8)
         app.buttons["celebration.done"].tap()
-        pause(1.0)
+        pause(0.8)
 
         // Circles
         app.tabBars.buttons["Together"].tap()
-        pause(2.0)
+        pause(1.5)
         let circle = app.descendants(matching: .any)["circle.row.K7Q2MX"]
         XCTAssertTrue(circle.waitForExistence(timeout: 6))
         circle.tap()
         XCTAssertTrue(app.descendants(matching: .any)["circle.title"].waitForExistence(timeout: 6))
-        pause(3.0)
+        pause(2.0)
         app.swipeUp()
-        pause(1.5)
+        pause(1.0)
 
-        // Gate setup (long-press the gate card on Today → Gate setup)
+        // Gate setup: Settings → Gated apps & setup. (After the Amen the Today card shows "Unlocked", which has no
+        // long-press menu; the locked card's "Gate setup" menu is covered by the crawler.)
         app.tabBars.buttons["Today"].tap()
-        pause(1.5)
-        let gateCard = app.descendants(matching: .any)["home.gateStatus"].firstMatch
-        XCTAssertTrue(gateCard.waitForExistence(timeout: 5))
-        gateCard.press(forDuration: 1.2)
-        let setup = app.buttons["Gate setup"]
-        if setup.waitForExistence(timeout: 4) {
-            pause(1.0)
-            setup.tap()
-        } else {
-            app.buttons["home.settings"].tap()
-            app.buttons.matching(NSPredicate(format: "label CONTAINS 'Prayer Gate'")).firstMatch.tap()
+        pause(1.0)
+        app.buttons["home.settings"].tap()
+        let gated = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Gated apps'")).firstMatch
+        for _ in 0..<4 {
+            if gated.waitForExistence(timeout: 2), gated.isHittable { break }
+            app.swipeUp()
         }
+        pause(1.0)
+        gated.tap()
         XCTAssertTrue(app.descendants(matching: .any)["gate.title"].waitForExistence(timeout: 6))
-        pause(3.0)
+        pause(2.0)
         let instagram = app.descendants(matching: .any)["gate.row.instagram"]
         if instagram.waitForExistence(timeout: 3), instagram.isHittable {
             instagram.tap()
             let guide = app.buttons["guide.next"]
             if guide.waitForExistence(timeout: 5) {
-                for _ in 0..<3 { pause(1.6); if guide.exists, guide.isHittable { guide.tap() } }
-                pause(1.2)
+                for _ in 0..<3 { pause(1.2); if guide.exists, guide.isHittable { guide.tap() } }
+                pause(1.0)
                 if app.buttons["Close"].exists { app.buttons["Close"].tap() }
             }
         }
+        pause(0.8)
+        // Back out of the pushed setup screen, then close Settings.
+        let back = app.navigationBars.buttons["Settings"]   // the pushed screen's back button
+        if back.exists, back.isHittable { back.tap(); pause(0.8) }
+        let done = app.buttons["Done"]
+        if done.waitForExistence(timeout: 3) { done.tap() }
         pause(1.0)
-        if app.buttons["Done"].exists { app.buttons["Done"].tap() }
-        pause(1.2)
 
         // Progress
         app.tabBars.buttons["Progress"].tap()
-        pause(2.5)
-        app.swipeUp()
         pause(2.0)
         app.swipeUp()
-        pause(2.0)
+        pause(1.5)
+        app.swipeUp()
+        pause(1.5)
         let soFar = Date().timeIntervalSince(started)
         if soFar < 66 { app.swipeDown(); pause(66 - soFar) }
         writeQAMarker("rec.stop")

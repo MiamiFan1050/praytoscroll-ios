@@ -1,3 +1,5 @@
+#if DEBUG
+// Debug builds only: demo data / mock circles for UI tests and screenshots. Not in the Release binary.
 import Foundation
 
 /// In-memory circles for demo mode, previews and tests.
@@ -125,3 +127,4 @@ final class MockCircleService: CircleService, @unchecked Sendable {
         }
     }
 }
+#endif

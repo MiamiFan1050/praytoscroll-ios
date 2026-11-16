@@ -33,7 +33,9 @@ extension XCTestCase {
         let amen = app.descendants(matching: .any)["amenButton"]
         let next = app.buttons["session.next"]
         let verse = app.descendants(matching: .any)["session.verse"]
-        for _ in 0..<16 where !amen.waitForExistence(timeout: 1.0) {
+        // A `for … where` keeps iterating (and querying an animating screen) after the Amen appears; stop at once.
+        for _ in 0..<16 {
+            if amen.waitForExistence(timeout: 1.0) { break }
             if next.exists, next.isHittable {
                 next.tap()                       // Next step / "Pray it"
             } else if verse.exists, verse.isHittable {
@@ -85,5 +87,11 @@ extension XCTestCase {
         let url = URL(fileURLWithPath: dir).appendingPathComponent(name)
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         try? Date().description.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    /// True once the host (CI) has written `name` into $QA_DIR; true at once when there is no QA_DIR (local runs).
+    func qaMarkerExists(_ name: String) -> Bool {
+        guard let dir = ProcessInfo.processInfo.environment["QA_DIR"], !dir.isEmpty else { return true }
+        return FileManager.default.fileExists(atPath: URL(fileURLWithPath: dir).appendingPathComponent(name).path)
     }
 }

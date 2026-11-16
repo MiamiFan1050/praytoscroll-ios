@@ -42,6 +42,9 @@ targets:
     platform: iOS
     sources:
       - path: PrayToScroll
+        excludes:
+          # StoreKit "Pro" scaffolding for a later version: kept in the repo, out of the v1.0 binary (guideline 2.5.19).
+          - "Services/ProStore.swift"
       - path: Shared
     settings:
       base:

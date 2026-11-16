@@ -28,7 +28,8 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(pray.waitForExistence(timeout: 10))
         pray.tap()
         // Home's Pray now uses the person's style (guided in the demo): step through to the Amen.
-        for _ in 0..<6 where !app.descendants(matching: .any)["amenButton"].exists {
+        for _ in 0..<6 {
+            if app.descendants(matching: .any)["amenButton"].exists { break }
             let next = app.buttons["session.next"]
             if next.waitForExistence(timeout: 3) { next.tap() }
         }
