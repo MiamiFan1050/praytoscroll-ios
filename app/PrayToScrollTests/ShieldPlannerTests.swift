@@ -54,8 +54,10 @@ final class ShieldPlannerTests: XCTestCase {
     func testFifteenMinuteMinimumUnderScreenTime() {
         XCTAssertEqual(ShieldPlanner.end(atLeastMinimumFrom: now, proposed: min(5)), min(15))
         XCTAssertEqual(ShieldPlanner.end(atLeastMinimumFrom: now, proposed: min(60)), min(60))
-        XCTAssertEqual(ShieldPlanner.windowOptions(for: .screenTime), [15, 30, 60])
-        XCTAssertEqual(ShieldPlanner.windowOptions(for: .shortcuts), [5, 15, 30, 60])
+        XCTAssertEqual(ShieldPlanner.windowOptions(for: .screenTime), [15, 30, 45, 60, 120, 180])
+        XCTAssertEqual(ShieldPlanner.windowOptions(for: .shortcuts), [5, 15, 30, 45, 60, 120, 180])
+        XCTAssertEqual(ShieldPlanner.minimumWindowMinutes(for: .screenTime), 15)
+        XCTAssertEqual(ShieldPlanner.minimumWindowMinutes(for: .shortcuts), 5)
         XCTAssertEqual(ShieldPlanner.effectiveWindowMinutes(5, method: .screenTime), 15)
         XCTAssertEqual(ShieldPlanner.effectiveWindowMinutes(5, method: .shortcuts), 5)
         XCTAssertEqual(ShieldPlanner.emergencyMinutes(for: .screenTime), 15)

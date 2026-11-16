@@ -82,8 +82,19 @@ struct SettingsView: View {
 
     private var prayerSection: some View {
         Section {
+            NavigationLink {
+                UnlockWithView()
+            } label: {
+                HStack {
+                    settingsLabel("Unlock with", model.settings.unlockMethod.symbol)
+                    Spacer()
+                    Text(model.settings.unlockMethod.title)
+                        .font(.akFootnote).foregroundStyle(Theme.textSecondary)
+                }
+            }
+            .accessibilityIdentifier("settings.unlockWith")
             Picker(selection: model.binding(\.unlockStyle)) {
-                ForEach(UnlockStyle.allCases) { Label($0.title, systemImage: $0.symbol).tag($0) }
+                ForEach(UnlockStyle.prayerStyles) { Label($0.title, systemImage: $0.symbol).tag($0) }
             } label: { settingsLabel("Default prayer", "hands.and.sparkles.fill") }
             if model.settings.unlockStyle == .guided {
                 Picker(selection: model.binding(\.guidedSeconds)) {
@@ -141,21 +152,17 @@ struct SettingsView: View {
                     }
                 }
             }
-            Picker(selection: model.binding(\.unlockMode)) {
-                ForEach(UnlockMode.allCases) { Text($0.title).tag($0) }
-            } label: { settingsLabel("Unlock", "lock.open.fill") }
-            if model.settings.unlockMode == .window {
-                Picker(selection: Binding(get: { model.effectiveWindowMinutes },
-                                          set: { value in model.updateSettings { $0.unlockWindowMinutes = value } })) {
-                    ForEach(ShieldPlanner.windowOptions(for: model.settings.lockMethod), id: \.self) { Text("\($0) min").tag($0) }
-                } label: { settingsLabel("Each prayer opens apps for", "clock.fill") }
-            } else {
-                Picker(selection: model.binding(\.dailyKeyResetHour)) {
-                    ForEach([2, 3, 4, 5, 6], id: \.self) { hour in
-                        Text(hourLabel(hour)).tag(hour)
-                    }
-                } label: { settingsLabel("Daily key resets at", "arrow.counterclockwise") }
+            NavigationLink {
+                UnlockForView()
+            } label: {
+                HStack {
+                    settingsLabel("Unlock for", "lock.open.fill")
+                    Spacer()
+                    Text(model.settings.askUnlockEachTime ? "\(model.unlockChoice.title) · ask" : model.unlockChoice.title)
+                        .font(.akFootnote).foregroundStyle(Theme.textSecondary)
+                }
             }
+            .accessibilityIdentifier("settings.unlockFor")
             Toggle(isOn: model.binding(\.windowEndNudge)) { settingsLabel("Nudge when time's up", "bell.badge.fill") }
                 .tint(Palette.gold)
             if model.isPaused(), let until = model.pausedUntil {

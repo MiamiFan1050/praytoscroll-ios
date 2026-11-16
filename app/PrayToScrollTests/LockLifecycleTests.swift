@@ -89,6 +89,27 @@ final class LockLifecycleTests: XCTestCase {
     }
 
     @MainActor
+    func testUnlockForUnderScreenTimeNeverGoesBelowFifteenAndRelocksAtTheEnd() throws {
+        let (model, _, lock) = makeModel { UnlockChoice.minutes(5).apply(to: &$0) }
+        XCTAssertEqual(model.minimumUnlockMinutes, 15)
+        XCTAssertFalse(model.unlockPresets.contains(.minutes(5)), "5 min is Shortcuts only")
+        XCTAssertEqual(model.unlockChoice, .minutes(15), "a 5-minute default from Shortcuts mode reads as 15")
+        let end = try XCTUnwrap(pray(model).unlockedUntil)
+        XCTAssertEqual(end.timeIntervalSinceNow, 15 * 60, accuracy: 5)
+        XCTAssertEqual(lock.scheduledRelock, end, "DeviceActivity relocks when the window ends")
+
+        model.updateSettings { UnlockChoice.minutes(120).apply(to: &$0) }
+        let longer = try XCTUnwrap(pray(model).unlockedUntil)
+        XCTAssertEqual(longer.timeIntervalSinceNow, 120 * 60, accuracy: 5)
+        XCTAssertEqual(lock.scheduledRelock, longer)
+
+        // Picked on the Amen screen: shorter than 15 still isn't possible, and the relock follows the pick.
+        let picked = try XCTUnwrap(model.changeLastUnlock(to: .minutes(30)))
+        XCTAssertEqual(picked.timeIntervalSinceNow, 30 * 60, accuracy: 5)
+        XCTAssertEqual(lock.scheduledRelock, picked)
+    }
+
+    @MainActor
     func testATimerScreenTimeRefusesKeepsTheAppsLockedAndSaysSo() throws {
         let (model, _, lock) = makeModel()
         lock.refuseTimer = true

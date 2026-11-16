@@ -303,25 +303,28 @@ struct SectionHeader: View {
     }
 }
 
-/// Monogram tile for a gated app (no third-party logos).
-struct AppTile: View {
+/// A gated app, by name only. No logos and no letter tiles: nothing that looks like (or fakes) another company's icon.
+/// Under Screen Time (v1.1) Apple's own picker shows the real icons instead.
+struct AppNameChip: View {
     let app: GatedApp
-    var size: CGFloat = 52
+    var isOn = false
+    var tint: Color = Theme.textPrimary
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.27, style: .continuous)
-                .fill(LinearGradient(colors: [Color(hex: app.colorHex), Color(hex: app.secondaryHex)],
-                                     startPoint: .topLeading, endPoint: .bottomTrailing))
-            RoundedRectangle(cornerRadius: size * 0.27, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.18), lineWidth: 1)
-            Text(app.monogram)
-                .font(.system(size: size * 0.44, weight: .bold, design: .rounded))
-                .foregroundStyle(app.id == "snapchat" ? Palette.midnight : .white)
-                .minimumScaleFactor(0.5)
+        HStack(spacing: 6) {
+            Image(systemName: isOn ? "checkmark.circle.fill" : "app")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(isOn ? Theme.sageText : Theme.textTertiary)
+            Text(app.name)
+                .font(.akFootnote.weight(.semibold))
+                .foregroundStyle(tint)
+                .lineLimit(1)
         }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        .padding(.horizontal, 12)
+        .frame(minHeight: 32)
+        .background(Capsule().fill(Theme.surface))
+        .overlay(Capsule().strokeBorder(Theme.stroke, lineWidth: 1))
+        .accessibilityElement(children: .combine)
     }
 }
 

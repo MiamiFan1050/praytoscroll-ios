@@ -4,6 +4,7 @@
     tools/bible_text.py kjv <eng-kjv_vpl.txt>      # fills "kjv" for every verse in verses.json
     tools/bible_text.py check <engwebp_vpl.txt>    # reports verses.json WEB text that differs from ebible's WEB
     tools/bible_text.py advent <plan.json> <engwebp_vpl.txt> <eng-kjv_vpl.txt>   # writes Resources/advent.json
+    tools/bible_text.py devotionals <devos.json> <engwebp_vpl.txt> <eng-kjv_vpl.txt>   # writes Resources/devotionals.json
 
 Download (both public domain): https://ebible.org/Scriptures/eng-kjv_vpl.zip and engwebp_vpl.zip.
 KJV note: public domain everywhere except the UK, where the Crown's letters patent cover printed copies.
@@ -75,6 +76,17 @@ def main():
             web = passage(table, verse["ref"])
             if web.strip("“”‘’ ") != verse["text"].strip("“”‘’ "):
                 print(f'{verse["day"]} {verse["ref"]}\n  app: {verse["text"]}\n  web: {web}')
+    elif mode == "devotionals":
+        devos = json.loads(Path(source).read_text(encoding="utf-8"))
+        web, kjv = load(sys.argv[3]), load(sys.argv[4])
+        for devo in devos:
+            devo["text"] = passage(web, devo["ref"]).strip()
+            devo["kjv"] = passage(kjv, devo["ref"], kjv=True)
+            if "Yahweh" in devo["text"]:
+                sys.exit(f'{devo["ref"]}: use the "LORD" edition of the WEB (engwebp)')
+        out = verses_path.parent / "devotionals.json"
+        out.write_text(json.dumps(devos, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"devotionals: {len(devos)}")
     elif mode == "advent":
         plan = json.loads(Path(source).read_text(encoding="utf-8"))
         web, kjv = load(sys.argv[3]), load(sys.argv[4])

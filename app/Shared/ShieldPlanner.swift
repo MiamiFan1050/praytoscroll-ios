@@ -96,9 +96,14 @@ enum ShieldPlanner {
         max(proposed, now.addingTimeInterval(minimumInterval))
     }
 
-    /// The window lengths offered for a lock method (Screen Time drops 5 minutes).
+    /// The shortest unlock for a lock method: 15 minutes under Screen Time, 5 with Shortcuts.
+    static func minimumWindowMinutes(for method: LockMethod) -> Int {
+        method == .screenTime ? minimumMinutes : GateEngine.minimumWindowMinutes
+    }
+
+    /// The fixed window lengths offered for a lock method (Screen Time drops 5 minutes).
     static func windowOptions(for method: LockMethod) -> [Int] {
-        method == .screenTime ? GateEngine.windowOptions.filter { $0 >= minimumMinutes } : GateEngine.windowOptions
+        UnlockChoice.presetMinutes.filter { $0 >= minimumWindowMinutes(for: method) }
     }
 
     static func effectiveWindowMinutes(_ minutes: Int, method: LockMethod) -> Int {

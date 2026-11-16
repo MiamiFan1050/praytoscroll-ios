@@ -535,6 +535,10 @@ struct OnboardingView: View {
                     .font(.akFootnote.weight(.semibold))
                     .foregroundStyle(Palette.warmGold)
                 AppPickerView(embedded: true)
+                Text("You’ll pick the real app in Shortcuts. This list is just so we can send you back to it.")
+                    .font(.akFootnote)
+                    .foregroundStyle(Palette.cream.opacity(0.6))
+                    .fixedSize(horizontal: false, vertical: true)
             } else {
                 screenTimeChooser
             }
@@ -582,11 +586,11 @@ struct OnboardingView: View {
             header(text("unlockStyle.headline", "How do you want to pray?"),
                    text("unlockStyle.subline", "Choose your default. You can switch any time."))
             VStack(spacing: 10) {
-                ForEach(UnlockStyle.allCases) { style in
-                    let isOn = model.settings.unlockStyle == style
+                ForEach(UnlockStyle.prayerStyles) { style in
+                    let isOn = model.settings.unlockMethod == .prayer && model.settings.unlockStyle == style
                     Button {
                         Haptics.selection()
-                        model.updateSettings { $0.unlockStyle = style }
+                        model.updateSettings { $0.unlockStyle = style; $0.unlockMethod = .prayer }
                     } label: {
                         HStack(spacing: 14) {
                             IconBadge(systemImage: style.symbol, tint: Palette.warmGold, size: 44)
@@ -609,7 +613,8 @@ struct OnboardingView: View {
                     .accessibilityIdentifier("style.\(style.rawValue)")
                 }
             }
-            if model.settings.unlockStyle == .guided {
+            readingChoices
+            if model.settings.unlockMethod == .prayer, model.settings.unlockStyle == .guided {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Guided length").font(.akSubheadlineSemibold).foregroundStyle(Palette.cream.opacity(0.8))
                     HStack(spacing: 8) {
@@ -628,67 +633,72 @@ struct OnboardingView: View {
             }
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: model.settings.unlockStyle)
+        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: model.settings.unlockMethod)
+    }
+
+    /// Unlock with: reading instead of praying (Settings → Unlock with has the same choice).
+    private var readingChoices: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Or unlock by reading")
+                .font(.akFootnote.weight(.semibold))
+                .foregroundStyle(Palette.warmGold)
+            HStack(spacing: 10) {
+                ForEach([UnlockMethod.verse, .devotional]) { method in
+                    let isOn = model.settings.unlockMethod == method
+                    Button {
+                        Haptics.selection()
+                        model.updateSettings { $0.unlockMethod = method }
+                    } label: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Image(systemName: method.symbol).foregroundStyle(Palette.warmGold)
+                                Spacer()
+                                Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(isOn ? Palette.gold : Palette.cream.opacity(0.3))
+                            }
+                            Text(method.title).font(.akHeadline).foregroundStyle(Palette.cream)
+                            Text(method == .verse ? "A verse and what it means." : "A verse, a short reading, a prayer.")
+                                .font(.akFootnote).foregroundStyle(Palette.cream.opacity(0.65))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .akCard(padding: 14, cornerRadius: 20, highlighted: isOn)
+                    }
+                    .buttonStyle(PressScaleStyle())
+                    .accessibilityAddTraits(isOn ? .isSelected : [])
+                    .accessibilityIdentifier("onboarding.unlockWith.\(method.rawValue)")
+                }
+            }
+        }
+        .padding(.top, 6)
     }
 
     private var windowPage: some View {
         scrollPage {
             header(text("window.headline", "How long should Amen unlock?"),
                    text("window.subline", "After you pray, your apps stay open this long."))
-            VStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    ForEach(ShieldPlanner.windowOptions(for: model.settings.lockMethod), id: \.self) { minutes in
-                        let isOn = model.settings.unlockMode == .window && model.effectiveWindowMinutes == minutes
-                        Button {
-                            Haptics.selection()
-                            model.updateSettings { s in
-                                s.unlockMode = .window
-                                s.unlockWindowMinutes = minutes
-                            }
-                        } label: {
-                            VStack(spacing: 2) {
-                                Text("\(minutes)").font(.system(.title, design: .serif, weight: .bold))
-                                Text("min").font(.akCaption)
-                            }
-                            .foregroundStyle(isOn ? Palette.midnight : Palette.cream)
-                            .frame(maxWidth: .infinity, minHeight: 84)
-                            .background(RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                .fill(isOn ? AnyShapeStyle(Palette.goldButton) : AnyShapeStyle(Color.white.opacity(0.06))))
-                            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.white.opacity(isOn ? 0 : 0.1), lineWidth: 1))
-                        }
-                        .buttonStyle(PressScaleStyle())
-                        .accessibilityLabel("\(minutes) minutes")
-                        .accessibilityAddTraits(isOn ? .isSelected : [])
-                    }
-                }
-                if model.settings.lockMethod == .screenTime {
-                    Text("Screen Time locks apps again no sooner than 15 minutes, so windows start there.")
-                        .font(.akCaption)
-                        .foregroundStyle(Palette.cream.opacity(0.6))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                let daily = model.settings.unlockMode == .dailyKey
-                Button {
-                    Haptics.selection()
-                    model.updateSettings { $0.unlockMode = .dailyKey }
-                } label: {
-                    HStack(spacing: 14) {
-                        IconBadge(systemImage: "key.horizontal.fill", tint: Palette.warmGold, size: 44)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Daily key").font(.akHeadline).foregroundStyle(Palette.cream)
-                            Text("Pray once in the morning and your apps stay open until 4 AM. Gentler, still prayer-first.")
-                                .font(.akFootnote).foregroundStyle(Palette.cream.opacity(0.65))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Spacer(minLength: 0)
-                        Image(systemName: daily ? "checkmark.circle.fill" : "circle")
-                            .font(.title3)
-                            .foregroundStyle(daily ? Palette.gold : Palette.cream.opacity(0.3))
-                    }
-                    .akCard(padding: 14, cornerRadius: 20, highlighted: daily)
-                }
-                .buttonStyle(PressScaleStyle())
-                .accessibilityAddTraits(daily ? .isSelected : [])
+            UnlockChoiceGrid(presets: model.unlockPresets, selected: model.unlockChoice) { choice in
+                model.updateSettings { choice.apply(to: &$0) }
             }
+            if model.settings.lockMethod == .screenTime {
+                Text("Screen Time locks apps again no sooner than 15 minutes, so windows start there.")
+                    .font(.akCaption)
+                    .foregroundStyle(Palette.cream.opacity(0.6))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text(model.unlockChoice == .restOfToday
+                 ? "Pray once and your apps stay open until \(UnlockForView.hourLabel(model.settings.dailyKeyResetHour)). You can change the time in Settings."
+                 : "Want to decide each time? Turn on the switch below.")
+                .font(.akFootnote)
+                .foregroundStyle(Palette.cream.opacity(0.65))
+                .fixedSize(horizontal: false, vertical: true)
+            Toggle(isOn: model.binding(\.askUnlockEachTime)) {
+                Text("Ask me after each prayer").font(.akHeadline).foregroundStyle(Palette.cream)
+            }
+            .tint(Palette.gold)
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white.opacity(0.06)))
+            .accessibilityIdentifier("onboarding.askEachTime")
         }
     }
 
@@ -757,9 +767,9 @@ struct OnboardingView: View {
                 .frame(maxWidth: .infinity)
             header(text("gateSetup.headline", "Set up your Prayer Gate."),
                    text("gateSetup.subline", "A quick Shortcuts automation lets us know when you open a gated app."))
-            HStack(spacing: 10) {
-                ForEach(model.settings.gatedApps.prefix(5)) { app in
-                    AppTile(app: app, size: 44)
+            HStack(spacing: 6) {
+                ForEach(model.settings.gatedApps.prefix(4)) { app in
+                    AppNameChip(app: app)
                 }
                 if model.settings.gatedApps.isEmpty {
                     Text("No apps chosen yet. You can set this up later in Settings.")
@@ -767,7 +777,7 @@ struct OnboardingView: View {
                         .foregroundStyle(Palette.cream.opacity(0.6))
                 }
             }
-            Label("About a minute per app. We'll show every tap.", systemImage: "clock.fill")
+            Label("One automation for all your apps, about a minute. We'll show every tap.", systemImage: "clock.fill")
                 .font(.akFootnote.weight(.semibold))
                 .foregroundStyle(Palette.warmGold)
         }

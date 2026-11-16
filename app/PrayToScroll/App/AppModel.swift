@@ -50,6 +50,16 @@ struct PrayerCompletion: Equatable {
     var unlockedUntil: Date?
     var gatedApp: GatedApp?
     var personName: String
+    /// How long this Amen unlocked (the default, or what the person picked on the Amen screen).
+    var unlockChoice: UnlockChoice = .minutes(GateEngine.defaultWindowMinutes)
+}
+
+/// The gate state just before a prayer's unlock, so "Ask me after each prayer" can re-apply this prayer's
+/// window with another length (shorter included) without touching what earlier prayers opened.
+struct UnlockBase: Equatable {
+    var unlockedUntil: Date?
+    var dailyKeyUntil: Date?
+    var at: Date
 }
 
 @MainActor
@@ -312,7 +322,10 @@ final class AppModel {
     }
 
     func setupStatus(for app: GatedApp, now: Date = Date()) -> GateSetupStatus {
-        GateSetupStatus.status(lastFired: gateFired[app.id], markedSetUpAt: setupMarked[app.id], now: now)
+        // The all-apps automation fires as "app": it protects every gated app it was set up for.
+        let fired = [gateFired[app.id], gateFired[GateEngine.anyAppID]].compactMap { $0 }.max()
+        let marked = [setupMarked[app.id], setupMarked[GateEngine.anyAppID]].compactMap { $0 }.max()
+        return GateSetupStatus.status(lastFired: fired, markedSetUpAt: marked, now: now)
     }
 
     var protectedCount: Int {
@@ -325,6 +338,17 @@ final class AppModel {
         store.setupMarked = marked
         reloadGateState()
     }
+
+    /// "I've added it" for the one automation that covers every gated app.
+    func markAllAppsSetUp() {
+        var marked = store.setupMarked
+        marked[GateEngine.anyAppID] = Date()
+        store.setupMarked = marked
+        reloadGateState()
+    }
+
+    /// The app "Test my gate" opens: the first gated app we can open by URL.
+    var testableGatedApp: GatedApp? { settings.gatedApps.first { $0.openURL != nil } }
 
     var canUseEmergencyPass: Bool {
         GateEngine.canUseEmergencyPass(now: Date(), lastUsed: emergencyLastUsed, calendar: .current)
@@ -363,8 +387,14 @@ final class AppModel {
     /// so the automation that fires on the way in returns silently.
     func openApp(_ app: GatedApp) {
         store.grantLaunchPass(appID: app.id)
-        guard let url = app.openURL else { return }
-        UIApplication.shared.open(url)
+        guard let url = app.openURL else {
+            toast = "Now open \(app.name). It’s unlocked."
+            return
+        }
+        UIApplication.shared.open(url) { [weak self] opened in
+            guard !opened else { return }
+            Task { @MainActor in self?.toast = "Now open \(app.name). It’s unlocked." }
+        }
     }
 
     // MARK: Gate tests
@@ -449,7 +479,7 @@ final class AppModel {
                      personID: UUID? = nil, mood: PrayerMood? = nil, isSample: Bool = false,
                      verse: Verse? = nil, seedPrompt: String? = nil, topic: PrayerTopic? = nil,
                      circleRequest: CirclePrayerRequest? = nil) {
-        let request = SessionRequest(style: style ?? settings.unlockStyle, source: source, gatedAppID: gatedAppID,
+        let request = SessionRequest(style: style ?? defaultSessionStyle, source: source, gatedAppID: gatedAppID,
                                      personID: personID, mood: mood, isSample: isSample,
                                      verse: verse, seedPrompt: seedPrompt, topic: topic, circleRequest: circleRequest)
         if activeSession != nil {
@@ -466,7 +496,17 @@ final class AppModel {
     }
 
     /// Minimum seconds before Amen unlocks, by style.
-    func minimumSeconds(for style: UnlockStyle, isSample: Bool) -> Double {
+    /// What a prayer starts as by default: the Unlock with choice (Prayer uses the prayer style).
+    var defaultSessionStyle: UnlockStyle {
+        settings.unlockMethod.style(prayerStyle: settings.unlockStyle)
+    }
+
+    /// The style for a method picked on the gate screen ("Ask me after each prayer").
+    func sessionStyle(for method: UnlockMethod) -> UnlockStyle {
+        method.style(prayerStyle: settings.unlockStyle)
+    }
+
+    func minimumSeconds(for style: UnlockStyle, isSample: Bool, readingWords: Int = 0) -> Double {
         #if DEBUG
         if isSample { return options.isUITest && !options.longMinimum ? 2 : 15 }
         if options.isUITest && !options.longMinimum { return 3 }
@@ -478,6 +518,8 @@ final class AppModel {
         case .guided: return Double(max(30, settings.guidedSeconds))
         case .verse: return 45
         case .forSomeone: return 40
+        case .readVerse: return Double(ReadingTime.verse(words: readingWords))
+        case .devotional: return Double(ReadingTime.devotional(words: readingWords))
         }
     }
 
@@ -517,21 +559,10 @@ final class AppModel {
         }
 
         // Unlock: write it to the app group now, before any "Continue" can reopen the app.
-        let now = Date()
-        var until: Date?
-        switch settings.unlockMode {
-        case .window:
-            let end = lockSafeEnd(GateEngine.unlock(from: now, minutes: effectiveWindowMinutes, existing: store.unlockedUntil), now: now)
-            store.unlockedUntil = end
-            until = end
-            ReminderService.shared.scheduleWindowEnd(at: end, minutes: effectiveWindowMinutes, enabled: settings.windowEndNudge)
-        case .dailyKey:
-            let end = lockSafeEnd(GateEngine.dailyKeyUntil(from: now, resetHour: settings.dailyKeyResetHour, calendar: .current), now: now)
-            store.dailyKeyUntil = end
-            until = end
-        }
-        reloadGateState()
-        syncLock(now: now)
+        let base = UnlockBase(unlockedUntil: store.unlockedUntil, dailyKeyUntil: store.dailyKeyUntil, at: Date())
+        lastUnlockBase = base
+        let choice = unlockChoice
+        let until = applyUnlock(choice, base: base)
         refreshChallenges()
         refreshReminders()
         WidgetCenter.shared.reloadAllTimelines()
@@ -539,7 +570,58 @@ final class AppModel {
 
         return PrayerCompletion(previousStreak: previous, streak: streak, newMilestones: earned,
                                 unlockMode: settings.unlockMode, unlockedUntil: until,
-                                gatedApp: gatedApp(id: outcome.gatedAppID), personName: outcome.personName)
+                                gatedApp: gatedApp(id: outcome.gatedAppID), personName: outcome.personName,
+                                unlockChoice: choice)
+    }
+
+    // MARK: Unlock length
+
+    /// The default unlock length (Settings → Unlock for).
+    var unlockChoice: UnlockChoice {
+        let choice = UnlockChoice.current(in: settings)
+        // A 5-minute default picked in Shortcuts mode becomes 15 under Screen Time (its floor).
+        if case .minutes(let minutes) = choice, minutes < minimumUnlockMinutes { return .minutes(minimumUnlockMinutes) }
+        return choice
+    }
+
+    /// The shortest window offered: 5 minutes in Shortcuts mode.
+    var minimumUnlockMinutes: Int { ShieldPlanner.minimumWindowMinutes(for: usesScreenTime ? .screenTime : .shortcuts) }
+
+    /// The presets offered in Settings, onboarding and on the Amen screen (Custom is separate).
+    var unlockPresets: [UnlockChoice] { UnlockChoice.presets(minimumMinutes: minimumUnlockMinutes) }
+
+    @ObservationIgnored private(set) var lastUnlockBase: UnlockBase?
+
+    /// Writes one prayer's unlock on top of `base` and returns when the apps lock again. Windows are absolute
+    /// instants; the window-end nudge is rescheduled (cancelled for Rest of today, which ends at the reset hour).
+    @discardableResult
+    func applyUnlock(_ choice: UnlockChoice, base: UnlockBase) -> Date {
+        // Under Screen Time nothing ends sooner than 15 minutes from the Amen (DeviceActivity's floor).
+        let end = lockSafeEnd(choice.end(from: base.at, resetHour: settings.dailyKeyResetHour, calendar: .current), now: base.at)
+        switch choice {
+        case .restOfToday:
+            store.unlockedUntil = base.unlockedUntil
+            store.dailyKeyUntil = max(end, base.dailyKeyUntil ?? end)
+            ReminderService.shared.scheduleWindowEnd(at: end, minutes: nil, enabled: false)
+        case .minutes, .custom:
+            store.dailyKeyUntil = base.dailyKeyUntil
+            let window = GateEngine.unlock(from: base.at, until: end, existing: base.unlockedUntil)
+            store.unlockedUntil = window
+            let minutes = max(1, Int((window.timeIntervalSince(base.at) / 60).rounded()))
+            ReminderService.shared.scheduleWindowEnd(at: window, minutes: minutes, enabled: settings.windowEndNudge)
+        }
+        reloadGateState()
+        syncLock(now: base.at)
+        return currentUnlockEnd(now: base.at) ?? end
+    }
+
+    /// "Ask me after each prayer": re-applies the last Amen's unlock with another length. Returns the new end.
+    @discardableResult
+    func changeLastUnlock(to choice: UnlockChoice) -> Date? {
+        guard let base = lastUnlockBase else { return nil }
+        let until = applyUnlock(choice, base: base)
+        WidgetCenter.shared.reloadAllTimelines()
+        return until
     }
 
     // MARK: People
@@ -707,6 +789,10 @@ final class AppModel {
         switch route {
         case "pray": startPrayer(source: .manual)
         case "gatepray": startPrayer(source: .gate, gatedAppID: "instagram")
+        case "gateany": startPrayer(style: .quick, source: .gate, gatedAppID: GateEngine.anyAppID)
+        case "gateask":
+            updateSettings { $0.askUnlockEachTime = true }
+            startPrayer(source: .gate, gatedAppID: "instagram")
         case "quick": startPrayer(style: .quick, source: .manual)
         case "someone": startPrayer(style: .forSomeone, source: .manual, personID: suggestedPerson()?.id)
         case "choose": startPrayer(style: .forSomeone, source: .manual)

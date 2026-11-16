@@ -329,10 +329,18 @@ final class ContentStore: @unchecked Sendable {
     let moodPrompts: [PrayerMood: [String]]
     /// The Advent journey (Nov 29 – Dec 24; shown only on those dates).
     let advent: [AdventDay]
+    /// devotionals.json (Unlock with → Devotional).
+    let devotionals: [Devotional]
 
     init(bundle: Bundle = .main) {
         let decoder = JSONDecoder()
         advent = ContentStore.data(named: "advent", bundle: bundle).flatMap { try? decoder.decode([AdventDay].self, from: $0) } ?? []
+        if let data = ContentStore.data(named: "devotionals", bundle: bundle),
+           let list = try? decoder.decode([Devotional].self, from: data), !list.isEmpty {
+            devotionals = list
+        } else {
+            devotionals = [.fallback]
+        }
         if let data = ContentStore.data(named: "prompts", bundle: bundle),
            let library = try? decoder.decode(PromptLibrary.self, from: data) {
             prompts = library

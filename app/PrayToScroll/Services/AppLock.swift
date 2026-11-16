@@ -166,12 +166,14 @@ final class DemoLock: AppLock {
     func setPicked(_ ids: [String]) { pickedIDs = ids }
 
     func icons(size: CGFloat, limit: Int) -> AnyView {
+        // Names only: the demo never draws a fake app logo (the real lock shows Apple's icons).
         let apps = pickedIDs.compactMap { AppCatalog.app(id: $0, customApps: []) }
+        let shown = min(limit, 3)
         return AnyView(
-            HStack(spacing: 8) {
-                ForEach(apps.prefix(limit)) { AppTile(app: $0, size: size) }
-                if apps.count > limit {
-                    Text("+\(apps.count - limit)").font(.akFootnote.weight(.semibold)).foregroundStyle(Theme.textSecondary)
+            HStack(spacing: 6) {
+                ForEach(apps.prefix(shown)) { AppNameChip(app: $0) }
+                if apps.count > shown {
+                    Text("+\(apps.count - shown)").font(.akFootnote.weight(.semibold)).foregroundStyle(Theme.textSecondary)
                 }
             }
             .accessibilityElement(children: .ignore)
@@ -201,7 +203,6 @@ private struct DemoLockPicker: View {
                     if picked.contains(app.id) { picked.remove(app.id) } else { picked.insert(app.id) }
                 } label: {
                     HStack {
-                        AppTile(app: app, size: 30)
                         Text(app.name).foregroundStyle(Theme.textPrimary)
                         Spacer()
                         Image(systemName: picked.contains(app.id) ? "checkmark.circle.fill" : "circle")

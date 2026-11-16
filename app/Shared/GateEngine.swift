@@ -31,7 +31,12 @@ struct GateSnapshot: Equatable, Sendable {
 
 /// Pure decision logic for the Prayer Gate (used by the App Intents, the app and the tests).
 enum GateEngine {
-    static let windowOptions = [5, 15, 30, 60]
+    /// The id "Pray First" sends when its App field is left empty: ONE automation for all your apps.
+    /// It can't tell which app opened, so it honours any app's launch pass or test.
+    static let anyAppID = "app"
+
+    /// The shortest window in Shortcuts mode (Screen Time's floor in v1.1 is 15).
+    static let minimumWindowMinutes = 5
     static let defaultWindowMinutes = 15
     static let emergencyMinutes = 5
     static let defaultDailyResetHour = 4
@@ -59,6 +64,12 @@ enum GateEngine {
         return existing
     }
 
+    /// Extends (never shortens) the unlock window to `proposed`.
+    static func unlock(from now: Date, until proposed: Date, existing: Date?) -> Date {
+        guard let existing, existing > proposed else { return proposed }
+        return existing
+    }
+
     /// The next reset instant for the Daily key: today at `resetHour` if that's still ahead, else tomorrow.
     static func dailyKeyUntil(from now: Date, resetHour: Int, calendar: Calendar) -> Date {
         let hour = min(23, max(0, resetHour))
@@ -69,10 +80,10 @@ enum GateEngine {
 
     static func decide(appID: String, now: Date, snapshot: GateSnapshot) -> GateDecision {
         let key = canonicalID(appID, customApps: snapshot.customApps)
+        let anyApp = key == anyAppID
 
         // A pending test always wins, so "Test my gate" works even while unlocked.
-        if let started = snapshot.testPending[key], now.timeIntervalSince(started) >= 0,
-           now.timeIntervalSince(started) < testWindowSeconds {
+        if testedApp(key, now: now, snapshot: snapshot) != nil {
             return .verifyTest
         }
         if !snapshot.gateEnabled { return .allow(until: nil, reason: .gateOff) }
@@ -84,7 +95,8 @@ enum GateEngine {
         if AppCatalog.isKnown(id: key, customApps: snapshot.customApps), !snapshot.gatedAppIDs.contains(key) {
             return .allow(until: nil, reason: .notGated)
         }
-        if let pass = snapshot.launchPasses[key], now < pass {
+        if let pass = anyApp ? snapshot.launchPasses.values.filter({ now < $0 }).max() : snapshot.launchPasses[key],
+           now < pass {
             return .allow(until: pass, reason: .launchPass)
         }
         if let daily = snapshot.dailyKeyUntil, now < daily {
@@ -97,6 +109,16 @@ enum GateEngine {
             return .allow(until: ended.addingTimeInterval(graceSeconds), reason: .grace)
         }
         return .requirePrayer
+    }
+
+    /// The app whose "Test my gate" this run answers: the app itself, or (for the all-apps automation) the most
+    /// recent test still open.
+    static func testedApp(_ key: String, now: Date, snapshot: GateSnapshot) -> String? {
+        func fresh(_ started: Date) -> Bool { now.timeIntervalSince(started) >= 0 && now.timeIntervalSince(started) < testWindowSeconds }
+        if key == anyAppID {
+            return snapshot.testPending.filter { fresh($0.value) }.max { $0.value < $1.value }?.key
+        }
+        return snapshot.testPending[key].map(fresh) == true ? key : nil
     }
 
     /// Maps aliases ("twitter", "fb") to catalog ids so passes and tests line up.

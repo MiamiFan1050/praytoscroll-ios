@@ -6,19 +6,19 @@ struct GatedApp: Identifiable, Codable, Hashable, Sendable {
     var name: String
     /// URL used to send the person back to the app after they pray, e.g. `instagram://`.
     var urlString: String
-    /// Tile color (hex RGB) for the app's letter tile. House colors only: no third-party logos, glyphs or brand colors.
+    /// Legacy (v1.0 letter tiles). Kept so saved apps still decode; the UI shows names only, never a fake logo.
     var colorHex: UInt32
     var secondaryHex: UInt32
     var isCustom: Bool
 
-    var openURL: URL? { URL(string: urlString) }
+    /// nil when there's no known way to open the app: after the Amen we say "Now open <name>" instead.
+    var openURL: URL? { urlString.isEmpty ? nil : URL(string: urlString) }
 
-    var monogram: String {
-        switch id {
-        case "x": return "X"
-        default: return String(name.prefix(1)).uppercased()
-        }
-    }
+    /// The featured apps each have their own "Pray Before <app>" Shortcuts action; every other app uses Pray First.
+    var hasPresetIntent: Bool { !isCustom && AppCatalog.featured.contains { $0.id == id } }
+
+    /// An app added by name only ("Other app…"): no URL scheme.
+    static func named(_ name: String) -> GatedApp { custom(name: name, scheme: "") }
 
     static func custom(name: String, scheme: String) -> GatedApp {
         let cleanedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -61,7 +61,15 @@ struct GatedApp: Identifiable, Codable, Hashable, Sendable {
 }
 
 enum AppCatalog {
-    static let all: [GatedApp] = [
+    private static func entry(_ id: String, _ name: String, _ scheme: String) -> GatedApp {
+        GatedApp(id: id, name: name, urlString: scheme, colorHex: 0xE9B949, secondaryHex: 0xB8862B, isCustom: false)
+    }
+
+    /// Everything the gate knows by name: the featured apps plus the "Add another" list.
+    static let all: [GatedApp] = featured + more
+
+    /// The apps shown first in the picker.
+    static let featured: [GatedApp] = [
         GatedApp(id: "instagram", name: "Instagram", urlString: "instagram://", colorHex: 0x2FB3A3, secondaryHex: 0x1C7F74, isCustom: false),
         GatedApp(id: "tiktok", name: "TikTok", urlString: "snssdk1233://", colorHex: 0xE07A5F, secondaryHex: 0xB4513A, isCustom: false),
         GatedApp(id: "youtube", name: "YouTube", urlString: "youtube://", colorHex: 0x7C6CF2, secondaryHex: 0x4B3FC4, isCustom: false),
@@ -72,6 +80,81 @@ enum AppCatalog {
         GatedApp(id: "threads", name: "Threads", urlString: "barcelona://", colorHex: 0x5B8DEF, secondaryHex: 0x3461C4, isCustom: false),
         GatedApp(id: "pinterest", name: "Pinterest", urlString: "pinterest://", colorHex: 0x7C6CF2, secondaryHex: 0x4B3FC4, isCustom: false),
     ]
+
+    /// "Add another": popular apps by name, each with the URL scheme that opens it. A scheme is listed only when
+    /// it's registered in a shipping build's Info.plist or two independent sources agree (checked 2026-11-16, not
+    /// on a device); empty = not verified, so after the Amen the person opens it themselves. The real app is picked in Shortcuts; this list only lets
+    /// us send them back to it. Sorted by name in the picker.
+    static let more: [GatedApp] = [
+        entry("discord", "Discord", "discord://"),
+        entry("twitch", "Twitch", "twitch://"),
+        entry("bereal", "BeReal", ""),
+        entry("netflix", "Netflix", "nflx://"),
+        entry("spotify", "Spotify", "spotify://"),
+        entry("whatsapp", "WhatsApp", "whatsapp://"),
+        entry("telegram", "Telegram", "tg://"),
+        entry("roblox", "Roblox", "roblox://"),
+        entry("hulu", "Hulu", "hulu://"),
+        entry("disneyplus", "Disney+", "disneyplus://"),
+        entry("primevideo", "Prime Video", "aiv://"),
+        entry("linkedin", "LinkedIn", "linkedin://"),
+        entry("tumblr", "Tumblr", "tumblr://"),
+        entry("kick", "Kick", ""),
+        entry("messenger", "Messenger", "fb-messenger://"),
+        entry("tinder", "Tinder", "tinder://"),
+        entry("hinge", "Hinge", ""),
+        entry("bumble", "Bumble", "bumble://"),
+        entry("amazon", "Amazon", "com.amazon.mobile.shopping://"),
+        entry("temu", "Temu", "temu://"),
+        entry("shein", "SHEIN", ""),
+        entry("ebay", "eBay", "ebay://"),
+        entry("max", "Max", ""),
+        entry("peacock", "Peacock", ""),
+        entry("paramountplus", "Paramount+", "pplus://"),
+        entry("youtubemusic", "YouTube Music", ""),
+        entry("clashofclans", "Clash of Clans", "clashofclans://"),
+        entry("clashroyale", "Clash Royale", "clashroyale://"),
+        entry("brawlstars", "Brawl Stars", "brawlstars://"),
+        entry("minecraft", "Minecraft", ""),
+        entry("pokemongo", "Pokémon GO", ""),
+        entry("candycrush", "Candy Crush Saga", ""),
+        entry("subwaysurfers", "Subway Surfers", ""),
+        entry("codmobile", "Call of Duty: Mobile", ""),
+        entry("genshin", "Genshin Impact", ""),
+        entry("monopolygo", "Monopoly GO!", ""),
+        entry("royalmatch", "Royal Match", ""),
+        entry("capcut", "CapCut", "capcut://"),
+        entry("lemon8", "Lemon8", ""),
+        entry("vsco", "VSCO", ""),
+        entry("quora", "Quora", "quora://"),
+        entry("signal", "Signal", "sgnl://"),
+        entry("kindle", "Kindle", ""),
+        entry("audible", "Audible", ""),
+        entry("soundcloud", "SoundCloud", "soundcloud://"),
+        entry("pandora", "Pandora", ""),
+        entry("crunchyroll", "Crunchyroll", "crunchyroll://"),
+        entry("bluesky", "Bluesky", "bluesky://"),
+        entry("espn", "ESPN", "sportscenter://"),
+        entry("chesscom", "Chess.com", ""),
+        entry("tubi", "Tubi", ""),
+        entry("duolingo", "Duolingo", "duolingo://"),
+        entry("steam", "Steam", ""),
+        entry("ninegag", "9GAG", ""),
+        entry("imgur", "Imgur", ""),
+        entry("nextdoor", "Nextdoor", ""),
+    ]
+
+    /// "Add another" search: case- and accent-insensitive, matching any word start ("prime" finds Prime Video).
+    static func search(_ query: String, excluding ids: Set<String> = []) -> [GatedApp] {
+        let pool = more.filter { !ids.contains($0.id) }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        let q = query.trimmingCharacters(in: .whitespaces).folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+        guard !q.isEmpty else { return pool }
+        return pool.filter { app in
+            let name = app.name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            let squashed = name.filter { $0.isLetter || $0.isNumber }
+            return name.hasPrefix(q) || name.contains(" " + q) || squashed.hasPrefix(q.filter { $0.isLetter || $0.isNumber })
+        }
+    }
 
     static func app(id: String, customApps: [GatedApp] = []) -> GatedApp? {
         let key = id.lowercased()

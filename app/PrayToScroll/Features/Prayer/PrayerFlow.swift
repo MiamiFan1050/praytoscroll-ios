@@ -3,8 +3,17 @@ import Observation
 import SwiftData
 
 /// One screen of a prayer.
+/// What a reading step shows (Read a verse / Devotional).
+struct ReadingCard: Equatable {
+    var title: String = ""
+    var ref: String
+    var text: String
+    var body: String
+    var closing: String = ""
+}
+
 struct PrayerStep: Identifiable, Equatable {
-    enum Kind: Equatable { case prompt, verseReveal }
+    enum Kind: Equatable { case prompt, verseReveal, reading }
     let id = UUID()
     var kind: Kind
     var overline: String
@@ -13,6 +22,7 @@ struct PrayerStep: Identifiable, Equatable {
     var symbol: String
     /// Prompt-bag key, used by "another prompt".
     var poolKey: String
+    var reading: ReadingCard? = nil
 }
 
 enum SessionPhase: Equatable {
@@ -25,7 +35,11 @@ enum SessionPhase: Equatable {
 final class PrayerFlow {
     let request: SessionRequest
     let model: AppModel
-    let minimumSeconds: Double
+    private(set) var minimumSeconds: Double
+    /// Starts as the request's style; the gate screen can switch it ("Ask me after each prayer").
+    private(set) var style: UnlockStyle
+    /// The devotional on screen, if any.
+    private(set) var devotional: Devotional?
 
     var phase: SessionPhase
     var steps: [PrayerStep] = []
@@ -49,6 +63,7 @@ final class PrayerFlow {
         self.request = request
         self.model = model
         self.minimumSeconds = model.minimumSeconds(for: request.style, isSample: request.isSample)
+        self.style = request.style
         self.verse = request.verse ?? model.verses.verse()
         self.mood = request.mood
         self.phase = request.style == .forSomeone && request.personID == nil ? .choosePerson : .praying
@@ -58,7 +73,26 @@ final class PrayerFlow {
         if phase == .praying { buildSteps() }
     }
 
-    var style: UnlockStyle { request.style }
+    var method: UnlockMethod { UnlockMethod(style: style) }
+
+    /// The gate screen offers Prayer / Read a verse / Devotional when "Ask me after each prayer" is on.
+    var canSwitchMethod: Bool {
+        request.source == .gate && !request.isSample && model.settings.askUnlockEachTime && phase == .praying
+    }
+
+    /// Switches how this unlock happens; the timer starts again for the new choice.
+    func switchMethod(to newMethod: UnlockMethod) {
+        guard newMethod != method else { return }
+        var next = model.sessionStyle(for: newMethod)
+        if next == .forSomeone, personName.isEmpty { next = .quick }   // no person picked on the gate screen
+        style = next
+        minimumSeconds = model.minimumSeconds(for: next, isSample: request.isSample)
+        buildSteps()
+        elapsed = 0
+        startedAt = Date()
+        showWelcomeBack = false
+        Haptics.selection()
+    }
     var gatedApp: GatedApp? { model.gatedApp(id: request.gatedAppID) }
     var currentStep: PrayerStep? { steps.indices.contains(stepIndex) ? steps[stepIndex] : nil }
     var isLastStep: Bool { stepIndex >= steps.count - 1 }
@@ -165,6 +199,28 @@ final class PrayerFlow {
             built = [PrayerStep(kind: .prompt, overline: "Praying for \(name)", title: "",
                                 prompt: ContentStore.fill(draw("forSomeone", library.forSomeone), name: name),
                                 symbol: "person.2.fill", poolKey: "forSomeone")]
+        case .readVerse:
+            // A different verse each time (a shuffled bag over the 366), unless a specific one was asked for.
+            if request.verse == nil {
+                let all = model.verses.verses
+                let ref = draw("readVerse", all.map(\.ref))
+                verse = all.first { $0.ref == ref } ?? verse
+            }
+            let card = ReadingCard(ref: verse.ref, text: verse.displayText, body: verse.meaning ?? "")
+            built = [PrayerStep(kind: .reading, overline: "Read a verse", title: verse.ref, prompt: verse.displayText,
+                                symbol: UnlockMethod.verse.symbol, poolKey: "", reading: card)]
+            minimumSeconds = model.minimumSeconds(for: style, isSample: request.isSample,
+                                                  readingWords: ReadingTime.wordCount([card.text, card.body]))
+        case .devotional:
+            let all = model.content.devotionals
+            let id = draw("devotional", all.map(\.id))
+            let entry = all.first { $0.id == id } ?? all.first ?? .fallback
+            devotional = entry
+            let text = model.settings.translation == .kjv ? (entry.kjv ?? entry.text) : entry.text
+            let card = ReadingCard(title: entry.title, ref: entry.ref, text: text, body: entry.body, closing: entry.prayer)
+            built = [PrayerStep(kind: .reading, overline: "Devotional", title: entry.title, prompt: text,
+                                symbol: UnlockMethod.devotional.symbol, poolKey: "", reading: card)]
+            minimumSeconds = model.minimumSeconds(for: style, isSample: request.isSample, readingWords: entry.readingWords)
         }
         steps = built
         stepIndex = 0
@@ -261,10 +317,18 @@ final class PrayerFlow {
         }
         let outcome = PrayerOutcome(style: style, source: request.source, gatedAppID: request.gatedAppID,
                                     startedAt: startedAt, completedAt: Date(), personID: personID,
-                                    personName: personName, verseRef: style == .verse ? verse.ref : "",
+                                    personName: personName, verseRef: verseRefForHistory,
                                     circleRequest: request.circleRequest)
         completion = model.completePrayer(outcome)
         withAnimationPhase(style == .forSomeone && !personName.isEmpty ? .letThemKnow : .celebration)
+    }
+
+    private var verseRefForHistory: String {
+        switch style {
+        case .verse, .readVerse: return verse.ref
+        case .devotional: return devotional?.ref ?? ""
+        default: return ""
+        }
     }
 
     func finishLetThemKnow() {

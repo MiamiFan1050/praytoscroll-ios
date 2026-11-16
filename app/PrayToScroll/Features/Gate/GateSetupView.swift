@@ -62,7 +62,7 @@ struct GateSetupView: View {
                 .font(.akTitle)
                 .foregroundStyle(Theme.textPrimary)
                 .accessibilityIdentifier("gate.title")
-            Text("Apple's Shortcuts app tells \(AppConstants.appName) when a gated app opens. It takes about a minute per app, and you only do it once.")
+            Text("Apple's Shortcuts app tells \(AppConstants.appName) when a gated app opens. One automation covers all your apps. It takes about a minute, once.")
                 .font(.akCallout)
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -91,7 +91,7 @@ struct GateSetupView: View {
         let protected = apps.filter { model.setupStatus(for: $0).isProtected }.count
         return VStack(alignment: .leading, spacing: 14) {
             checkRow(done: !apps.isEmpty, title: "Choose your apps", detail: apps.isEmpty ? "Start with 1–3 apps" : "\(apps.count) chosen")
-            checkRow(done: protected > 0, title: "Create the automations", detail: protected == apps.count && !apps.isEmpty ? "All set" : "\(protected) of \(apps.count) protected")
+            checkRow(done: protected > 0, title: "Create the automation", detail: protected == apps.count && !apps.isEmpty ? "All set" : "\(protected) of \(apps.count) protected")
             checkRow(done: model.settings.gateEnabled && protected > 0, title: "Gate is on", detail: model.settings.gateEnabled ? (model.isPaused() ? "Paused" : "On") : "Off in Settings")
         }
         .akCard()
@@ -123,12 +123,22 @@ struct GateSetupView: View {
                 }
                 .buttonStyle(PressScaleStyle())
             }
+            if !model.settings.gatedApps.isEmpty, protectedAll == false {
+                PrimaryButton("Set up all apps at once", systemImage: "list.number") {
+                    guideApp = model.testableGatedApp ?? model.settings.gatedApps.first
+                }
+                .accessibilityIdentifier("gate.setupAll")
+            }
             ForEach(model.settings.gatedApps) { app in
                 GateAppRow(app: app, status: model.setupStatus(for: app),
                            onGuide: { guideApp = app },
                            onTest: { model.testGate(app) })
             }
         }
+    }
+
+    private var protectedAll: Bool {
+        model.settings.gatedApps.allSatisfy { model.setupStatus(for: $0).isProtected }
     }
 
     private var howItWorks: some View {
@@ -163,7 +173,7 @@ struct GateAppRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 14) {
-                AppTile(app: app, size: 48)
+                IconBadge(systemImage: status.isProtected ? "lock.shield.fill" : "app.badge", tint: status.isProtected ? Theme.sageText : Theme.goldIcon, size: 48)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(app.name).font(.akHeadline).foregroundStyle(Theme.textPrimary)
                     StatusBadge(status: status)
