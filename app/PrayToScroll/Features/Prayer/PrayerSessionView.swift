@@ -254,6 +254,8 @@ private struct PrayingView: View {
                         .lineLimit(2)
                         .minimumScaleFactor(0.7)
                         .frame(maxWidth: size * 0.72)
+                        .accessibilityLabel(step.overline)
+                        .accessibilityIdentifier("session.overline")
                 }
                 Text(flow.remaining > 0 ? GateEngine.countdownText(flow.remaining) : "Ready")
                     .font(.system(size: size * 0.11, weight: .medium, design: .serif))
@@ -311,6 +313,7 @@ private struct PrayingView: View {
                                 .foregroundStyle(Palette.warmGold.opacity(0.85))
                                 .frame(minHeight: 44)
                         }
+                        .accessibilityIdentifier("session.anotherPrompt")
                     }
                 }
                 .animation(.easeInOut(duration: 0.35), value: step.prompt)

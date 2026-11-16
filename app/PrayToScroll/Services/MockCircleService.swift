@@ -9,6 +9,7 @@ final class MockCircleService: CircleService, @unchecked Sendable {
     private var membersByCode: [String: [CircleMember]] = [:]
     private var joined: [String] = []
     private let meID = "me"
+    private var requestsByCode: [String: [CirclePrayerRequest]] = [:]
     var simulatedAvailability: CircleAvailability = .available
 
     init() {}
@@ -40,10 +41,61 @@ final class MockCircleService: CircleService, @unchecked Sendable {
         service.circles = [code: circle, second.code: second]
         service.membersByCode = [code: members, second.code: family]
         service.joined = [code, second.code]
+        func request(_ id: String, _ member: String, _ name: String, _ emoji: String, _ topic: PrayerTopic, _ note: String,
+                     hoursAgo: Double, prayed: Int) -> CirclePrayerRequest {
+            CirclePrayerRequest(id: id, circleCode: code, memberID: member, displayName: name, emoji: emoji, topic: topic,
+                                note: note, createdAt: Date().addingTimeInterval(-hoursAgo * 3_600), prayedCount: prayed,
+                                iPrayed: false, isMine: false)
+        }
+        service.requestsByCode[code] = [
+            request("req-1", "demo-0", "Sarah", "🌻", .healing, "My grandma's surgery on Friday", hoursAgo: 3, prayed: 4),
+            request("req-2", "demo-2", "James", "⛰️", .work, "Big interview Thursday", hoursAgo: 20, prayed: 2),
+            request("req-3", "demo-3", "Grace", "🌿", .gratitude, "", hoursAgo: 46, prayed: 5),
+        ]
         return service
     }
 
     func availability() async -> CircleAvailability { simulatedAvailability }
+
+    // MARK: Prayer requests
+
+    func requests(code: String) async throws -> [CirclePrayerRequest] {
+        lock.withLock { (requestsByCode[code] ?? []).filter { !$0.isExpired }.sorted { $0.createdAt > $1.createdAt } }
+    }
+
+    func postRequest(code: String, topic: PrayerTopic, note: String, displayName: String, emoji: String) async throws -> CirclePrayerRequest {
+        let clean = RequestNoteFilter.clean(note)
+        guard RequestNoteFilter.problem(with: clean) == nil, NameFilter.isAllowed(displayName) else { throw CircleError.nameNotAllowed }
+        return try lock.withLock {
+            let list = requestsByCode[code] ?? []
+            guard list.filter({ $0.isMine && !$0.isExpired }).count < CirclePrayerRequest.maxOpenPerMember else {
+                throw CircleError.tooManyRequests
+            }
+            let request = CirclePrayerRequest(id: "req-\(UUID().uuidString.prefix(8))", circleCode: code, memberID: meID,
+                                              displayName: NameFilter.clean(displayName), emoji: emoji, topic: topic, note: clean,
+                                              createdAt: Date(), prayedCount: 0, iPrayed: false, isMine: true)
+            requestsByCode[code] = [request] + list
+            return request
+        }
+    }
+
+    func deleteRequest(_ request: CirclePrayerRequest) async throws {
+        lock.withLock { requestsByCode[request.circleCode]?.removeAll { $0.id == request.id && $0.isMine } }
+    }
+
+    func prayed(for request: CirclePrayerRequest) async throws {
+        lock.withLock {
+            guard var list = requestsByCode[request.circleCode],
+                  let index = list.firstIndex(where: { $0.id == request.id }), !list[index].iPrayed else { return }
+            list[index].iPrayed = true
+            list[index].prayedCount += 1
+            requestsByCode[request.circleCode] = list
+        }
+    }
+
+    func reportRequest(_ request: CirclePrayerRequest, reason: String) async throws {
+        CircleBlockList.block(request.memberID)
+    }
 
     func myCircles() async throws -> [PrayerCircle] {
         lock.withLock { joined.compactMap { circles[$0] } }
@@ -86,6 +138,7 @@ final class MockCircleService: CircleService, @unchecked Sendable {
         lock.withLock {
             joined.removeAll { $0 == code }
             membersByCode[code]?.removeAll { $0.isMe }
+            requestsByCode[code]?.removeAll { $0.isMine }
         }
     }
 
@@ -122,7 +175,10 @@ final class MockCircleService: CircleService, @unchecked Sendable {
 
     func deleteMyData(codes: [String]) async throws {
         lock.withLock {
-            for code in codes { membersByCode[code]?.removeAll { $0.isMe } }
+            for code in codes {
+                membersByCode[code]?.removeAll { $0.isMe }
+                requestsByCode[code]?.removeAll { $0.isMine }
+            }
             joined.removeAll()
         }
     }

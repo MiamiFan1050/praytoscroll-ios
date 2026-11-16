@@ -22,6 +22,10 @@ struct SessionRequest: Identifiable, Equatable {
     /// "Pray this" from Scroll the Word: pray a specific verse or prompt.
     var verse: Verse?
     var seedPrompt: String?
+    /// "Pray about…" a topic (family, healing, work…).
+    var topic: PrayerTopic?
+    /// "Pray now" on a circle prayer request: the Amen records "I prayed 🙏" on it.
+    var circleRequest: CirclePrayerRequest?
 }
 
 /// What happened in a finished prayer.
@@ -34,6 +38,7 @@ struct PrayerOutcome {
     var personID: UUID?
     var personName: String = ""
     var verseRef: String = ""
+    var circleRequest: CirclePrayerRequest?
 }
 
 /// What the celebration shows.
@@ -209,6 +214,37 @@ final class AppModel {
         } else {
             syncLock()
         }
+    }
+
+    // MARK: Circle prayer requests
+
+    /// Bumped when something changes a circle's requests outside its screen (a "Pray now" Amen), so it reloads.
+    var circleRevision = 0
+
+    /// A short prayer for a circle member's request. Finishing it records "I prayed 🙏".
+    func prayForCircleRequest(_ request: CirclePrayerRequest) {
+        let ask = request.note.isEmpty
+            ? "\(request.displayName) asked your circle to pray about \(request.topic.requestTitle.lowercased()). Bring it to God for them, in your own words."
+            : "\(request.displayName) asked your circle to pray: “\(request.note)”. Bring it to God for them, in your own words."
+        startPrayer(style: .quick, source: .manual, seedPrompt: ask, topic: request.topic, circleRequest: request)
+    }
+
+    // MARK: Advent
+
+    /// Today's Advent reading, only from Nov 29 to Dec 24 on the device's calendar.
+    func adventToday(now: Date = Date()) -> (index: Int, day: AdventDay)? {
+        AdventPlan.today(options.today ?? now, calendar: .current, days: content.advent)
+    }
+
+    func adventDaysPrayed(now: Date = Date()) -> Int {
+        AdventPlan.daysPrayed(store.prayedDays, through: options.today ?? now, calendar: .current)
+    }
+
+    func prayAdvent(now: Date = Date()) {
+        guard let today = adventToday(now: now) else { return }
+        startPrayer(style: .verse, source: .manual,
+                    verse: AdventPlan.verse(for: today.day, index: today.index, translation: settings.translation),
+                    seedPrompt: today.day.prompt)
     }
 
     /// Home's card for people who set up the v1.0 Shortcuts gate: the real lock is one tap away.
@@ -411,10 +447,11 @@ final class AppModel {
 
     func startPrayer(style: UnlockStyle? = nil, source: SessionSource, gatedAppID: String? = nil,
                      personID: UUID? = nil, mood: PrayerMood? = nil, isSample: Bool = false,
-                     verse: Verse? = nil, seedPrompt: String? = nil) {
+                     verse: Verse? = nil, seedPrompt: String? = nil, topic: PrayerTopic? = nil,
+                     circleRequest: CirclePrayerRequest? = nil) {
         let request = SessionRequest(style: style ?? settings.unlockStyle, source: source, gatedAppID: gatedAppID,
                                      personID: personID, mood: mood, isSample: isSample,
-                                     verse: verse, seedPrompt: seedPrompt)
+                                     verse: verse, seedPrompt: seedPrompt, topic: topic, circleRequest: circleRequest)
         if activeSession != nil {
             activeSession = nil
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { self.activeSession = request }
@@ -465,6 +502,13 @@ final class AppModel {
 
         store.lastPrayerAt = outcome.completedAt
         refreshStreak()
+
+        if let circleRequest = outcome.circleRequest, !circleRequest.isMine {
+            Task {
+                try? await circles.prayed(for: circleRequest)
+                circleRevision += 1
+            }
+        }
 
         // Milestones
         let earned = MilestoneEngine.newlyEarned(streak: streak.current, alreadyAwarded: Set(settings.awardedMilestones))

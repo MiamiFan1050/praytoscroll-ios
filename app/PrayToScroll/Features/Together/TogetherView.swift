@@ -244,6 +244,9 @@ struct CircleDetailView: View {
     @State private var showInvite = false
     @State private var encouraging: CircleMember?
     @State private var hidden = false
+    @State private var requests: [CirclePrayerRequest] = []
+    @State private var asking = false
+    @State private var reportingRequest: CirclePrayerRequest?
 
     private var week: String { CircleWeek.key() }
 
@@ -261,6 +264,7 @@ struct CircleDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     header
+                    requestsSection
                     podium
                     leaderboard
                     footer
@@ -309,6 +313,32 @@ struct CircleDetailView: View {
             }
             .presentationDetents([.medium])
         }
+        .sheet(isPresented: $asking) {
+            AskCircleSheet(circleName: circle?.name ?? "your circle") { topic, note in
+                do {
+                    _ = try await model.circles.postRequest(code: code, topic: topic, note: note,
+                                                            displayName: model.settings.circleName, emoji: model.settings.circleDisplayEmoji)
+                    await load()
+                    model.toast = "Asked. Your circle can pray for this all week."
+                    return nil
+                } catch {
+                    return (error as? CircleError)?.errorDescription ?? CircleError.network.errorDescription
+                }
+            }
+            .presentationDetents([.large])
+        }
+        .sheet(item: $reportingRequest) { request in
+            ReportRequestSheet(request: request) { reason in
+                Task {
+                    try? await model.circles.reportRequest(request, reason: reason)
+                    CircleBlockList.block(request.memberID)
+                    blocked = CircleBlockList.blocked()
+                    model.toast = "Thanks. We'll review it, and you won't see them here."
+                }
+            }
+            .presentationDetents([.medium])
+        }
+        .onChange(of: model.circleRevision) { Task { await load() } }
         .confirmationDialog("Leave \(circle?.name ?? "this circle")?", isPresented: $confirmLeave, titleVisibility: .visible) {
             Button("Leave circle", role: .destructive) {
                 Task {
@@ -333,6 +363,38 @@ struct CircleDetailView: View {
         members = (try? await model.circles.members(code: code)) ?? []
         hidden = members.first { $0.isMe }?.isHidden ?? false
         blocked = CircleBlockList.blocked()
+        requests = (try? await model.circles.requests(code: code)) ?? []
+    }
+
+    private var visibleRequests: [CirclePrayerRequest] {
+        requests.filter { !$0.isExpired && ($0.isMine || !blocked.contains($0.memberID)) }
+    }
+
+    private var requestsSection: some View {
+        CircleRequestsSection(
+            requests: visibleRequests,
+            onAsk: { asking = true },
+            onPrayed: { request in
+                Haptics.success()
+                Task {
+                    try? await model.circles.prayed(for: request)
+                    await load()
+                }
+            },
+            onPrayNow: { request in model.prayForCircleRequest(request) },
+            onReport: { request in reportingRequest = request },
+            onBlock: { request in
+                CircleBlockList.block(request.memberID)
+                blocked = CircleBlockList.blocked()
+                model.toast = "Blocked. You won't see \(request.displayName) in circles."
+            },
+            onRemove: { request in
+                Task {
+                    try? await model.circles.deleteRequest(request)
+                    await load()
+                }
+            }
+        )
     }
 
     private var header: some View {
@@ -466,8 +528,8 @@ struct CircleDetailView: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Touch and hold someone to encourage, report or block them.")
-            Text("Circles share only nicknames, emoji, weekly prayer counts and streaks. Never what you prayed.")
+            Text("Touch and hold someone, or a request, to report or block them.")
+            Text("Circles share nicknames, emoji, weekly prayer counts, streaks and the requests you choose to post. Never what you prayed or wrote anywhere else.")
         }
         .font(.akCaption)
         .foregroundStyle(Theme.textTertiary)
@@ -647,6 +709,7 @@ struct ChallengesSection: View {
         let completed = Set(model.settings.completedChallengeIDs)
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "Challenges")
+            AdventCard()
             ForEach(model.settings.activeChallenges, id: \.id) { active in
                 if let definition = model.content.challenge(id: active.id) {
                     NavigationLink(value: TogetherRoute.challenge(definition.id)) {

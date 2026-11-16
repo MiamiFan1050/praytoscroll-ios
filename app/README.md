@@ -76,6 +76,12 @@ Public database, schema in `CloudKit/schema.ckdb` (import with `xcrun cktool imp
 Production in the CloudKit Console). Stored: circle name/code, nickname, emoji, weekly count, streak, under a random
 per-install member id. Reports (`CircleReport`) are readable only in the Console: review them within 24 hours.
 
+v1.1 adds prayer requests (`CirclePrayerRequest`: a topic + an optional 80-character line that `RequestNoteFilter`
+checks for links, phone numbers, handles and blocked words) and `CirclePrayed` (one "I prayed 🙏" row per member per
+request, counted once per iCloud account). Requests show for 7 days; there are no replies or messages. Each request
+has Report (to `CircleReport`, reason prefixed `Prayer request <id>:`) and Block. To remove one, delete its record in
+the Console. The App Store privacy label needs "Other User Content" (linked, App Functionality) before v1.1 ships.
+
 ## The Screen Time lock (v1.1)
 
 The picked apps are locked with Screen Time (FamilyControls `.individual`, ManagedSettings shields, a

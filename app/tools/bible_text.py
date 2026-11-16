@@ -3,6 +3,7 @@
 
     tools/bible_text.py kjv <eng-kjv_vpl.txt>      # fills "kjv" for every verse in verses.json
     tools/bible_text.py check <engwebp_vpl.txt>    # reports verses.json WEB text that differs from ebible's WEB
+    tools/bible_text.py advent <plan.json> <engwebp_vpl.txt> <eng-kjv_vpl.txt>   # writes Resources/advent.json
 
 Download (both public domain): https://ebible.org/Scriptures/eng-kjv_vpl.zip and engwebp_vpl.zip.
 KJV note: public domain everywhere except the UK, where the Crown's letters patent cover printed copies.
@@ -74,6 +75,17 @@ def main():
             web = passage(table, verse["ref"])
             if web.strip("“”‘’ ") != verse["text"].strip("“”‘’ "):
                 print(f'{verse["day"]} {verse["ref"]}\n  app: {verse["text"]}\n  web: {web}')
+    elif mode == "advent":
+        plan = json.loads(Path(source).read_text(encoding="utf-8"))
+        web, kjv = load(sys.argv[3]), load(sys.argv[4])
+        for day in plan:
+            day["text"] = passage(web, day["ref"]).strip()
+            day["kjv"] = passage(kjv, day["ref"], kjv=True)
+            if "Yahweh" in day["text"]:
+                sys.exit(f'{day["ref"]}: use the "LORD" edition of the WEB (engwebp)')
+        out = verses_path.parent / "advent.json"
+        out.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"advent: {len(plan)} days")
     else:
         sys.exit(__doc__)
 

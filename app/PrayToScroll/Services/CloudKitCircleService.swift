@@ -8,6 +8,10 @@ import Foundation
 /// - `CircleMember`  recordName `member-<CODE>-<memberID>`    circleCode (queryable), memberID, displayName,
 ///                                                           emoji, prayersThisWeek, weekKey, streak, hidden, updatedAt
 /// - `CircleReport`  (auto id)                                circleCode, memberID, reason, reporterID, createdAt
+/// - `CirclePrayerRequest` recordName `request-<CODE>-<uuid>`  circleCode, requestID, memberID, displayName, emoji,
+///                                                           topic, note, createdAt
+/// - `CirclePrayed`  recordName `prayed-<requestID>-<memberID>` circleCode, requestID, memberID, createdAt
+///                   (one per member per request, so the "I prayed 🙏" count can't be inflated)
 /// Member ids are random per install, never the Apple ID.
 final class CloudKitCircleService: CircleService, @unchecked Sendable {
     private let store: SharedStore
@@ -117,8 +121,10 @@ final class CloudKitCircleService: CircleService, @unchecked Sendable {
 
     func leave(code: String) async throws {
         let db = try database()
+        let mine = await myRequestRecordIDs(in: db, code: code)
         do {
-            _ = try await db.modifyRecords(saving: [], deleting: [memberRecordID(code, memberID)])
+            _ = try await db.modifyRecords(saving: [], deleting: [memberRecordID(code, memberID)] + mine,
+                                           savePolicy: .allKeys, atomically: false)
         } catch {
             let mapped = Self.map(error)
             if mapped != .notFound { throw mapped }
@@ -184,6 +190,7 @@ final class CloudKitCircleService: CircleService, @unchecked Sendable {
         guard !codes.isEmpty, FileManager.default.ubiquityIdentityToken != nil else { return }
         let db = try database()
         var toDelete = codes.map { memberRecordID($0, memberID) }
+        toDelete += await myRequestRecordIDs(in: db)
         // Circles I created go too (other members' rows remain theirs to delete).
         if let results = try? await db.records(for: codes.map(circleID)) {
             for (id, result) in results {
@@ -197,6 +204,127 @@ final class CloudKitCircleService: CircleService, @unchecked Sendable {
             if mapped != .notFound { throw mapped }
         }
         store.circleCodes = []
+    }
+
+    // MARK: Prayer requests
+
+    private func prayedRecordID(_ requestID: String, _ member: String) -> CKRecord.ID {
+        CKRecord.ID(recordName: "prayed-\(requestID)-\(member)")
+    }
+
+    func requests(code: String) async throws -> [CirclePrayerRequest] {
+        let db = try database()
+        let since = Date().addingTimeInterval(-CirclePrayerRequest.lifetime) as NSDate
+        let me = memberID
+        do {
+            let requestQuery = CKQuery(recordType: "CirclePrayerRequest",
+                                       predicate: NSPredicate(format: "circleCode == %@ AND createdAt > %@", code, since))
+            requestQuery.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
+            let (requestResults, _) = try await db.records(matching: requestQuery, resultsLimit: 100)
+            let prayedQuery = CKQuery(recordType: "CirclePrayed",
+                                      predicate: NSPredicate(format: "circleCode == %@ AND createdAt > %@", code, since))
+            let (prayedResults, _) = try await db.records(matching: prayedQuery, resultsLimit: 400)
+            // One count per iCloud account per request (not per member id), so reinstalls can't inflate it.
+            var people: [String: Set<String>] = [:]
+            var mine = Set<String>()
+            for (_, result) in prayedResults {
+                guard case .success(let record) = result, let requestID = record["requestID"] as? String else { continue }
+                let person = record.creatorUserRecordID?.recordName ?? (record["memberID"] as? String ?? "")
+                people[requestID, default: []].insert(person)
+                if record["memberID"] as? String == me { mine.insert(requestID) }
+            }
+            let counts = people.mapValues(\.count)
+            return requestResults.compactMap { _, result in
+                guard case .success(let record) = result else { return nil }
+                return Self.request(from: record, me: me, counts: counts, mine: mine)
+            }
+        } catch {
+            throw Self.map(error)
+        }
+    }
+
+    func postRequest(code: String, topic: PrayerTopic, note: String, displayName: String, emoji: String) async throws -> CirclePrayerRequest {
+        let clean = RequestNoteFilter.clean(note)
+        guard RequestNoteFilter.problem(with: clean) == nil, NameFilter.isAllowed(displayName) else { throw CircleError.nameNotAllowed }
+        let open = try await requests(code: code).filter { $0.isMine }
+        guard open.count < CirclePrayerRequest.maxOpenPerMember else { throw CircleError.tooManyRequests }
+        let db = try database()
+        let requestID = "request-\(code)-\(UUID().uuidString.lowercased())"
+        let record = CKRecord(recordType: "CirclePrayerRequest", recordID: CKRecord.ID(recordName: requestID))
+        let now = Date()
+        record["circleCode"] = code as CKRecordValue
+        record["requestID"] = requestID as CKRecordValue
+        record["memberID"] = memberID as CKRecordValue
+        record["displayName"] = NameFilter.clean(displayName) as CKRecordValue
+        record["emoji"] = emoji as CKRecordValue
+        record["topic"] = topic.rawValue as CKRecordValue
+        record["note"] = clean as CKRecordValue
+        record["createdAt"] = now as CKRecordValue
+        do {
+            _ = try await db.save(record)
+        } catch {
+            throw Self.map(error)
+        }
+        return CirclePrayerRequest(id: requestID, circleCode: code, memberID: memberID, displayName: NameFilter.clean(displayName),
+                                   emoji: emoji, topic: topic, note: clean, createdAt: now, prayedCount: 0, iPrayed: false, isMine: true)
+    }
+
+    func deleteRequest(_ request: CirclePrayerRequest) async throws {
+        guard request.isMine else { return }
+        let db = try database()
+        do {
+            _ = try await db.modifyRecords(saving: [], deleting: [CKRecord.ID(recordName: request.id)])
+        } catch {
+            let mapped = Self.map(error)
+            if mapped != .notFound { throw mapped }
+        }
+    }
+
+    func prayed(for request: CirclePrayerRequest) async throws {
+        let db = try database()
+        let record = CKRecord(recordType: "CirclePrayed", recordID: prayedRecordID(request.id, memberID))
+        record["circleCode"] = request.circleCode as CKRecordValue
+        record["requestID"] = request.id as CKRecordValue
+        record["memberID"] = memberID as CKRecordValue
+        record["createdAt"] = Date() as CKRecordValue
+        do {
+            // .allKeys: praying again just refreshes my own row; it never adds a second one.
+            let (saved, _) = try await db.modifyRecords(saving: [record], deleting: [], savePolicy: .allKeys, atomically: false)
+            if case .failure(let error)? = saved[record.recordID] { throw error }
+        } catch {
+            throw Self.map(error)
+        }
+    }
+
+    func reportRequest(_ request: CirclePrayerRequest, reason: String) async throws {
+        try await report(memberID: request.memberID, code: request.circleCode,
+                         reason: "Prayer request \(request.id): \(reason) | \(request.summary)")
+    }
+
+    /// My requests and my "I prayed" rows (in one circle, or all), for Leave and Erase all.
+    private func myRequestRecordIDs(in db: CKDatabase, code: String? = nil) async -> [CKRecord.ID] {
+        var ids: [CKRecord.ID] = []
+        let predicate = code.map { NSPredicate(format: "memberID == %@ AND circleCode == %@", memberID, $0) }
+            ?? NSPredicate(format: "memberID == %@", memberID)
+        for type in ["CirclePrayerRequest", "CirclePrayed"] {
+            let query = CKQuery(recordType: type, predicate: predicate)
+            if let (results, _) = try? await db.records(matching: query, resultsLimit: 400) {
+                ids += results.compactMap { id, result in if case .success = result { return id } else { return nil } }
+            }
+        }
+        return ids
+    }
+
+    private static func request(from record: CKRecord, me: String, counts: [String: Int], mine: Set<String>) -> CirclePrayerRequest? {
+        guard let code = record["circleCode"] as? String, let member = record["memberID"] as? String,
+              let topic = (record["topic"] as? String).flatMap(PrayerTopic.init(rawValue:)) else { return nil }
+        let id = record.recordID.recordName
+        return CirclePrayerRequest(id: id, circleCode: code, memberID: member,
+                                   displayName: record["displayName"] as? String ?? "friend",
+                                   emoji: record["emoji"] as? String ?? "🙏", topic: topic,
+                                   note: record["note"] as? String ?? "",
+                                   createdAt: record["createdAt"] as? Date ?? record.creationDate ?? Date(),
+                                   prayedCount: counts[id] ?? 0, iPrayed: mine.contains(id), isMine: member == me)
     }
 
     // MARK: Helpers

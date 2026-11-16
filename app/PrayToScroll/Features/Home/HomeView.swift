@@ -48,7 +48,9 @@ struct HomeView: View {
                         streakCard
                     }
                     .fixedSize(horizontal: false, vertical: true)
+                    AdventCard()
                     quickRow
+                    topicRow
                     verseCard
                     todayStats
                     peoplePreview
@@ -229,6 +231,25 @@ struct HomeView: View {
             .padding(.horizontal, Spacing.page)
         }
         .padding(.horizontal, -Spacing.page)
+    }
+
+    /// "Pray about…": ten topics, each with its own prompts.
+    private var topicRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Pray about").akOverline()
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(PrayerTopic.allCases) { topic in
+                        quickChip(topic.title, topic.symbol, tint: Theme.goldText) {
+                            model.startPrayer(style: .quick, source: .manual, topic: topic)
+                        }
+                        .accessibilityIdentifier("home.topic.\(topic.rawValue)")
+                    }
+                }
+                .padding(.horizontal, Spacing.page)
+            }
+            .padding(.horizontal, -Spacing.page)
+        }
     }
 
     private func quickChip(_ title: String, _ symbol: String, tint: Color, action: @escaping () -> Void) -> some View {

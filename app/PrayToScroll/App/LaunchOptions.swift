@@ -16,6 +16,8 @@ struct LaunchOptions: Sendable {
     let appearance: AppearancePreference?
     /// `-shortcutsGate` with `-demo`: the v1.0 Shortcuts gate instead of the (demo) Screen Time lock.
     let shortcutsGate: Bool
+    /// `-today yyyy-MM-dd` (Debug UI tests only): the date seasonal content (Advent) uses. Release ignores it.
+    let today: Date?
 
     static let current = LaunchOptions(arguments: ProcessInfo.processInfo.arguments)
 
@@ -27,6 +29,14 @@ struct LaunchOptions: Sendable {
         isUITest = arguments.contains("-uitest")
         longMinimum = arguments.contains("-longMinimum")
         shortcutsGate = arguments.contains("-shortcutsGate")
+        if let index = arguments.firstIndex(of: "-today"), arguments.indices.contains(index + 1) {
+            let parser = DateFormatter()
+            parser.locale = Locale(identifier: "en_US_POSIX")
+            parser.dateFormat = "yyyy-MM-dd HH:mm"
+            today = parser.date(from: arguments[index + 1] + " 12:00")
+        } else {
+            today = nil
+        }
         if let index = arguments.firstIndex(of: "-route"), arguments.indices.contains(index + 1) {
             route = arguments[index + 1]
         } else {
@@ -43,6 +53,7 @@ struct LaunchOptions: Sendable {
         isUITest = false
         longMinimum = false
         shortcutsGate = false
+        today = nil
         route = nil
         appearance = nil
         #endif

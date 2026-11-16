@@ -8,19 +8,29 @@ struct PromptLibrary: Decodable, Sendable {
     var supplication: [String]
     var quick: [String]
     var forSomeone: [String]
+    /// "Pray about…" topics (family, healing, work…), ≥40 each so they don't repeat.
+    var topics: [String: [String]] = [:]
 
     enum CodingKeys: String, CodingKey {
-        case adoration, confession, thanksgiving, supplication, quick, forSomeone
+        case adoration, confession, thanksgiving, supplication, quick, forSomeone, topics
         case forSomeoneSnake = "for_someone"
     }
 
-    init(adoration: [String], confession: [String], thanksgiving: [String], supplication: [String], quick: [String], forSomeone: [String]) {
+    init(adoration: [String], confession: [String], thanksgiving: [String], supplication: [String], quick: [String],
+         forSomeone: [String], topics: [String: [String]] = [:]) {
         self.adoration = adoration
         self.confession = confession
         self.thanksgiving = thanksgiving
         self.supplication = supplication
         self.quick = quick
         self.forSomeone = forSomeone
+        self.topics = topics
+    }
+
+    /// A topic's prompts (falls back to the quick prompts if the file has none for it).
+    func prompts(for topic: PrayerTopic) -> [String] {
+        let list = topics[topic.rawValue] ?? []
+        return list.isEmpty ? quick : list
     }
 
     init(from decoder: Decoder) throws {
@@ -33,6 +43,8 @@ struct PromptLibrary: Decodable, Sendable {
         quick = PromptLibrary.nonEmpty(try c.decodeIfPresent([String].self, forKey: .quick), f.quick)
         let someone = try c.decodeIfPresent([String].self, forKey: .forSomeone) ?? c.decodeIfPresent([String].self, forKey: .forSomeoneSnake)
         forSomeone = PromptLibrary.nonEmpty(someone, f.forSomeone)
+        let rawTopics = (try? c.decodeIfPresent([String: [String]].self, forKey: .topics)) ?? [:]
+        topics = rawTopics.mapValues { PromptLibrary.nonEmpty($0, []) }.filter { !$0.value.isEmpty }
     }
 
     private static func nonEmpty(_ list: [String]?, _ fallback: [String]) -> [String] {
@@ -69,6 +81,35 @@ struct PromptLibrary: Decodable, Sendable {
                      "Pray for {name}'s heart: peace where there's worry, hope where there's tiredness.",
                      "Ask for one specific good thing for {name} this week."]
     )
+}
+
+/// "Pray about…": what's on your heart, each with its own no-repeat prompt bag.
+enum PrayerTopic: String, CaseIterable, Identifiable, Codable, Sendable {
+    case family, friends, healing, anxiety, work, gratitude, forgiveness, guidance, morning, night
+    var id: String { rawValue }
+    var title: String { self == .work ? "Work & school" : rawValue.capitalized }
+    var symbol: String {
+        switch self {
+        case .family: return "house.fill"
+        case .friends: return "person.2.fill"
+        case .healing: return "cross.case.fill"
+        case .anxiety: return "wind"
+        case .work: return "briefcase.fill"
+        case .gratitude: return "gift.fill"
+        case .forgiveness: return "arrow.uturn.backward.circle.fill"
+        case .guidance: return "signpost.right.fill"
+        case .morning: return "sunrise.fill"
+        case .night: return "moon.stars.fill"
+        }
+    }
+    var poolKey: String { "topic.\(rawValue)" }
+
+    /// Morning before 11, night from 8 PM: quick prayers then sometimes draw from these.
+    static func timeOfDay(hour: Int) -> PrayerTopic? {
+        if (4..<11).contains(hour) { return .morning }
+        if hour >= 20 || hour < 4 { return .night }
+        return nil
+    }
 }
 
 enum ACTSStep: String, CaseIterable, Identifiable, Sendable {
@@ -286,9 +327,12 @@ final class ContentStore: @unchecked Sendable {
     let copy: CopyBook
     /// Mood pools ("tempted", "anxious", …) from prompts.json (top-level keys or a "moods" object), else built-in.
     let moodPrompts: [PrayerMood: [String]]
+    /// The Advent journey (Nov 29 – Dec 24; shown only on those dates).
+    let advent: [AdventDay]
 
     init(bundle: Bundle = .main) {
         let decoder = JSONDecoder()
+        advent = ContentStore.data(named: "advent", bundle: bundle).flatMap { try? decoder.decode([AdventDay].self, from: $0) } ?? []
         if let data = ContentStore.data(named: "prompts", bundle: bundle),
            let library = try? decoder.decode(PromptLibrary.self, from: data) {
             prompts = library

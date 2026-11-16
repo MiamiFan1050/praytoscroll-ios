@@ -25,6 +25,81 @@ struct CircleMember: Identifiable, Hashable, Sendable {
     }
 }
 
+/// A circle prayer request: a topic plus an optional short, filtered line. Others tap "I prayed 🙏".
+/// There are no replies and no messages between members (App Review 1.2): only this and the count.
+struct CirclePrayerRequest: Identifiable, Hashable, Sendable {
+    var id: String
+    var circleCode: String
+    var memberID: String
+    var displayName: String
+    var emoji: String
+    var topic: PrayerTopic
+    var note: String
+    var createdAt: Date
+    var prayedCount: Int
+    var iPrayed: Bool
+    var isMine: Bool
+
+    /// Requests show for a week, then drop off.
+    static let lifetime: TimeInterval = 7 * 86_400
+    /// At most this many open requests per person per circle.
+    static let maxOpenPerMember = 3
+
+    var isExpired: Bool { Date().timeIntervalSince(createdAt) > Self.lifetime }
+
+    /// What others are asked to pray, e.g. "Healing: my grandma's surgery on Friday".
+    var summary: String { note.isEmpty ? topic.requestTitle : "\(topic.requestTitle): \(note)" }
+}
+
+extension PrayerTopic {
+    /// Topics a circle request can have (morning and night are for your own prayers).
+    static let requestTopics: [PrayerTopic] = [.healing, .family, .friends, .anxiety, .work, .guidance, .forgiveness, .gratitude]
+
+    var requestTitle: String {
+        switch self {
+        case .gratitude: return "Praise"
+        case .work: return "Work & school"
+        default: return title
+        }
+    }
+}
+
+/// The optional line on a circle prayer request: short, no links, no contact details, no blocked words.
+enum RequestNoteFilter {
+    static let maxLength = 80
+
+    enum Problem: Equatable {
+        case tooLong, link, contact, notAllowed
+        var message: String {
+            switch self {
+            case .tooLong: return "Keep it to 80 characters."
+            case .link: return "Links can't be shared in circles."
+            case .contact: return "Phone numbers, emails and handles can't be shared in circles."
+            case .notAllowed: return "Please say it a different way."
+            }
+        }
+    }
+
+    static func clean(_ raw: String) -> String {
+        raw.split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+    }
+
+    static func problem(with raw: String) -> Problem? {
+        let note = clean(raw)
+        if note.isEmpty { return nil }
+        if note.count > maxLength { return .tooLong }
+        let lower = note.lowercased()
+        let linkMarkers = ["http", "www.", ".com", ".net", ".org", ".io", ".co/", ".ly", "://", "dot com"]
+        if linkMarkers.contains(where: { lower.contains($0) }) { return .link }
+        if note.contains("@") { return .contact }
+        if note.filter(\.isNumber).count >= 7 { return .contact }
+        // Blocked words (and words built on them) as whole words, so "therapist" or "assignment" stay fine.
+        let words = lower.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init)
+        for word in NameFilter.blockedWords where words.contains(where: { $0.hasPrefix(word) }) { return .notAllowed }
+        return nil
+    }
+}
+
 enum CircleAvailability: Equatable, Sendable {
     case available
     case noAccount
@@ -38,6 +113,7 @@ enum CircleError: LocalizedError, Equatable {
     case network
     case nameNotAllowed
     case invalidCode
+    case tooManyRequests
     case other(String)
 
     var errorDescription: String? {
@@ -47,6 +123,7 @@ enum CircleError: LocalizedError, Equatable {
         case .network: return "You're offline right now. Circles will sync when you're back online."
         case .nameNotAllowed: return "Please choose a different name."
         case .invalidCode: return "Circle codes are 6 letters and numbers, like K7Q 2MX."
+        case .tooManyRequests: return "You have 3 open requests in this circle. Remove one, or wait for one to end after a week."
         case .other(let message): return message
         }
     }
@@ -64,6 +141,16 @@ protocol CircleService: AnyObject, Sendable {
     func setHidden(_ hidden: Bool, code: String) async throws
     func report(memberID: String, code: String, reason: String) async throws
     func deleteMyData(codes: [String]) async throws
+
+    // Prayer requests
+    /// This week's requests in a circle, each with how many members prayed and whether I did.
+    func requests(code: String) async throws -> [CirclePrayerRequest]
+    func postRequest(code: String, topic: PrayerTopic, note: String, displayName: String, emoji: String) async throws -> CirclePrayerRequest
+    func deleteRequest(_ request: CirclePrayerRequest) async throws
+    /// "I prayed 🙏": once per member per request.
+    func prayed(for request: CirclePrayerRequest) async throws
+    /// Reports the request (and blocks its author for me).
+    func reportRequest(_ request: CirclePrayerRequest, reason: String) async throws
 }
 
 enum CircleWeek {

@@ -61,3 +61,43 @@ DEFINE SCHEMA
         GRANT WRITE TO "_creator",
         GRANT CREATE TO "_icloud"
     );
+
+    // v1.1 circle prayer requests. Members post a topic + an optional filtered line (80 chars, no links, numbers or
+    // handles); others tap "I prayed". No replies or messages. Report goes to CircleReport (reason names the request).
+    // Requests show for 7 days (the app filters by createdAt); only the author (or the developer) can delete one.
+    RECORD TYPE CirclePrayerRequest (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        circleCode      STRING QUERYABLE,
+        requestID       STRING QUERYABLE,
+        memberID        STRING QUERYABLE,
+        displayName     STRING,
+        emoji           STRING,
+        topic           STRING,
+        note            STRING,
+        createdAt       TIMESTAMP QUERYABLE SORTABLE,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    // One row per member per request (recordName prayed-<requestID>-<memberID>); the app counts one per iCloud user.
+    RECORD TYPE CirclePrayed (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE QUERYABLE,
+        circleCode      STRING QUERYABLE,
+        requestID       STRING QUERYABLE,
+        memberID        STRING QUERYABLE,
+        createdAt       TIMESTAMP QUERYABLE SORTABLE,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );

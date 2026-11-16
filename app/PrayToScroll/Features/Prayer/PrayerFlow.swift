@@ -116,11 +116,22 @@ final class PrayerFlow {
         switch style {
         case .quick:
             if let seed = request.seedPrompt, !seed.isEmpty {
-                built = [PrayerStep(kind: .prompt, overline: "Pause & pray", title: "", prompt: seed,
-                                    symbol: "bolt.heart.fill", poolKey: "quick")]
+                built = [PrayerStep(kind: .prompt, overline: request.circleRequest != nil ? "Praying for your circle" : "Pause & pray",
+                                    title: "", prompt: seed, symbol: request.topic?.symbol ?? "bolt.heart.fill",
+                                    poolKey: request.circleRequest != nil ? "" : "quick")]
+            } else if let topic = request.topic {
+                built = [PrayerStep(kind: .prompt, overline: "Praying about \(topic.title.lowercased())", title: "",
+                                    prompt: draw(topic.poolKey, library.prompts(for: topic)),
+                                    symbol: topic.symbol, poolKey: topic.poolKey)]
             } else if let mood, let pool = model.content.moodPrompts[mood] {
                 built = [PrayerStep(kind: .prompt, overline: mood == .tempted ? "Right now" : "Quick prayer", title: "", prompt: draw("mood.\(mood.rawValue)", pool),
                                     symbol: mood.symbol, poolKey: "mood.\(mood.rawValue)")]
+            } else if let time = PrayerTopic.timeOfDay(hour: Calendar.current.component(.hour, from: Date())),
+                      Bool.random() {
+                // Mornings and nights: every other quick prayer fits the hour (its own bag, so nothing repeats).
+                built = [PrayerStep(kind: .prompt, overline: time == .morning ? "Morning prayer" : "Night prayer", title: "",
+                                    prompt: draw(time.poolKey, library.prompts(for: time)),
+                                    symbol: time.symbol, poolKey: time.poolKey)]
             } else {
                 built = [PrayerStep(kind: .prompt, overline: "Quick prayer", title: "", prompt: draw("quick", library.quick),
                                     symbol: "bolt.heart.fill", poolKey: "quick")]
@@ -140,9 +151,12 @@ final class PrayerFlow {
             }
         case .verse:
             built = [
-                PrayerStep(kind: .verseReveal, overline: request.verse == nil ? "Today's verse" : "Pray this verse", title: verse.ref, prompt: verse.displayText, symbol: "book.pages.fill", poolKey: ""),
+                PrayerStep(kind: .verseReveal,
+                           overline: request.verse == nil ? "Today's verse" : (verse.theme == "advent" ? "Advent reading" : "Pray this verse"),
+                           title: verse.ref, prompt: verse.displayText, symbol: "book.pages.fill", poolKey: ""),
                 PrayerStep(kind: .prompt, overline: "Pray it", title: verse.ref,
-                           prompt: "Read it once more, slowly. Then tell God what it stirs in you, in your own words.",
+                           prompt: request.seedPrompt.flatMap { $0.isEmpty ? nil : $0 }
+                               ?? "Read it once more, slowly. Then tell God what it stirs in you, in your own words.",
                            symbol: "hands.and.sparkles.fill", poolKey: ""),
             ]
             revealedLines = 1
@@ -166,6 +180,8 @@ final class PrayerFlow {
             pool = library.prompts(for: acts).filter { !$0.contains("{name}") }
         } else if step.poolKey == "forSomeone" {
             pool = library.forSomeone
+        } else if step.poolKey.hasPrefix("topic."), let topic = PrayerTopic(rawValue: String(step.poolKey.dropFirst(6))) {
+            pool = library.prompts(for: topic)
         } else {
             pool = library.quick
         }
@@ -245,7 +261,8 @@ final class PrayerFlow {
         }
         let outcome = PrayerOutcome(style: style, source: request.source, gatedAppID: request.gatedAppID,
                                     startedAt: startedAt, completedAt: Date(), personID: personID,
-                                    personName: personName, verseRef: style == .verse ? verse.ref : "")
+                                    personName: personName, verseRef: style == .verse ? verse.ref : "",
+                                    circleRequest: request.circleRequest)
         completion = model.completePrayer(outcome)
         withAnimationPhase(style == .forSomeone && !personName.isEmpty ? .letThemKnow : .celebration)
     }
