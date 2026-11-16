@@ -28,12 +28,12 @@ J
   echo "imported $name"
 }
 
-imageset Mascot-praying lamb_pray.png
-imageset Mascot-celebrating lamb_celebrate.png
-imageset Mascot-waving lamb_wave.png
-imageset Mascot-sleeping lamb_sleep.png
-imageset Mascot-phone lamb_phone.png
-imageset PadlockGold padlock_gold.png
+imageset Mascot-praying scroll_pray.png
+imageset Mascot-celebrating scroll_celebrate.png
+imageset Mascot-waving scroll_wave.png
+imageset Mascot-sleeping scroll_sleep.png
+imageset Mascot-phone scroll_phone.png
+imageset PadlockGold seal_scroll.png
 imageset FlameStreak flame_streak.png
 
 # App icon: one 1024 px opaque PNG (App Store rejects alpha).

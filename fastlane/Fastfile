@@ -33,7 +33,6 @@ platform :ios do
       submit_for_review: submit,
       build_number: submit ? opts[:build].to_s : nil,
       automatic_release: true,
-      price_tier: 0,
       submission_information: {
         add_id_info_uses_idfa: false,
         content_rights_contains_third_party_content: false,

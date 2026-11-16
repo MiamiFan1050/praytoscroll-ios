@@ -1,8 +1,8 @@
 import SwiftUI
 import UIKit
 
-/// The praying lamb with a gold key. Uses the art in the asset catalog ("Mascot", "Mascot-<pose>")
-/// when it's there; until then, a lamb drawn in SwiftUI.
+/// The praying scroll mascot (original art, 11-16). Uses the art in the asset catalog ("Mascot", "Mascot-<pose>")
+/// when it's there; until then, a simple drawn fallback.
 struct MascotView: View {
     enum Pose: String { case praying, celebrating, waving, sleeping, phone }
     var pose: Pose = .praying
