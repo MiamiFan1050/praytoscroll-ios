@@ -5,22 +5,25 @@ import XCTest
 
 /// The Prayer Gate end to end, through the same AppModel + SharedStore calls the App Intents and buttons make.
 /// Each test gets the seeded demo (gate on for Instagram, TikTok, YouTube and X; a 15-minute window) in scratch defaults.
-@MainActor
 final class GateLifecycleTests: XCTestCase {
+    @MainActor
     private func makeModel() -> (AppModel, SharedStore) {
         let store = SharedStore(defaults: makeScratchDefaults())
         return (AppModel(options: LaunchOptions(arguments: ["-demo"]), store: store), store)
     }
 
+    @MainActor
     private func decide(_ app: String, _ store: SharedStore, at date: Date) -> GateDecision {
         GateEngine.decide(appID: app, now: date, snapshot: store.gateSnapshot)
     }
 
+    @MainActor
     private func reason(_ decision: GateDecision) -> AllowReason? {
         if case .allow(_, let reason) = decision { return reason }
         return nil
     }
 
+    @MainActor
     @discardableResult
     private func pray(_ model: AppModel, source: SessionSource = .gate, app: String? = "instagram") -> PrayerCompletion {
         let now = Date()
@@ -28,6 +31,7 @@ final class GateLifecycleTests: XCTestCase {
                                                   startedAt: now.addingTimeInterval(-35), completedAt: now))
     }
 
+    @MainActor
     func testLockedPrayAmenOpensForTheWindowThenAsksAgain() throws {
         let (model, store) = makeModel()
         let start = Date()
@@ -46,7 +50,8 @@ final class GateLifecycleTests: XCTestCase {
         let completion = pray(model)
         let end = try XCTUnwrap(completion.unlockedUntil)
         XCTAssertEqual(end.timeIntervalSince(start), 15 * 60, accuracy: 5)
-        XCTAssertEqual(store.unlockedUntil, end, "written to the app group before Continue can reopen the app")
+        XCTAssertEqual(store.unlockedUntil?.timeIntervalSince1970 ?? 0, end.timeIntervalSince1970, accuracy: 0.01,
+                       "written to the app group before Continue can reopen the app")
         XCTAssertEqual(completion.gatedApp?.id, "instagram")
 
         XCTAssertEqual(reason(decide("instagram", store, at: start.addingTimeInterval(60))), .unlocked, "no prompt inside the window")
@@ -57,6 +62,7 @@ final class GateLifecycleTests: XCTestCase {
         XCTAssertEqual(decide("instagram", store, at: end.addingTimeInterval(30 * 86_400)), .requirePrayer)
     }
 
+    @MainActor
     func testContinueAfterLingeringOpensOnceWithoutLooping() throws {
         let (model, store) = makeModel()
         model.updateSettings { $0.unlockWindowMinutes = 5 }
@@ -69,6 +75,7 @@ final class GateLifecycleTests: XCTestCase {
         XCTAssertEqual(decide("tiktok", store, at: late.addingTimeInterval(2)), .requirePrayer, "launch passes are per app")
     }
 
+    @MainActor
     func testOneWindowCoversEveryGatedAppAndEndsForAll() throws {
         let (model, store) = makeModel()
         let end = try XCTUnwrap(pray(model).unlockedUntil)
@@ -79,6 +86,7 @@ final class GateLifecycleTests: XCTestCase {
         XCTAssertEqual(reason(decide("reddit", store, at: end.addingTimeInterval(60))), .notGated, "apps off the list pass")
     }
 
+    @MainActor
     func testINeedItNowIsOnceADayLoggedAndEnds() throws {
         let (model, store) = makeModel()
         let usesBefore = store.emergencyUses
@@ -103,6 +111,7 @@ final class GateLifecycleTests: XCTestCase {
         XCTAssertFalse(GateEngine.canUseEmergencyPass(now: next.addingTimeInterval(-1), lastUsed: lastUsed, calendar: .current))
     }
 
+    @MainActor
     func testDailyKeyOpensUntilTheResetHourThenAsksAgain() throws {
         let (model, store) = makeModel()
         model.updateSettings { $0.unlockMode = .dailyKey; $0.dailyKeyResetHour = 4 }
@@ -113,6 +122,7 @@ final class GateLifecycleTests: XCTestCase {
         XCTAssertEqual(decide("instagram", store, at: until.addingTimeInterval(1)), .requirePrayer)
     }
 
+    @MainActor
     func testPauseIsAlwaysTimeBoundAndResumes() throws {
         let (model, store) = makeModel()
         model.pauseGate(days: 7)
@@ -123,6 +133,7 @@ final class GateLifecycleTests: XCTestCase {
         XCTAssertEqual(decide("instagram", store, at: Date().addingTimeInterval(1)), .requirePrayer)
     }
 
+    @MainActor
     func testStreakGoesUpOnceADay() {
         let (model, _) = makeModel()
         let before = model.streak.current
@@ -138,6 +149,7 @@ final class GateLifecycleTests: XCTestCase {
         XCTAssertEqual(model.gatesHonoured, gatesBefore + 1, "the gate prayer counts as prayed-instead-of-scrolling")
     }
 
+    @MainActor
     func testEraseAllDataRemovesEverythingAndCircleRowsBeforeTheID() async throws {
         let (model, store) = makeModel()
         XCTAssertGreaterThan(try model.context.fetchCount(FetchDescriptor<SavedVerse>()), 0)

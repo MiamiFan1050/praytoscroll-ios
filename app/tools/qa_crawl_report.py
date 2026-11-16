@@ -21,6 +21,7 @@ if not parts and bundle and os.path.isdir(bundle):
                 m = re.match(r"(crawl-\d\d-[a-z0-9-]+)", a.get("suggestedHumanReadableName", ""))
                 if m:
                     parts[m.group(1)] = open(os.path.join(out, a["exportedFileName"]), encoding="utf-8").read()
+                    open(os.path.join(qa, m.group(1) + ".md"), "w", encoding="utf-8").write(parts[m.group(1)])
 names = sorted(parts)
 problems = sum(int(re.search(r"problems (\d+)", parts[n]).group(1)) for n in names if re.search(r"problems (\d+)", parts[n]))
 tapped = sum(int(re.search(r"Tapped (\d+)", parts[n]).group(1)) for n in names if re.search(r"Tapped (\d+)", parts[n]))

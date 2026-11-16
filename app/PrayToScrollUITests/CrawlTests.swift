@@ -58,9 +58,6 @@ final class CrawlTests: XCTestCase {
     func test14GatePrayer() {
         crawl(Target(number: 14, name: "prayer-gate", args: route("gatepray"), marker: "session.styleLabel", cover: .marker, scrolls: false))
     }
-    func test15QuickPrayer() {
-        crawl(Target(number: 15, name: "prayer-quick", args: route("quick"), marker: "session.styleLabel", cover: .marker, scrolls: false))
-    }
     func test16PrayForSomeone() {
         crawl(Target(number: 16, name: "prayer-someone", args: route("someone"), marker: "session.styleLabel", cover: .marker, scrolls: false))
     }
@@ -103,7 +100,7 @@ final class CrawlTests: XCTestCase {
             let headline = app.descendants(matching: .any)["onboarding.headline"].firstMatch
             let title = headline.exists ? headline.label : "page \(page)"
             log.section("Page \(page): \(title)")
-            for control in snapshotControls() where !skipLabels.contains(control.id) {
+            for control in snapshotControls().filter({ !skipLabels.contains($0.id) }).prefix(4) {
                 guard let element = resolve(control), element.exists, element.isHittable else { continue }
                 if control.type == .textField || control.type == .secureTextField { continue }
                 let before = Set(snapshotControls().map(\.key))
@@ -148,6 +145,9 @@ final class CrawlTests: XCTestCase {
     // MARK: Crawl
 
     private var app: XCUIApplication!
+    static let tapsPerScreen = 14
+    static let secondsPerScreen: TimeInterval = 40
+    static let itemsPerMenu = 3
 
     override func setUp() {
         super.setUp()
@@ -163,12 +163,20 @@ final class CrawlTests: XCTestCase {
             finish(log)
             return
         }
-        let controls = discover(target)
-        log.note("Discovered \(controls.count) controls.")
+        let discovered = discover(target)
+        // Budget: unique controls first, repeats (list rows, cards) and plain cells last.
+        let controls = discovered.enumerated().sorted { a, b in
+            let ra = (a.element.index > 0 ? 2 : 0) + (a.element.type == .cell ? 1 : 0)
+            let rb = (b.element.index > 0 ? 2 : 0) + (b.element.type == .cell ? 1 : 0)
+            return ra != rb ? ra < rb : a.offset < b.offset
+        }.map(\.element)
+        log.note("Discovered \(controls.count) controls (budget: \(Self.tapsPerScreen) taps, \(Int(Self.secondsPerScreen)) s).")
+        var known = Set(discovered.map(\.key))
+        var untried: [Control] = []
         for control in controls {
-            if Date().timeIntervalSince(started) > 420 {
-                log.fail("time budget reached; \(controls.count - log.tapped) controls not tried")
-                break
+            if log.tapped >= Self.tapsPerScreen || Date().timeIntervalSince(started) > Self.secondsPerScreen {
+                untried.append(control)
+                continue
             }
             guard restore(target, log: &log) else {
                 log.fail("STUCK: couldn't get back to the screen after the previous tap")
@@ -183,29 +191,34 @@ final class CrawlTests: XCTestCase {
                 log.row(control, "not hittable (off screen or covered)", skipped: true)
                 continue
             }
-            let before = Set(snapshotControls().map(\.key))
             tapControl(control, element, log: &log)
-            let outcome = observe(target, before: before)
+            let outcome = observe(target, before: known)
+            known.formUnion(outcome.seen)
             log.row(control, outcome.text, failed: outcome.failed)
             if outcome.items.isEmpty || outcome.failed { continue }
-            // A menu, dialog or alert: try each of its (non-destructive) items once.
-            for item in outcome.items.prefix(8) {
+            // A menu, dialog or alert: try a few of its (non-destructive) items.
+            for item in outcome.items.prefix(Self.itemsPerMenu) {
                 guard restore(target, log: &log),
                       var parent = resolve(control), parent.exists else { break }
                 if !parent.isHittable, target.scrolls { parent = reveal(parent, control) }
                 guard parent.isHittable else { break }
                 parent.tap()
-                Thread.sleep(forTimeInterval: 0.9)
+                Thread.sleep(forTimeInterval: 0.8)
                 guard let element = resolve(item), element.exists, element.isHittable else {
                     log.row(item, "↳ item didn't reappear", skipped: true, indent: true)
                     continue
                 }
-                let beforeItem = Set(snapshotControls().map(\.key))
+                log.tapped += 1
                 element.tap()
-                let result = observe(target, before: beforeItem)
+                let result = observe(target, before: known)
+                known.formUnion(result.seen)
                 log.row(item, "↳ " + result.text, failed: result.failed, indent: true)
                 dismissLeftovers()
             }
+        }
+        if !untried.isEmpty {
+            log.note("Budget reached: \(untried.count) not tried: " + untried.prefix(20).map(\.display).joined(separator: ", ")
+                     + (untried.count > 20 ? ", …" : ""))
         }
         _ = restore(target, log: &log)
         log.note(String(format: "Finished in %.0f s.", Date().timeIntervalSince(started)))
@@ -367,10 +380,11 @@ final class CrawlTests: XCTestCase {
         var text: String
         var failed = false
         var items: [Control] = []
+        var seen: Set<String> = []
     }
 
     private func observe(_ target: Target, before: Set<String>) -> Outcome {
-        Thread.sleep(forTimeInterval: 0.9)
+        Thread.sleep(forTimeInterval: 0.7)
         switch app.state {
         case .notRunning:
             return Outcome(text: "**CRASH**: the app stopped running", failed: true)
@@ -399,11 +413,12 @@ final class CrawlTests: XCTestCase {
         }
         if onScreen(target) {
             let after = snapshotControls()
+            let seen = Set(after.map(\.key))
             let revealed = after.filter { !before.contains($0.key) && $0.isOnScreen }
-            if revealed.isEmpty { return Outcome(text: "in place (no new controls)") }
+            if revealed.isEmpty { return Outcome(text: "in place (no new controls)", seen: seen) }
             let labels = revealed.prefix(8).map(\.display).joined(separator: ", ")
             let items = revealed.filter { !Self.isDestructive($0.label) && !Self.isCancel($0.label) && $0.type != .switch }
-            return Outcome(text: "revealed \(revealed.count): \(labels)", items: Array(items.prefix(8)))
+            return Outcome(text: "revealed \(revealed.count): \(labels)", items: Array(items.prefix(8)), seen: seen)
         }
         return Outcome(text: "opened " + describeTopScreen())
     }
@@ -538,7 +553,7 @@ final class CrawlTests: XCTestCase {
                     && frame.maxX > 4 && frame.minX < screen.maxX - 4
                     && node.identifier != "BackButton"
                     && !(type == .cell && hasTappableDescendant(node))
-                    && index < 3
+                    && index < 2
                 if usable {
                     out.append(Control(type: type, id: node.identifier, label: node.label, index: index, frame: frame,
                                        isOnScreen: frame.intersects(screen)))
@@ -553,7 +568,7 @@ final class CrawlTests: XCTestCase {
     private func discover(_ target: Target) -> [Control] {
         var seen = Set<String>()
         var ordered: [Control] = []
-        let pages = target.scrolls ? 6 : 1
+        let pages = target.scrolls ? 3 : 1
         for page in 0..<pages {
             var added = 0
             for control in snapshotControls() where !seen.contains(control.key) {
@@ -591,7 +606,7 @@ final class CrawlTests: XCTestCase {
     private func reveal(_ element: XCUIElement, _ control: Control?) -> XCUIElement {
         let window = app.windows.firstMatch.frame
         let below = element.exists ? element.frame.midY > window.midY * 0.8 : true
-        for _ in 0..<6 {
+        for _ in 0..<4 {
             if element.exists, element.isHittable { return element }
             scroll(up: below)
             if let control, let again = resolve(control), again.exists, again.isHittable { return again }

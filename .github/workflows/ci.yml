@@ -11,7 +11,7 @@ concurrency:
 jobs:
   test:
     runs-on: macos-15
-    timeout-minutes: 120
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -79,32 +79,45 @@ jobs:
           find ../build-release/Build/Products -name PrivacyInfo.xcprivacy -path "*.app/*" | tee ../out/privacy-manifests.txt
           [ "$(grep -c . ../out/privacy-manifests.txt)" -ge 2 ]
 
-      - name: QA crawl (tap every control on every tab and route)
+      - uses: actions/upload-artifact@v4
         if: always()
+        with:
+          name: ci-out
+          path: |
+            out/*.log
+            out/screenshots
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # The 60-90 s walk-through video, on its own runner so it always uploads.
+  video:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Tools + project + simulator
         run: |
-          set -o pipefail
+          brew install xcodegen >/dev/null
           mkdir -p out/qa
-          cd app
-          TEST_RUNNER_QA_DIR="$GITHUB_WORKSPACE/out/qa" xcodebuild -project PrayToScroll.xcodeproj -scheme PrayToScrollScreenshots \
-            -destination "id=$SIM" -derivedDataPath ../build \
-            -resultBundlePath ../out/crawl.xcresult \
-            -only-testing:PrayToScrollUITests/CrawlTests \
-            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee ../out/crawl.log | grep -E "error:|Test Case .*(passed|failed)|Executed|\*\* (BUILD|TEST)" || true
-          cd ..
-          python3 app/tools/qa_crawl_report.py out/qa out/crawl.xcresult
-          grep -q "\*\* TEST SUCCEEDED \*\*" out/crawl.log
+          cd app && xcodegen generate && cd ..
+          UDID=$(bash ci/pick_sim.sh)
+          echo "SIM=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
 
       - name: Tap-through video
-        if: always()
         run: |
           set -o pipefail
           QA="$GITHUB_WORKSPACE/out/qa"
-          mkdir -p "$QA"
           rm -f "$QA/rec.start" "$QA/rec.stop"
-          xcrun simctl status_bar "$SIM" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
           # The test writes rec.start / rec.stop, so the video holds only the walk-through.
           (
-            for i in $(seq 1 1500); do [ -f "$QA/rec.start" ] && break; sleep 0.2; done
+            for i in $(seq 1 3000); do [ -f "$QA/rec.start" ] && break; sleep 0.2; done
             xcrun simctl io "$SIM" recordVideo --codec=h264 --force "$QA/tapthrough.mp4" &
             REC=$!
             for i in $(seq 1 1500); do [ -f "$QA/rec.stop" ] && break; sleep 0.2; done
@@ -126,17 +139,87 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ci-out
+          name: qa-video
           path: |
-            out/*.log
-            out/screenshots
+            out/qa/tapthrough.mp4
+            out/tapthrough.log
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 14
+
+  # The crawler in two halves on parallel runners (each screen has a tap + time budget).
+  crawl:
+    runs-on: macos-15
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: a
+            tests: test01Today test02Scroll test03People test04Together test05Progress test06Answered test07Circle test08Journal test09Settings test10GateSetup test11GateVerified test12Troubleshoot
+          - part: b
+            tests: test13GuidedPrayer test14GatePrayer test16PrayForSomeone test17ChoosePerson test18AddPerson test19PersonDetail test20NewCircle test21JoinCircle test22SavedVerses test23GateGuide test24EmergencyPass test25OnboardingWalk
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Tools + project + simulator
+        run: |
+          brew install xcodegen >/dev/null
+          mkdir -p out/qa
+          cd app && xcodegen generate && cd ..
+          UDID=$(bash ci/pick_sim.sh)
+          echo "SIM=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+
+      - name: QA crawl (part ${{ matrix.part }})
+        run: |
+          set -o pipefail
+          ONLY=""
+          for t in ${{ matrix.tests }}; do ONLY="$ONLY -only-testing:PrayToScrollUITests/CrawlTests/$t"; done
+          cd app
+          TEST_RUNNER_QA_DIR="$GITHUB_WORKSPACE/out/qa" xcodebuild -project PrayToScroll.xcodeproj -scheme PrayToScrollScreenshots \
+            -destination "id=$SIM" -derivedDataPath ../build \
+            -resultBundlePath ../out/crawl.xcresult $ONLY \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee ../out/crawl-${{ matrix.part }}.log | grep -E "error:|Test Case .*(passed|failed)|Executed|\*\* (BUILD|TEST)" || true
+          cd ..
+          python3 app/tools/qa_crawl_report.py out/qa out/crawl.xcresult
+          grep -q "\*\* TEST SUCCEEDED \*\*" out/crawl-${{ matrix.part }}.log
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: qa
-          path: out/qa
+          name: qa-crawl-${{ matrix.part }}
+          path: |
+            out/qa/crawl-*.md
+            out/crawl-*.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  crawl-report:
+    needs: crawl
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: qa-crawl-*
+          merge-multiple: true
+          path: out/qa-parts
+      - name: Merge crawl logs
+        run: |
+          mkdir -p out/qa
+          cp out/qa-parts/crawl-[0-9][0-9]-*.md out/qa/ 2>/dev/null || true
+          python3 app/tools/qa_crawl_report.py out/qa
+          head -5 out/qa/crawl.md
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-crawl
+          path: out/qa/crawl.md
           if-no-files-found: ignore
           retention-days: 14
