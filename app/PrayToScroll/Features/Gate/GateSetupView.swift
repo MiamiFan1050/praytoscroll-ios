@@ -163,7 +163,7 @@ struct GateAppRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 14) {
-                AppTile(app: app, size: 48)
+                IconBadge(systemImage: status.isProtected ? "lock.shield.fill" : "app.badge", tint: status.isProtected ? Theme.sageText : Theme.goldIcon, size: 48)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(app.name).font(.akHeadline).foregroundStyle(Theme.textPrimary)
                     StatusBadge(status: status)

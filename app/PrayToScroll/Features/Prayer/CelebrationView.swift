@@ -210,10 +210,17 @@ struct CelebrationView: View {
                     }
                     .accessibilityIdentifier("celebration.continue")
                 } else {
-                    Text("Swipe back to \(app.name). It's open for you now.")
-                        .font(.akCallout)
-                        .foregroundStyle(Palette.cream.opacity(0.75))
-                        .multilineTextAlignment(.center)
+                    VStack(spacing: 6) {
+                        Text("Now open \(app.name)")
+                            .font(.akTitle3)
+                            .foregroundStyle(Palette.cream)
+                        Text("It’s unlocked. Go to your Home Screen and tap it.")
+                            .font(.akCallout)
+                            .foregroundStyle(Palette.cream.opacity(0.75))
+                    }
+                    .multilineTextAlignment(.center)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("celebration.openYourself")
                 }
                 Button("Stay in \(AppConstants.appName)") {
                     saveJournalIfNeeded()

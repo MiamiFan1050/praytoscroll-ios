@@ -7,7 +7,7 @@ struct GateGuideView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var step = 0
 
-    private var intentName: String { app.isCustom ? "Pray First (Any App)" : "Pray Before \(app.name)" }
+    private var intentName: String { app.hasPresetIntent ? "Pray Before \(app.name)" : "Pray First (Any App)" }
 
     private var steps: [GuideStep] {
         [
@@ -18,13 +18,13 @@ struct GateGuideView: View {
                       body: "Scroll the list of triggers if you don't see App right away.",
                       mock: .triggers),
             GuideStep(title: "Pick \(app.name), Is Opened, Run Immediately",
-                      body: "Then turn OFF Notify When Run, so you don't get a banner every time. This step matters most.",
+                      body: "You'll pick the real app in Shortcuts. This list is just so we can send you back to it. Then turn OFF Notify When Run, so you don't get a banner every time.",
                       mock: .appTrigger(app.name)),
             GuideStep(title: "Tap Next, then Create New Shortcut",
                       body: "You'll land on an empty shortcut, ready for one action.",
                       mock: .newShortcut),
             GuideStep(title: "Add “\(intentName)”",
-                      body: app.isCustom
+                      body: !app.hasPresetIntent
                         ? "Search \(AppConstants.appName), add Pray First (Any App), and set its App field to \(app.name). Don't add an Open App step."
                         : "Search \(AppConstants.appName) and tap it. Don't add an Open App step: \(AppConstants.appName) reopens \(app.name) for you.",
                       mock: .action(intentName)),
@@ -212,7 +212,7 @@ struct ShortcutsMock: View {
         case .appTrigger(let name):
             VStack(spacing: 8) {
                 titleBar("When")
-                mockRow(icon: "app.fill", text: "App: \(name)", tint: Color(hex: app.colorHex), highlighted: true)
+                mockRow(icon: "app.fill", text: "App: \(name)", tint: Theme.goldIcon, highlighted: true)
                 checkRow("Is Opened", on: true)
                 checkRow("Is Closed", on: false)
                 HStack(spacing: 0) {

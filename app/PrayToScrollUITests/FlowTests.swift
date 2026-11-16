@@ -70,6 +70,28 @@ final class FlowTests: XCTestCase {
                       "App Review 1.2: members can be reported")
     }
 
+    func testAddAnotherAppBySearchShowsItInTheList() {
+        let app = launch(["-route", "gate"])
+        let edit = app.buttons["Edit"].firstMatch
+        XCTAssertTrue(edit.waitForExistence(timeout: 10))
+        edit.tap()
+        let addAnother = app.buttons["apps.addAnother"]
+        XCTAssertTrue(addAnother.waitForExistence(timeout: 10))
+        addAnother.tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("disc")
+        let discord = app.buttons["addApp.discord"]
+        XCTAssertTrue(discord.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.textFields.matching(NSPredicate(format: "placeholderValue CONTAINS 'scheme'")).firstMatch.exists,
+                       "never asks for a URL scheme")
+        discord.tap()
+        let added = app.buttons["app.discord"]
+        XCTAssertTrue(added.waitForExistence(timeout: 5), "Discord shows up in the list")
+        XCTAssertTrue(added.isSelected, "and is gated")
+    }
+
     func testDeepLinkJoinOpensTogether() {
         let app = launch([])
         XCTAssertTrue(app.buttons["home.prayNow"].waitForExistence(timeout: 10))

@@ -485,6 +485,10 @@ struct OnboardingView: View {
                 .font(.akFootnote.weight(.semibold))
                 .foregroundStyle(Palette.warmGold)
             AppPickerView(embedded: true)
+            Text("You’ll pick the real app in Shortcuts. This list is just so we can send you back to it.")
+                .font(.akFootnote)
+                .foregroundStyle(Palette.cream.opacity(0.6))
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -662,9 +666,9 @@ struct OnboardingView: View {
                 .frame(maxWidth: .infinity)
             header(text("gateSetup.headline", "Set up your Prayer Gate."),
                    text("gateSetup.subline", "A quick Shortcuts automation lets us know when you open a gated app."))
-            HStack(spacing: 10) {
-                ForEach(model.settings.gatedApps.prefix(5)) { app in
-                    AppTile(app: app, size: 44)
+            HStack(spacing: 6) {
+                ForEach(model.settings.gatedApps.prefix(4)) { app in
+                    AppNameChip(app: app)
                 }
                 if model.settings.gatedApps.isEmpty {
                     Text("No apps chosen yet. You can set this up later in Settings.")

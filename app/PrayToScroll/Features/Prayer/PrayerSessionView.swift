@@ -170,7 +170,10 @@ private struct PrayingView: View {
 
     private func waitingPill(_ app: GatedApp) -> some View {
         HStack(spacing: 8) {
-            AppTile(app: app, size: 22)
+            Image(systemName: "lock.fill")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Palette.warmGold)
+                .padding(.leading, 6)
             Text("\(app.name) is waiting for your Amen")
                 .font(.akFootnote.weight(.semibold))
                 .foregroundStyle(Palette.cream.opacity(0.85))

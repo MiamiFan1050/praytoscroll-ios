@@ -126,7 +126,8 @@ struct GatedAppQuery: EntityQuery {
     init() {}
 
     private func all() -> [GatedApp] {
-        AppCatalog.all + SharedStore.shared.settings.customApps
+        let custom = SharedStore.shared.settings.customApps
+        return AppCatalog.all.filter { app in !custom.contains { $0.id == app.id } } + custom
     }
 
     func entities(for identifiers: [String]) async throws -> [GatedAppEntity] {

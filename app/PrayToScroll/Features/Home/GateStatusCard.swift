@@ -71,18 +71,14 @@ struct GateStatusCard: View {
                 }
                 Spacer(minLength: 0)
             }
-            HStack(spacing: 8) {
-                ForEach(apps.prefix(6)) { app in
-                    AppTile(app: app, size: 34)
-                        .overlay(alignment: .bottomTrailing) {
-                            if model.setupStatus(for: app).isProtected {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(Palette.midnight, Palette.sage)
-                                    .offset(x: 4, y: 4)
-                            }
-                        }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(apps) { app in
+                        AppNameChip(app: app, isOn: model.setupStatus(for: app).isProtected)
+                    }
                 }
+            }
+            HStack(spacing: 8) {
                 Spacer(minLength: 8)
                 if model.canUseEmergencyPass {
                     Button("I need it now", action: onEmergency)

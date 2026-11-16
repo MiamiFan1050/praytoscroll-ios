@@ -254,8 +254,14 @@ final class AppModel {
     /// so the automation that fires on the way in returns silently.
     func openApp(_ app: GatedApp) {
         store.grantLaunchPass(appID: app.id)
-        guard let url = app.openURL else { return }
-        UIApplication.shared.open(url)
+        guard let url = app.openURL else {
+            toast = "Now open \(app.name). It’s unlocked."
+            return
+        }
+        UIApplication.shared.open(url) { [weak self] opened in
+            guard !opened else { return }
+            Task { @MainActor in self?.toast = "Now open \(app.name). It’s unlocked." }
+        }
     }
 
     // MARK: Gate tests
