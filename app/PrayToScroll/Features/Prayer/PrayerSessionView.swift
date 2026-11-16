@@ -418,7 +418,7 @@ private struct VerseRevealView: View {
                 }
             }
             .minimumScaleFactor(0.6)
-            Text("World English Bible")
+            Text(flow.verse.translationName)
                 .font(.akCaption)
                 .foregroundStyle(Palette.cream.opacity(0.4))
         }

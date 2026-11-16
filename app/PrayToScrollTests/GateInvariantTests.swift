@@ -63,7 +63,8 @@ final class WordFeedTests: XCTestCase {
         XCTAssertEqual(verses.count, 366, "a verse for every day, leap day included")
         let prompts = ["Thank God for one thing.", "Pray for {name}.", "Ask for patience today."]
         for start in [1, 59, 60, 200, 365, 366] {
-            let items = FeedItem.build(verses: verses, prompts: prompts, startDay: start)
+            let ordered = WordFeedPlanner.order(verses: verses, topic: nil, seen: [], today: start, seed: UInt64(start))
+            let items = FeedItem.build(ordered: ordered, prompts: prompts, promptOffset: start)
             let shown = items.compactMap(\.verse)
             XCTAssertEqual(shown.count, 366)
             XCTAssertEqual(Set(shown.map(\.day)).count, 366, "every day once (start \(start))")

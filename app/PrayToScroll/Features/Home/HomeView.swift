@@ -258,7 +258,7 @@ struct HomeView: View {
                 Spacer()
                 Chip(text: verse.themeTitle, tint: Theme.sageText)
             }
-            Text(verse.text)
+            Text(verse.displayText)
                 .font(.akVerse)
                 .foregroundStyle(Theme.textPrimary)
                 .lineSpacing(4)

@@ -1,17 +1,45 @@
 import Foundation
 
-/// One verse of the day (World English Bible, public domain).
+/// The two public-domain translations the app ships (nothing licensed).
+enum BibleTranslation: String, Codable, CaseIterable, Identifiable, Sendable {
+    case web, kjv
+    var id: String { rawValue }
+    var name: String { self == .kjv ? "King James Version" : "World English Bible" }
+    var short: String { self == .kjv ? "KJV" : "WEB" }
+}
+
+/// One verse of the day: World English Bible text, the King James text, and our one-line "what this means".
 struct Verse: Codable, Hashable, Identifiable, Sendable {
     var day: Int
     var ref: String
+    /// World English Bible.
     var text: String
     var theme: String?
+    /// King James Version (public domain; filled by tools/bible_text.py).
+    var kjv: String?
+    /// One line in our own words, shown under the verse in Scroll the Word.
+    var meaning: String?
+    /// Which translation `displayText` shows (not stored in verses.json; nil = WEB).
+    var translation: BibleTranslation?
 
     var id: Int { day }
 
+    /// The verse in the reader's translation.
+    var displayText: String {
+        translation == .kjv ? (kjv ?? text) : text
+    }
+
+    var translationName: String { (kjv != nil && translation == .kjv ? BibleTranslation.kjv : .web).name }
+
+    func rendered(in translation: BibleTranslation) -> Verse {
+        var copy = self
+        copy.translation = translation
+        return copy
+    }
+
     /// Splits the verse into short lines for the tap-to-reveal reading.
     var revealLines: [String] {
-        let cleaned = text.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleaned = displayText.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
         var lines: [String] = []
         var current = ""
         for word in cleaned.split(separator: " ") {
@@ -43,11 +71,18 @@ struct Verse: Codable, Hashable, Identifiable, Sendable {
                                 theme: "peace")
 }
 
-/// Loads verses.json from the bundle (app and widget both bundle it).
+/// Loads verses.json from the bundle (app and widget both bundle it), in the reader's translation.
 final class VerseProvider: @unchecked Sendable {
     static let shared = VerseProvider()
 
-    private(set) lazy var verses: [Verse] = load()
+    private lazy var all: [Verse] = load()
+    /// Set by AppModel from Settings; the widget reads it from the app group.
+    var translation: BibleTranslation = SharedStore.shared.settings.translation
+
+    var verses: [Verse] {
+        let t = translation
+        return all.map { $0.rendered(in: t) }
+    }
 
     private func load() -> [Verse] {
         guard let url = Bundle.main.url(forResource: "verses", withExtension: "json"),
@@ -68,9 +103,9 @@ final class VerseProvider: @unchecked Sendable {
     }
 
     func verse(forDayOfYear day: Int) -> Verse {
-        let list = verses
-        guard !list.isEmpty else { return .fallback }
-        if let exact = list.first(where: { $0.day == day }) { return exact }
-        return list[(max(day, 1) - 1) % list.count]
+        let list = all
+        guard !list.isEmpty else { return Verse.fallback.rendered(in: translation) }
+        if let exact = list.first(where: { $0.day == day }) { return exact.rendered(in: translation) }
+        return list[(max(day, 1) - 1) % list.count].rendered(in: translation)
     }
 }

@@ -47,6 +47,8 @@ final class SharedStore: @unchecked Sendable {
         static let screenTimeActive = "ak.strict.active"
         static let relockScheduledFor = "ak.strict.relockAt"
         static let screenTimeOfferDismissed = "ak.strict.offerDismissed"
+        static let wordSeen = "ak.word.seen"
+        static let wordSeed = "ak.word.seed"
     }
 
     // MARK: Settings
@@ -103,6 +105,24 @@ final class SharedStore: @unchecked Sendable {
     var relockScheduledFor: Date? {
         get { date(Key.relockScheduledFor) }
         set { setDate(newValue, Key.relockScheduledFor) }
+    }
+
+    /// Scroll the Word: verse days in the order they were seen (oldest first), so sessions don't repeat.
+    var wordSeen: [Int] {
+        get { defaults.array(forKey: Key.wordSeen) as? [Int] ?? [] }
+        set { defaults.set(newValue, forKey: Key.wordSeen) }
+    }
+
+    func markVerseSeen(_ day: Int) {
+        wordSeen = WordFeedPlanner.markSeen(day, in: wordSeen)
+    }
+
+    /// This install's shuffle for Scroll the Word (made once).
+    var wordSeed: UInt64 {
+        if let stored = defaults.string(forKey: Key.wordSeed), let value = UInt64(stored) { return value }
+        let value = UInt64.random(in: 1...UInt64.max)
+        defaults.set(String(value), forKey: Key.wordSeed)
+        return value
     }
 
     /// A v1.0 Shortcuts user closed the "lock with Screen Time" card on Home.

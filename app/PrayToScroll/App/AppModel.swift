@@ -125,6 +125,7 @@ final class AppModel {
         if let forced = options.appearance { loaded.appearance = forced }
         #endif
         self.settings = loaded
+        VerseProvider.shared.translation = loaded.translation
         Haptics.enabled = loaded.hapticsEnabled
         #if DEBUG
         if demo {
@@ -162,8 +163,10 @@ final class AppModel {
         guard copy != settings else { return }
         let remindersChanged = copy.reminders != settings.reminders || copy.firstName != settings.firstName
         let lockChanged = copy.gateEnabled != settings.gateEnabled || copy.lockMethod != settings.lockMethod
+        let translationChanged = copy.translation != settings.translation
         settings = copy
         store.settings = copy
+        if translationChanged { verses.translation = copy.translation; refreshReminders() }
         Haptics.enabled = copy.hapticsEnabled
         if remindersChanged { refreshReminders() }
         if lockChanged { syncLock() }
@@ -713,6 +716,7 @@ final class AppModel {
         }
         settings = AppSettings()
         store.settings = settings
+        verses.translation = settings.translation
         ReminderService.shared.cancelAll()
         reloadGateState()
         refreshStreak()

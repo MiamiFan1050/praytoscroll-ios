@@ -242,7 +242,7 @@ struct CopyBook: Sendable {
         if let streak { out = out.replacingOccurrences(of: "{streak}", with: "\(streak)") }
         if let verse {
             out = out.replacingOccurrences(of: "{verseRef}", with: verse.ref)
-            out = out.replacingOccurrences(of: "{verseText}", with: verse.text)
+            out = out.replacingOccurrences(of: "{verseText}", with: verse.displayText)
         }
         return out
     }

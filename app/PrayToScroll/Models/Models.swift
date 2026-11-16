@@ -144,7 +144,7 @@ final class SavedVerse {
 
     init(verse: Verse) {
         self.ref = verse.ref
-        self.text = verse.text
+        self.text = verse.displayText   // as read (WEB or KJV)
         self.theme = verse.theme ?? ""
         self.day = verse.day
         self.savedAt = Date()

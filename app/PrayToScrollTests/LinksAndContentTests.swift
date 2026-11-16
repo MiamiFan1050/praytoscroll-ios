@@ -136,4 +136,35 @@ final class LinksAndContentTests: XCTestCase {
         XCTAssertFalse(verses.contains { $0.text.contains("Yahweh") }, "God's name is rendered \"the LORD\"")
         XCTAssertEqual(Set(verses.map(\.day)).count, verses.count, "one verse per day")
     }
+
+    func testEveryVerseHasKJVTextAndAMeaning() throws {
+        let url = try XCTUnwrap(Bundle(for: AppModel.self).url(forResource: "verses", withExtension: "json"))
+        let verses = try JSONDecoder().decode([Verse].self, from: Data(contentsOf: url))
+        for verse in verses {
+            let kjv = try XCTUnwrap(verse.kjv, verse.ref)
+            XCTAssertGreaterThan(kjv.count, 15, verse.ref)
+            XCTAssertFalse(kjv.contains("[") || kjv.contains("¶"), "KJV markup stripped: \(verse.ref)")
+            let meaning = try XCTUnwrap(verse.meaning, verse.ref)
+            XCTAssertTrue((40...120).contains(meaning.count), "\(verse.ref): \(meaning.count) chars")
+            XCTAssertFalse(meaning.contains("'") || meaning.contains("—") || meaning.contains("–"), "house style: \(verse.ref)")
+            XCTAssertNotEqual(meaning, verse.text)
+        }
+        XCTAssertEqual(Set(verses.compactMap(\.meaning)).count, verses.count, "every meaning is its own")
+        XCTAssertEqual(Set(verses.compactMap(\.theme)), Set(WordFeedPlanner.topics), "every theme has a topic chip")
+    }
+
+    func testTranslationSwitchesTheTextEverywhere() {
+        let verse = Verse(day: 1, ref: "Psalm 46:10", text: "Be still, and know that I am God.", theme: "peace",
+                          kjv: "Be still, and know that I am God:", meaning: "Stop striving.")
+        XCTAssertEqual(verse.displayText, verse.text, "WEB by default")
+        XCTAssertEqual(verse.rendered(in: .kjv).displayText, "Be still, and know that I am God:")
+        XCTAssertEqual(verse.rendered(in: .kjv).translationName, "King James Version")
+        XCTAssertEqual(verse.rendered(in: .kjv).revealLines.joined(separator: " "), "Be still, and know that I am God:")
+        var noKJV = verse
+        noKJV.kjv = nil
+        XCTAssertEqual(noKJV.rendered(in: .kjv).displayText, verse.text, "falls back to WEB")
+        XCTAssertEqual(noKJV.rendered(in: .kjv).translationName, "World English Bible", "and says so")
+        XCTAssertEqual(VerseReader.spokenRef("John 3:16-17"), "John 3, verses 16 to 17")
+        XCTAssertEqual(VerseReader.spokenRef("Psalm 46:10"), "Psalm 46, verse 10")
+    }
 }

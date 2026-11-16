@@ -158,6 +158,14 @@ struct AppSettings: Codable, Equatable, Sendable {
     var circleDisplayEmoji: String = "🕊️"
     /// The nickname picked when joining or creating a circle (falls back to the first name).
     var circleNickname: String = ""
+    /// Bible translation shown everywhere (both public domain).
+    var translation: BibleTranslation = .web
+    /// Scroll the Word text size (A− / A+), on top of Dynamic Type.
+    var wordTextScale: Double = 1.0
+    /// Read each verse aloud as it comes into view (system voices). Off by default.
+    var readAloud: Bool = false
+    /// Show the one-line "what this means" under each verse.
+    var showMeanings: Bool = true
 
     init() {}
 
@@ -177,6 +185,10 @@ struct AppSettings: Codable, Equatable, Sendable {
         customApps = (try? c.decodeIfPresent([GatedApp].self, forKey: .customApps)) ?? d.customApps
         gateEnabled = try c.decodeIfPresent(Bool.self, forKey: .gateEnabled) ?? d.gateEnabled
         lockMethod = (try? c.decodeIfPresent(LockMethod.self, forKey: .lockMethod)) ?? d.lockMethod
+        translation = (try? c.decodeIfPresent(BibleTranslation.self, forKey: .translation)) ?? d.translation
+        wordTextScale = (try? c.decodeIfPresent(Double.self, forKey: .wordTextScale)) ?? d.wordTextScale
+        readAloud = (try? c.decodeIfPresent(Bool.self, forKey: .readAloud)) ?? d.readAloud
+        showMeanings = (try? c.decodeIfPresent(Bool.self, forKey: .showMeanings)) ?? d.showMeanings
         reminders = (try? c.decodeIfPresent(ReminderSettings.self, forKey: .reminders)) ?? d.reminders
         appearance = (try? c.decodeIfPresent(AppearancePreference.self, forKey: .appearance)) ?? d.appearance
         scrollHoursPerDay = try c.decodeIfPresent(Double.self, forKey: .scrollHoursPerDay) ?? d.scrollHoursPerDay

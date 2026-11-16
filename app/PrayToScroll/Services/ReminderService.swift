@@ -105,7 +105,7 @@ final class ReminderService {
                     content.body = CopyBook.fill(message.body, name: name, verse: verse)
                 } else {
                     content.title = verse.ref
-                    content.body = verse.text
+                    content.body = verse.displayText
                 }
                 content.sound = nil
                 content.userInfo = ["url": AppLinks.prayDeepLink.absoluteString]

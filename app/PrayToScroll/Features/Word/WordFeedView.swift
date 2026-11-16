@@ -2,28 +2,40 @@ import SwiftData
 import SwiftUI
 
 /// "Scroll the Word": a full-screen, swipe-up feed of verses (with a prayer prompt every few cards).
-/// Double-tap to save, share as an image card, or "Pray this" to start a prayer seeded with it.
+/// Topic feeds, a one-line "what this means", double-tap to save, swipe left (or "Pray this") to pray the verse,
+/// Listen (read aloud), A−/A+ and WEB/KJV under "Aa", and a share card. Verses you've seen go to the back, so a new
+/// session never repeats what you just read.
 struct WordFeedView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.modelContext) private var context
     @Query(sort: \SavedVerse.savedAt, order: .reverse) private var saved: [SavedVerse]
     @State private var shareCard: ShareCardKind?
     @State private var showSaved = false
+    @State private var showDisplay = false
     @State private var position: String?
     @State private var items: [FeedItem] = []
+    /// nil = "For you" (every verse).
+    @State private var topic: String?
+    private let reader = VerseReader.shared
 
     var body: some View {
         let savedRefs = Set(saved.map(\.ref))
+        let settings = model.settings
         ZStack(alignment: .top) {
             Palette.midnightDeep.ignoresSafeArea()
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 0) {
                     ForEach(items) { item in
                         FeedCard(item: item,
+                                 translation: settings.translation,
+                                 textScale: settings.wordTextScale,
+                                 showMeaning: settings.showMeanings,
+                                 isSpeaking: item.verse.map { reader.speakingDay == $0.day } ?? false,
                                  isSaved: item.verse.map { savedRefs.contains($0.ref) } ?? false,
                                  onSave: { toggleSave(item, savedRefs: savedRefs, forceOn: false) },
                                  onDoubleTap: { toggleSave(item, savedRefs: savedRefs, forceOn: true) },
                                  onShare: { share(item) },
+                                 onListen: { listen(item) },
                                  onPray: { pray(item) })
                             .containerRelativeFrame([.horizontal, .vertical])
                             .id(item.id)
@@ -36,7 +48,10 @@ struct WordFeedView: View {
             .ignoresSafeArea(edges: .top)
             .accessibilityIdentifier("word.feed")
 
-            header
+            VStack(spacing: 10) {
+                header
+                topicBar
+            }
         }
         .environment(\.colorScheme, .dark)
         .sheet(item: $shareCard) { kind in ShareCardSheet(kind: kind).environment(model) }
@@ -44,17 +59,24 @@ struct WordFeedView: View {
             NavigationStack { SavedVersesView() }
                 .environment(model)
         }
-        .onChange(of: position) { _, _ in Haptics.selection() }
-        .onAppear {
-            if items.isEmpty {
-                items = FeedItem.build(verses: model.verses.verses, prompts: model.content.prompts.quick,
-                                       startDay: DayKey(Date(), calendar: .current).dayOfYear(calendar: .current))
-            }
+        .sheet(isPresented: $showDisplay) {
+            NavigationStack { WordDisplaySheet() }
+                .environment(model)
+                .presentationDetents([.medium, .large])
         }
+        .onChange(of: position) { _, id in
+            Haptics.selection()
+            cardBecameVisible(id)
+        }
+        .onChange(of: topic) { _, _ in rebuild() }
+        .onAppear {
+            if items.isEmpty { rebuild() }
+        }
+        .onDisappear { reader.stop() }
     }
 
     private var header: some View {
-        HStack {
+        HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Scroll the Word")
                     .font(.system(.title3, design: .serif, weight: .bold))
@@ -64,6 +86,15 @@ struct WordFeedView: View {
                     .foregroundStyle(Palette.cream.opacity(0.6))
             }
             Spacer()
+            Button { showDisplay = true } label: {
+                Text("Aa")
+                    .font(.system(.headline, design: .serif, weight: .bold))
+                    .foregroundStyle(Palette.cream)
+                    .frame(width: 44, height: 40)
+                    .background(Capsule().fill(.ultraThinMaterial))
+            }
+            .accessibilityLabel("Text size, translation and read aloud")
+            .accessibilityIdentifier("word.display")
             Button { showSaved = true } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "heart.fill").foregroundStyle(Palette.rose)
@@ -80,8 +111,65 @@ struct WordFeedView: View {
         .padding(.top, 6)
     }
 
-    private func toggleSave(_ item: FeedItem, savedRefs: Set<String>, forceOn: Bool) {
+    /// "For you" + one feed per topic.
+    private var topicBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                topicChip(nil, title: "For you")
+                ForEach(WordFeedPlanner.topics, id: \.self) { topicChip($0, title: WordFeedPlanner.title(for: $0)) }
+            }
+            .padding(.horizontal, Spacing.page)
+        }
+        .scrollClipDisabled()
+    }
+
+    private func topicChip(_ value: String?, title: String) -> some View {
+        let selected = topic == value
+        return Button {
+            guard topic != value else { return }
+            Haptics.selection()
+            withAnimation(.snappy) { topic = value }
+        } label: {
+            Text(title)
+                .font(.akFootnote.weight(.semibold))
+                .foregroundStyle(selected ? Palette.midnight : Palette.cream)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 34)
+                .background {
+                    if selected { Capsule().fill(Palette.goldButton) } else { Capsule().fill(.ultraThinMaterial) }
+                }
+        }
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("word.topic.\(value ?? "all")")
+    }
+
+    private func rebuild() {
+        reader.stop()
+        let today = DayKey(Date(), calendar: .current).dayOfYear(calendar: .current)
+        let ordered = WordFeedPlanner.order(verses: model.verses.verses, topic: topic, seen: model.store.wordSeen,
+                                            today: model.verses.verse(forDayOfYear: today).day, seed: model.store.wordSeed)
+        items = FeedItem.build(ordered: ordered, prompts: model.content.prompts.quick,
+                               promptOffset: Int(model.store.wordSeed % 997) + model.store.wordSeen.count / 5)
+        position = items.first?.id
+        cardBecameVisible(position)
+    }
+
+    private func cardBecameVisible(_ id: String?) {
+        guard let id, let item = items.first(where: { $0.id == id }) else { return }
         guard let verse = item.verse else {
+            reader.stop()
+            return
+        }
+        model.store.markVerseSeen(verse.day)
+        if model.settings.readAloud {
+            reader.read(verse.rendered(in: model.settings.translation))
+        } else if reader.speakingDay != nil, reader.speakingDay != verse.day {
+            reader.stop()
+        }
+    }
+
+    private func toggleSave(_ item: FeedItem, savedRefs: Set<String>, forceOn: Bool) {
+        guard let verse = item.verse?.rendered(in: model.settings.translation) else {
             if forceOn { Haptics.tap() }
             return
         }
@@ -97,15 +185,85 @@ struct WordFeedView: View {
     }
 
     private func share(_ item: FeedItem) {
-        if let verse = item.verse { shareCard = .verse(verse) }
+        if let verse = item.verse { shareCard = .verse(verse.rendered(in: model.settings.translation)) }
+    }
+
+    private func listen(_ item: FeedItem) {
+        if let verse = item.verse { reader.toggle(verse.rendered(in: model.settings.translation)) }
     }
 
     private func pray(_ item: FeedItem) {
+        reader.stop()
         if let verse = item.verse {
-            model.startPrayer(style: .verse, source: .manual, verse: verse)
+            model.startPrayer(style: .verse, source: .manual, verse: verse.rendered(in: model.settings.translation))
         } else if let prompt = item.prompt {
             model.startPrayer(style: .quick, source: .manual, seedPrompt: prompt)
         }
+    }
+}
+
+/// Scroll the Word's reading options: translation, text size, the meaning line and read aloud.
+struct WordDisplaySheet: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        Form {
+            Section {
+                Picker("Translation", selection: model.binding(\.translation)) {
+                    ForEach(BibleTranslation.allCases) { Text($0.name).tag($0) }
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+                .accessibilityIdentifier("word.translation")
+            } header: {
+                Text("Translation")
+            } footer: {
+                Text("Both are public domain. Your choice is used everywhere in the app.")
+            }
+            Section("Text size") {
+                HStack(spacing: 16) {
+                    Button { step(-0.1) } label: {
+                        Text("A−").font(.system(.body, design: .serif, weight: .semibold)).frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(model.settings.wordTextScale <= 0.8)
+                    .accessibilityLabel("Smaller text")
+                    .accessibilityIdentifier("word.textSmaller")
+                    Spacer()
+                    Text("\(Int((model.settings.wordTextScale * 100).rounded()))%")
+                        .font(.akHeadline).monospacedDigit()
+                        .accessibilityIdentifier("word.textSize")
+                    Spacer()
+                    Button { step(0.1) } label: {
+                        Text("A+").font(.system(.title2, design: .serif, weight: .semibold)).frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(model.settings.wordTextScale >= 1.6)
+                    .accessibilityLabel("Bigger text")
+                    .accessibilityIdentifier("word.textBigger")
+                }
+            }
+            Section {
+                Toggle("Show what each verse means", isOn: model.binding(\.showMeanings))
+                    .accessibilityIdentifier("word.meanings")
+                Toggle("Read each verse aloud", isOn: model.binding(\.readAloud))
+                    .accessibilityIdentifier("word.readAloud")
+            } footer: {
+                Text(VerseReader.onlyCompactVoices
+                     ? "Uses your iPhone’s voices. For a more natural voice, download an Enhanced English voice in Settings › Accessibility › Spoken Content › Voices."
+                     : "Uses your iPhone’s own voices. Nothing leaves your phone.")
+            }
+        }
+        .tint(Palette.gold)
+        .navigationTitle("Reading")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) } }
+    }
+
+    private func step(_ delta: Double) {
+        model.updateSettings { $0.wordTextScale = min(1.6, max(0.8, (($0.wordTextScale + delta) * 10).rounded() / 10)) }
+        Haptics.selection()
     }
 }
 
@@ -116,18 +274,15 @@ struct FeedItem: Identifiable, Hashable {
     var prompt: String?
     var scene: FeedScene
 
-    /// Verses from today onward (wrapping the year), with a prompt after every 5 verses.
-    static func build(verses: [Verse], prompts: [String], startDay: Int) -> [FeedItem] {
+    /// The verses in feed order, with a prayer prompt after every 5.
+    static func build(ordered verses: [Verse], prompts: [String], promptOffset: Int) -> [FeedItem] {
         let list = verses.isEmpty ? [Verse.fallback] : verses
-        let startIndex = list.firstIndex { $0.day >= startDay } ?? 0
         var items: [FeedItem] = []
         let usablePrompts = prompts.filter { !$0.contains("{name}") }
-        for offset in 0..<list.count {
-            let verse = list[(startIndex + offset) % list.count]
-            items.append(FeedItem(id: "v\(verse.day)-\(offset)", verse: verse, prompt: nil,
-                                  scene: FeedScene.allCases[(verse.day + offset) % FeedScene.allCases.count]))
+        for (offset, verse) in list.enumerated() {
+            items.append(FeedItem(id: "v\(verse.day)", verse: verse, prompt: nil, scene: FeedScene.for(verse)))
             if (offset + 1) % 5 == 0, !usablePrompts.isEmpty {
-                let prompt = usablePrompts[(offset / 5 + startDay) % usablePrompts.count]
+                let prompt = usablePrompts[(offset / 5 + promptOffset) % usablePrompts.count]
                 items.append(FeedItem(id: "p\(offset)", verse: nil, prompt: prompt, scene: .candle))
             }
         }
@@ -137,6 +292,12 @@ struct FeedItem: Identifiable, Hashable {
 
 enum FeedScene: CaseIterable, Hashable {
     case dawn, night, sea, hills, desert, forest, candle
+
+    /// A verse always gets the same sky (in the feed and on its share card).
+    static func `for`(_ verse: Verse) -> FeedScene {
+        let skies: [FeedScene] = [.dawn, .night, .sea, .hills, .desert, .forest]
+        return skies[abs(verse.day) % skies.count]
+    }
 
     var colors: [Color] {
         switch self {
@@ -244,13 +405,21 @@ struct SeededRNG {
 
 struct FeedCard: View {
     let item: FeedItem
+    var translation: BibleTranslation = .web
+    var textScale: Double = 1
+    var showMeaning = true
+    var isSpeaking = false
     let isSaved: Bool
     let onSave: () -> Void
     let onDoubleTap: () -> Void
     let onShare: () -> Void
+    var onListen: () -> Void = {}
     let onPray: () -> Void
     @State private var burst = false
+    /// Swipe left to pray: how far the card has been dragged (≤ 0).
+    @State private var dragX: CGFloat = 0
     @ScaledMetric(relativeTo: .title) private var verseSize: CGFloat = 30
+    private static let swipeToPray: CGFloat = 90
 
     var body: some View {
         ZStack {
@@ -259,10 +428,12 @@ struct FeedCard: View {
                 .padding(.leading, 28)
                 .padding(.trailing, 84)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .offset(x: dragX * 0.45)
             rail
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 .padding(.trailing, 14)
                 .padding(.bottom, 36)
+            if item.verse != nil, dragX < -8 { swipeHint }
             if burst {
                 Image(systemName: "heart.fill")
                     .font(.system(size: 110))
@@ -281,39 +452,89 @@ struct FeedCard: View {
                 withAnimation(.easeOut(duration: 0.3)) { burst = false }
             }
         }
+        .modifier(SwipeLeft(enabled: item.verse != nil, onChanged: dragChanged, onEnded: dragEnded))
         .accessibilityElement(children: .contain)
+    }
+
+    private func dragChanged(_ dx: CGFloat) {
+        guard dx < 0 else { dragX = 0; return }
+        let crossed = dragX > -Self.swipeToPray && dx <= -Self.swipeToPray
+        dragX = max(dx, -160)
+        if crossed { Haptics.selection() }
+    }
+
+    private func dragEnded(_ dx: CGFloat) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { dragX = 0 }
+        if item.verse != nil, dx <= -Self.swipeToPray { onPray() }
+    }
+
+    private var swipeHint: some View {
+        let ready = dragX <= -Self.swipeToPray
+        return Label(ready ? "Let go to pray" : "Pray this", systemImage: "hands.and.sparkles.fill")
+            .font(.akHeadline)
+            .foregroundStyle(ready ? Palette.midnight : Palette.cream)
+            .padding(.horizontal, 18)
+            .frame(minHeight: 48)
+            .background(Capsule().fill(ready ? AnyShapeStyle(Palette.goldButton) : AnyShapeStyle(.ultraThinMaterial)))
+            .opacity(min(1, Double(-dragX) / Double(Self.swipeToPray)))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            .padding(.trailing, 18)
+            .accessibilityHidden(true)
+    }
+
+    private func verseFont(_ text: String) -> Font {
+        let base = text.count > 220 ? verseSize * 0.72 : (text.count > 140 ? verseSize * 0.85 : verseSize)
+        return .system(size: base * textScale, weight: .regular, design: .serif)
     }
 
     @ViewBuilder
     private var content: some View {
-        if let verse = item.verse {
+        if let base = item.verse {
+            let verse = base.rendered(in: translation)
             VStack(alignment: .leading, spacing: 18) {
-                Chip(text: verse.themeTitle, tint: Palette.warmGold)
-                Text(verse.text)
-                    .font(.system(size: verse.text.count > 220 ? verseSize * 0.72 : (verse.text.count > 140 ? verseSize * 0.85 : verseSize),
-                                  weight: .regular, design: .serif))
-                    .foregroundStyle(Palette.cream)
-                    .lineSpacing(6)
-                    .shadow(color: .black.opacity(0.4), radius: 8, y: 2)
-                    .minimumScaleFactor(0.5)
+                VStack(alignment: .leading, spacing: 18) {
+                    Chip(text: verse.themeTitle, tint: Palette.warmGold)
+                    Text(verse.displayText)
+                        .font(verseFont(verse.displayText))
+                        .foregroundStyle(Palette.cream)
+                        .lineSpacing(6)
+                        .shadow(color: .black.opacity(0.4), radius: 8, y: 2)
+                        .minimumScaleFactor(0.5)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(verse.ref)
+                        .font(.system(.title3, design: .serif, weight: .semibold))
+                        .foregroundStyle(Palette.warmGold)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(verse.displayText). \(verse.ref)")
+                .accessibilityValue(verse.themeTitle)
+                .accessibilityAction(named: isSaved ? "Remove from saved" : "Save") { onSave() }
+                .accessibilityAction(named: "Share") { onShare() }
+                .accessibilityAction(named: "Listen") { onListen() }
+                .accessibilityAction(named: "Pray this") { onPray() }
+                if showMeaning, let meaning = verse.meaning {
+                    HStack(alignment: .top, spacing: 10) {
+                        Capsule().fill(Palette.warmGold.opacity(0.7)).frame(width: 3)
+                        Text(meaning)
+                            .font(.system(size: 17 * min(textScale, 1.3), weight: .medium, design: .rounded))
+                            .foregroundStyle(Palette.cream.opacity(0.88))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     .fixedSize(horizontal: false, vertical: true)
-                Text(verse.ref)
-                    .font(.system(.title3, design: .serif, weight: .semibold))
-                    .foregroundStyle(Palette.warmGold)
-                Text("World English Bible")
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("What this means: \(meaning)")
+                    .accessibilityIdentifier("word.meaning")
+                }
+                Text("\(verse.translationName) · swipe left to pray it")
                     .font(.akCaption)
                     .foregroundStyle(Palette.cream.opacity(0.45))
+                    .accessibilityHidden(true)
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(verse.text). \(verse.ref)")
-            .accessibilityAction(named: isSaved ? "Remove from saved" : "Save") { onSave() }
-            .accessibilityAction(named: "Share") { onShare() }
-            .accessibilityAction(named: "Pray this") { onPray() }
         } else if let prompt = item.prompt {
             VStack(alignment: .leading, spacing: 18) {
                 Text("Pause & pray").akOverline(color: Palette.warmGold)
                 Text(prompt)
-                    .font(.system(size: verseSize * 0.95, weight: .regular, design: .serif))
+                    .font(.system(size: verseSize * 0.95 * textScale, weight: .regular, design: .serif))
                     .foregroundStyle(Palette.cream)
                     .lineSpacing(6)
                     .fixedSize(horizontal: false, vertical: true)
@@ -337,6 +558,9 @@ struct FeedCard: View {
                 railButton(isSaved ? "heart.fill" : "heart", label: isSaved ? "Saved" : "Save",
                            tint: isSaved ? Palette.rose : Palette.cream, action: onSave)
                     .accessibilityIdentifier("word.save")
+                railButton(isSpeaking ? "stop.fill" : "speaker.wave.2.fill", label: isSpeaking ? "Stop" : "Listen",
+                           tint: Palette.cream, action: onListen)
+                    .accessibilityIdentifier("word.listen")
                 railButton("square.and.arrow.up", label: "Share", tint: Palette.cream, action: onShare)
                 railButton("hands.and.sparkles.fill", label: "Pray this", tint: Palette.warmGold, action: onPray)
                     .accessibilityIdentifier("word.pray")
@@ -415,5 +639,69 @@ struct SavedVersesView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         .sheet(item: $shareCard) { kind in ShareCardSheet(kind: kind).environment(model) }
+    }
+}
+
+/// Swipe left on a verse to pray it, without ever stealing the vertical feed's scroll: only a mostly-sideways pan
+/// counts. iOS 18 uses a UIKit pan that refuses vertical starts (a SwiftUI DragGesture inside a ScrollView can block
+/// scrolling there); iOS 17 uses a simultaneous DragGesture.
+private struct SwipeLeft: ViewModifier {
+    let enabled: Bool
+    let onChanged: (CGFloat) -> Void
+    let onEnded: (CGFloat) -> Void
+
+    func body(content: Content) -> some View {
+        if !enabled {
+            content
+        } else if #available(iOS 18.0, *) {
+            content.gesture(HorizontalPan(onChanged: onChanged, onEnded: onEnded))
+        } else {
+            content.simultaneousGesture(
+                DragGesture(minimumDistance: 24)
+                    .onChanged { value in
+                        let dx = value.translation.width, dy = value.translation.height
+                        onChanged(dx < 0 && abs(dx) > abs(dy) * 1.4 ? dx : 0)
+                    }
+                    .onEnded { value in
+                        let dx = value.translation.width, dy = value.translation.height
+                        onEnded(abs(dx) > abs(dy) * 1.4 ? dx : 0)
+                    }
+            )
+        }
+    }
+}
+
+@available(iOS 18.0, *)
+private struct HorizontalPan: UIGestureRecognizerRepresentable {
+    let onChanged: (CGFloat) -> Void
+    let onEnded: (CGFloat) -> Void
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let pan = UIPanGestureRecognizer()
+        pan.delegate = context.coordinator
+        return pan
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        let dx = recognizer.translation(in: recognizer.view).x
+        switch recognizer.state {
+        case .changed: onChanged(dx)
+        case .ended: onEnded(dx)
+        case .cancelled, .failed: onEnded(0)
+        default: break
+        }
+    }
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = recognizer as? UIPanGestureRecognizer else { return false }
+            let velocity = pan.velocity(in: pan.view)
+            return velocity.x < 0 && abs(velocity.x) > abs(velocity.y) * 1.4
+        }
+
+        func gestureRecognizer(_ recognizer: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
     }
 }

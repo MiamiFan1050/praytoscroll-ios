@@ -47,6 +47,7 @@ struct PrayProvider: TimelineProvider {
 
     private func entry(at date: Date) -> PrayEntry {
         let store = SharedStore.shared
+        VerseProvider.shared.translation = store.settings.translation
         return PrayEntry(date: date, streak: store.streakSummary(now: date), verse: VerseProvider.shared.verse(for: date),
                          unlockedUntil: store.unlockedUntil, firstName: store.settings.firstName)
     }
@@ -152,7 +153,7 @@ struct VerseWidgetView: View {
                 Spacer()
                 PrayToScrollMark(glow: false).frame(width: 12, height: 17).opacity(0.8)
             }
-            Text(entry.verse.text)
+            Text(entry.verse.displayText)
                 .font(.system(family == .systemLarge ? .title3 : .callout, design: .serif))
                 .foregroundStyle(Palette.cream)
                 .minimumScaleFactor(0.6)

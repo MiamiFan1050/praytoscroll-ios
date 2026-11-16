@@ -1,7 +1,7 @@
 {
   "appName": "Pray to Scroll",
   "tagline": "Knees before feeds.",
-  "translationCredit": "World English Bible (public domain); God’s name rendered “the LORD”",
+  "translationCredit": "World English Bible and King James Version (both public domain); God’s name rendered “the LORD”",
   "placeholders": {
     "{name}": "The user's first name (from onboarding). In prompts.json it means the person being prayed for instead.",
     "{hours}": "Hours a day from the scroll quiz, with its unit, e.g. \"3 hours\", \"1 hour\", \"2.5 hours\".",

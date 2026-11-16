@@ -90,6 +90,10 @@ struct SettingsView: View {
                     ForEach(AppSettings.guidedLengthOptions, id: \.self) { Text(SettingsFormat.length($0)).tag($0) }
                 } label: { settingsLabel("Guided length", "timer") }
             }
+            Picker(selection: model.binding(\.translation)) {
+                ForEach(BibleTranslation.allCases) { Text($0.short).tag($0) }
+            } label: { settingsLabel("Bible translation", "book.closed.fill") }
+                .accessibilityIdentifier("settings.translation")
             HStack {
                 settingsLabel("Prayer text size", "textformat.size")
                 Spacer()
@@ -293,7 +297,7 @@ struct SettingsView: View {
                 Spacer()
                 Text(versionString).font(.akFootnote).foregroundStyle(Theme.textSecondary)
             }
-            Text("Scripture: " + model.content.copy.string("translationCredit", default: "World English Bible (public domain)"))
+            Text("Scripture: " + model.content.copy.string("translationCredit", default: "World English Bible and King James Version (both public domain)"))
                 .font(.akCaption)
                 .foregroundStyle(Theme.textTertiary)
         } header: { Text("About") }

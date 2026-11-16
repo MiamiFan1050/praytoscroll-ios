@@ -47,16 +47,22 @@ struct ShareCardView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Color(hex: 0x15223A), Palette.midnight, Palette.midnightDeep], startPoint: .top, endPoint: .bottom)
-            RadialGradient(colors: [Palette.gold.opacity(0.32), .clear], center: UnitPoint(x: 0.5, y: 0.28), startRadius: 0, endRadius: 300)
-            // light rays
-            ForEach(0..<14, id: \.self) { i in
-                Capsule()
-                    .fill(LinearGradient(colors: [Palette.warmGold.opacity(0.14), .clear], startPoint: .top, endPoint: .bottom))
-                    .frame(width: 3, height: 260)
-                    .offset(y: -40)
-                    .rotationEffect(.degrees(Double(i) * (360.0 / 14.0)), anchor: .bottom)
-                    .offset(y: -150)
+            if case .verse(let verse) = kind {
+                // The same sky the verse had in Scroll the Word.
+                FeedBackdrop(scene: FeedScene.for(verse))
+                Color.black.opacity(0.18)
+            } else {
+                LinearGradient(colors: [Color(hex: 0x15223A), Palette.midnight, Palette.midnightDeep], startPoint: .top, endPoint: .bottom)
+                RadialGradient(colors: [Palette.gold.opacity(0.32), .clear], center: UnitPoint(x: 0.5, y: 0.28), startRadius: 0, endRadius: 300)
+                // light rays
+                ForEach(0..<14, id: \.self) { i in
+                    Capsule()
+                        .fill(LinearGradient(colors: [Palette.warmGold.opacity(0.14), .clear], startPoint: .top, endPoint: .bottom))
+                        .frame(width: 3, height: 260)
+                        .offset(y: -40)
+                        .rotationEffect(.degrees(Double(i) * (360.0 / 14.0)), anchor: .bottom)
+                        .offset(y: -150)
+                }
             }
             VStack(spacing: 0) {
                 Spacer(minLength: 56)
@@ -109,16 +115,18 @@ struct ShareCardView: View {
                     .font(.system(size: 13, weight: .bold, design: .rounded))
                     .tracking(2)
                     .foregroundStyle(Palette.warmGold)
-                Text("“\(verse.text)”")
-                    .font(.system(size: verse.text.count > 220 ? 21 : (verse.text.count > 140 ? 25 : 30), weight: .regular, design: .serif))
+                let text = verse.displayText.trimmingCharacters(in: CharacterSet(charactersIn: "“”\"").union(.whitespaces))
+                Text("“\(text)”")
+                    .font(.system(size: text.count > 220 ? 21 : (text.count > 140 ? 25 : 30), weight: .regular, design: .serif))
                     .foregroundStyle(Palette.cream)
                     .multilineTextAlignment(.center)
                     .lineSpacing(6)
                     .minimumScaleFactor(0.5)
+                    .shadow(color: .black.opacity(0.45), radius: 8, y: 2)
                 Text(verse.ref)
                     .font(.system(size: 20, weight: .semibold, design: .serif))
                     .foregroundStyle(Palette.warmGold)
-                Text("World English Bible")
+                Text(verse.translationName)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(Palette.cream.opacity(0.45))
             }

@@ -84,7 +84,7 @@ final class ShieldPlannerTests: XCTestCase {
     /// and going, Screen Time sometimes refusing a timer. Whatever happens, the apps are never open without a
     /// running relock timer, and once a window is over they are shielded.
     func testRandomWeeksNeverLeaveTheAppsOpenWithoutATimer() {
-        var rng = SeededGenerator(seed: 0x5EED)
+        var rng = SplitMix64(seed: 0x5EED)
         for _ in 0..<40 {
             var device = SimulatedDevice()
             var t = now
@@ -152,17 +152,4 @@ private struct SimulatedDevice {
     struct Refused: Error {}
     var shielded = false
     var timerEnd: Date?
-}
-
-/// Deterministic randomness so a failure always reproduces.
-struct SeededGenerator: RandomNumberGenerator {
-    private var state: UInt64
-    init(seed: UInt64) { state = seed }
-    mutating func next() -> UInt64 {
-        state &+= 0x9E37_79B9_7F4A_7C15
-        var z = state
-        z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
-        z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
-        return z ^ (z >> 31)
-    }
 }

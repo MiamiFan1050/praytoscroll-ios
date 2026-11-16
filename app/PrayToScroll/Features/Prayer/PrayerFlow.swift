@@ -140,7 +140,7 @@ final class PrayerFlow {
             }
         case .verse:
             built = [
-                PrayerStep(kind: .verseReveal, overline: request.verse == nil ? "Today's verse" : "Pray this verse", title: verse.ref, prompt: verse.text, symbol: "book.pages.fill", poolKey: ""),
+                PrayerStep(kind: .verseReveal, overline: request.verse == nil ? "Today's verse" : "Pray this verse", title: verse.ref, prompt: verse.displayText, symbol: "book.pages.fill", poolKey: ""),
                 PrayerStep(kind: .prompt, overline: "Pray it", title: verse.ref,
                            prompt: "Read it once more, slowly. Then tell God what it stirs in you, in your own words.",
                            symbol: "hands.and.sparkles.fill", poolKey: ""),
