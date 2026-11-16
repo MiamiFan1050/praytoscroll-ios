@@ -90,7 +90,7 @@ final class CrawlTests: XCTestCase {
     func test25OnboardingWalk() {
         var log = CrawlLog(number: 25, name: "onboarding", args: ["-onboarding"])
         app = XCUIApplication()
-        app.launchArguments = ["-demo", "-uitest", "-onboarding", "-appearance", "dark"]
+        app.launchArguments = ["-demo", "-uitest", "-noMotion", "-onboarding", "-appearance", "dark"]
         app.launch()
         XCTAssertTrue(app.buttons["onboarding.cta"].waitForExistence(timeout: 10))
         let skipLabels: Set<String> = ["onboarding.cta", "onboarding.secondary", "onboarding.back"]
@@ -220,7 +220,6 @@ final class CrawlTests: XCTestCase {
             log.note("Budget reached: \(untried.count) not tried: " + untried.prefix(20).map(\.display).joined(separator: ", ")
                      + (untried.count > 20 ? ", …" : ""))
         }
-        _ = restore(target, log: &log)
         log.note(String(format: "Finished in %.0f s.", Date().timeIntervalSince(started)))
         finish(log)
     }
@@ -229,7 +228,9 @@ final class CrawlTests: XCTestCase {
     private func launch(_ target: Target) -> Bool {
         app.terminate()
         app = XCUIApplication()
-        app.launchArguments = ["-demo", "-uitest", "-appearance", "dark"] + target.args
+        // -noMotion: the endless decorative animations pause (as with Reduce Motion), or an open menu makes every
+        // later XCUITest action wait 60 s for "animations complete" (CI run 43941115392: 12 min on one screen).
+        app.launchArguments = ["-demo", "-uitest", "-noMotion", "-appearance", "dark"] + target.args
         app.launch()
         if let tab = target.tab {
             let button = app.tabBars.buttons[tab]
@@ -270,6 +271,7 @@ final class CrawlTests: XCTestCase {
     /// Gets back to the target: dismiss whatever is on top, else relaunch along the path.
     private func restore(_ target: Target, log: inout CrawlLog) -> Bool {
         for _ in 0..<5 {
+            let attempt = Date()
             if onScreen(target) { return true }
             if app.state == .notRunning { break }
             if app.state != .runningForeground {
@@ -279,6 +281,8 @@ final class CrawlTests: XCTestCase {
             }
             if dismissSystemAlert(log: &log) { continue }
             if !dismissOneLayer() { break }
+            // A stalled app (XCUITest waiting out its 60 s animation timeout) won't get better: relaunch instead.
+            if Date().timeIntervalSince(attempt) > 20 { break }
             Thread.sleep(forTimeInterval: 0.8)
         }
         if onScreen(target) { return true }

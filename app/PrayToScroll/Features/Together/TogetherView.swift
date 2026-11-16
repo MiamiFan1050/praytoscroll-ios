@@ -119,6 +119,7 @@ struct TogetherView: View {
                     HStack(spacing: 10) {
                         Button { showCreate = true } label: { Label("New circle", systemImage: "plus") }
                             .buttonStyle(QuietButtonStyle(height: 48))
+                            .accessibilityIdentifier("circles.create")   // same role as the empty state's button
                         Button { joinCode = JoinRequest(code: "") } label: { Label("Join", systemImage: "person.badge.plus") }
                             .buttonStyle(QuietButtonStyle(height: 48))
                     }

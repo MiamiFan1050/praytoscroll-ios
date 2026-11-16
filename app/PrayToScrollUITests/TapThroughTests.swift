@@ -22,11 +22,7 @@ final class TapThroughTests: XCTestCase {
         let started = Date()
 
         // Home
-        pause(1.5)
-        app.swipeUp()
-        pause(1.0)
-        app.swipeDown()
-        pause(0.5)
+        pause(2.0)
 
         // Pray → Amen
         home.tap()
@@ -46,14 +42,8 @@ final class TapThroughTests: XCTestCase {
         app.tabBars.buttons["Scroll"].tap()
         pause(1.5)
         for _ in 0..<2 { app.swipeUp(); pause(1.2) }
-        firstHittable(app.buttons.matching(identifier: "word.save"))?.tap()
-        pause(1.0)
-        firstHittable(app.buttons.matching(NSPredicate(format: "label == 'Share'")))?.tap()
-        if app.buttons["Close"].waitForExistence(timeout: 5) {
-            pause(1.8)
-            app.buttons["Close"].tap()
-        }
-        pause(0.8)
+        firstHittable(app.buttons.matching(identifier: "word.save"))?.tap()   // Share is covered by WordTests + the crawler
+        pause(1.2)
 
         // Pray for someone
         app.tabBars.buttons["People"].tap()
@@ -84,8 +74,6 @@ final class TapThroughTests: XCTestCase {
         circle.tap()
         XCTAssertTrue(app.descendants(matching: .any)["circle.title"].waitForExistence(timeout: 6))
         pause(2.0)
-        app.swipeUp()
-        pause(1.0)
 
         // Gate setup: Settings → Gated apps & setup. (After the Amen the Today card shows "Unlocked", which has no
         // long-press menu; the locked card's "Gate setup" menu is covered by the crawler.)
@@ -123,9 +111,7 @@ final class TapThroughTests: XCTestCase {
         app.tabBars.buttons["Progress"].tap()
         pause(2.0)
         app.swipeUp()
-        pause(1.5)
-        app.swipeUp()
-        pause(1.5)
+        pause(2.0)
         let soFar = Date().timeIntervalSince(started)
         if soFar < 66 { app.swipeDown(); pause(66 - soFar) }
         writeQAMarker("rec.stop")

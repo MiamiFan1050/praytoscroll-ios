@@ -705,7 +705,8 @@ struct OnboardingView: View {
 
 /// A gently pulsing key-in-ring that previews the Amen button.
 private struct HoldPreview: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    private var reduceMotion: Bool { systemReduceMotion || MotionPolicy.off }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in

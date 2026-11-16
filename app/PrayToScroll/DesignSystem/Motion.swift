@@ -1,12 +1,24 @@
 import SwiftUI
 
+/// Debug builds: `-noMotion` (the UI crawler) pauses the endless decorative animations the way Reduce Motion does.
+/// With them running, an open menu keeps XCUITest's "wait for animations" busy for 60 s after every tap.
+/// Always false in Release.
+enum MotionPolicy {
+    #if DEBUG
+    static let off = ProcessInfo.processInfo.arguments.contains("-noMotion")
+    #else
+    static let off = false
+    #endif
+}
+
 /// The streak flame. Lit when today's prayer is done, embers when the streak is waiting for today.
 struct StreakFlame: View {
     var streak: Int
     var lit: Bool = true
     var size: CGFloat = 64
     var showsNumber: Bool = true
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    private var reduceMotion: Bool { systemReduceMotion || MotionPolicy.off }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion || !lit)) { context in
@@ -64,7 +76,8 @@ struct LightParticles: View {
     var count: Int = 40
     var color: Color = Palette.warmGold
     var speed: Double = 1
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    private var reduceMotion: Bool { systemReduceMotion || MotionPolicy.off }
     @State private var motes: [Mote] = []
 
     struct Mote {
@@ -107,7 +120,8 @@ struct LightParticles: View {
 /// The slow breathing light at the center of a prayer: 4 s in, 4 s out.
 struct BreathingGlow: View {
     var size: CGFloat = 260
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    private var reduceMotion: Bool { systemReduceMotion || MotionPolicy.off }
 
     static func phase(at t: TimeInterval) -> Double {
         0.5 - 0.5 * cos(2 * .pi * t / 8)

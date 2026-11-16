@@ -78,6 +78,16 @@ jobs:
           # App Store requires a privacy manifest (UserDefaults is a required-reason API) in the app and the widget.
           find ../build-release/Build/Products -name PrivacyInfo.xcprivacy -path "*.app/*" | tee ../out/privacy-manifests.txt
           [ "$(grep -c . ../out/privacy-manifests.txt)" -ge 2 ]
+          # No dormant code in the Release binary (guideline 2.5.19): no demo/mock/StoreKit types, no StoreKit link.
+          APPDIR=$(find ../build-release/Build/Products -maxdepth 2 -name "*.app" -type d | head -1)
+          BIN="$APPDIR/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APPDIR/Info.plist")"
+          strings -a "$BIN" > ../out/release-strings.txt
+          grep -q CloudKitCircleService ../out/release-strings.txt   # control: the scan does see Swift type names
+          { grep -E "DemoSeeder|MockCircleService|ProStore|com\.amenkeyapp\.ios\.demo" ../out/release-strings.txt || true; } | sort -u > ../out/release-dormant.txt
+          { otool -L "$BIN" | grep -i storekit || true; } >> ../out/release-dormant.txt
+          cat ../out/release-dormant.txt
+          [ ! -s ../out/release-dormant.txt ]
+          echo "Release binary: no demo, mock or StoreKit code"
 
       - uses: actions/upload-artifact@v4
         if: always()

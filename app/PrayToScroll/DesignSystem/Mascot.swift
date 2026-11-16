@@ -69,7 +69,8 @@ struct ArtImage<Fallback: View>: View {
 /// Placeholder lamb: fluffy wool, closed eyes, little hooves together, a gold key on a chain.
 private struct DrawnLamb: View {
     var pose: MascotView.Pose
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    private var reduceMotion: Bool { systemReduceMotion || MotionPolicy.off }
 
     var body: some View {
         GeometryReader { geo in
