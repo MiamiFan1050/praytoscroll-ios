@@ -1,21 +1,21 @@
 # Status (2026-11-16)
 
-## Verification so far
+## Verification
 
-There is no Xcode on the Mac mini yet, so nothing has been built for a simulator or device and no UI test or
-screenshot has run. What has been checked:
+GitHub Actions CI (`.github/workflows/ci.yml`, macos-15, Xcode 26.3, iPhone 17 Pro Max simulator on iOS 26.2) is green:
+run 43894331671 (and 43892715649 before the screenshot polish).
 
 | Check | Result |
 |---|---|
-| `tools/typecheck.sh all`: app, widget (as an app extension), Strict Lock app + 3 extensions, unit tests, against the Mac Catalyst iOS frameworks | 0 errors. `FamilyActivitySelection` is iOS-only (expected under Catalyst) |
-| `tools/run-unit-tests.sh`: 41 unit tests built and run as a Catalyst binary | 41 passed. A deliberately broken test fails, so the runner does catch failures |
-| `xcodegen generate` (v1.0 and `project-strictlock.yml`) | Both generate; 3 schemes (PrayToScroll, PrayToScrollUnit, PrayToScrollScreenshots) |
-| App icon `art/icon_1024.png` | 1024×1024, no alpha. Checked by eye at 512 and 60 px: the lamb reads at both |
-| Home-screen label "Pray to Scroll" | Estimated, not seen: 75.1 pt at 12 pt system font, the same width as "Google Maps" (74.4). Probably fits; confirm on the simulator |
+| `xcodegen generate` + Debug simulator build | Succeeded |
+| Unit tests (`PrayToScrollUnit`) | 41/41 passed |
+| UI tests (`PrayToScrollScreenshots`) | 16/16 passed: 5 flow checks + 10 store screenshots + the home-label shot |
+| Release build for generic iOS (unsigned) | Succeeded |
+| Store screenshots | `../out/ci-43894331671/named/01-home … 10-someone.png`, 1320×2868 (6.9"), reviewed by eye |
+| Home-screen label "Pray to Scroll" | Fits untruncated on the 6.9" home screen (`99-home-label.png`). Measures 75.1 pt, like "Google Maps", so it should fit on 6.1" too. That's unverified |
+| App icon `art/icon_1024.png` | 1024×1024, no alpha. Checked at 512 px, at 60 px and on the simulator home screen |
 
-Blind spots of the no-Xcode check: the SwiftData `@Model` macro expansion (models are stubbed), iOS-only
-SwiftUI/UIKit behaviour, asset catalog compilation, Info.plist/entitlement processing, linking, and all runtime
-UI. The first real `xcodebuild` may still turn up a few errors.
+Without Xcode: `tools/typecheck.sh all` (Catalyst SDK) is clean and `tools/run-unit-tests.sh` passes 41/41.
 
 ## Done (code complete for v1.0)
 
@@ -47,11 +47,10 @@ UI. The first real `xcodebuild` may still turn up a few errors.
 
 ## Not done / not working yet
 
-- **Never built with Xcode.** Next: `xcodegen generate`, build on the 6.9" simulator, fix any errors, run unit + UI tests,
-  `tools/screenshots.sh`, look at every screenshot, check the home-screen label.
-- UI tests and screenshot routes are written but have never run; selectors may need adjusting.
 - No widget screenshots (adding widgets to the simulator home screen isn't scriptable from XCTest).
-- CloudKit schema isn't imported or deployed (needs Xcode `cktool` + a management token, and the Console's deploy to Production).
+- Signed archive/upload (`release.yml`) not run yet: it waits for the App Store Connect app record.
+- CloudKit schema isn't imported or deployed (needs `cktool` + a management token, and the Console's deploy to Production).
+  Circles were only exercised against the demo mock.
 - Strict Lock needs Apple's Family Controls (Distribution) entitlement and profiles for 4 bundle IDs before it can ship.
 - `Services/ProStore.swift` (StoreKit, future Pro) isn't reachable from any v1.0 screen.
 - Content: copies of `../content/*.json` are current as of today. Re-copy them if the content changes.
