@@ -14,6 +14,14 @@ final class FlowTests: XCTestCase {
         return app
     }
 
+    /// A SwiftUI Toggle in a List reports the whole row; a tap on its middle can land on the label and do nothing.
+    private func turnOn(_ toggle: XCUIElement) {
+        guard (toggle.value as? String) != "1" else { return }
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        if (toggle.value as? String) != "1", toggle.switches.firstMatch.exists { toggle.switches.firstMatch.tap() }
+        XCTAssertEqual(toggle.value as? String, "1", "the switch is on")
+    }
+
     private func sayAmen(in app: XCUIApplication) {
         let amen = app.descendants(matching: .any)["amenButton"]
         XCTAssertTrue(amen.waitForExistence(timeout: 10))
@@ -106,7 +114,8 @@ final class FlowTests: XCTestCase {
         app.buttons["unlockFor.m45"].tap()
         let ask = app.switches["unlock.askEachTime"]
         XCTAssertTrue(ask.waitForExistence(timeout: 3))
-        ask.tap()
+        for _ in 0..<3 where !ask.isHittable { app.swipeUp() }
+        turnOn(ask)
         app.navigationBars.buttons.element(boundBy: 0).tap()   // back to Settings
         app.buttons["Done"].firstMatch.tap()
 
