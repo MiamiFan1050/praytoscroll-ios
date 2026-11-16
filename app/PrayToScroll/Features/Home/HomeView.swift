@@ -269,7 +269,7 @@ struct HomeView: View {
             HStack(spacing: 12) {
                 StatTile(value: "\(today.count)", label: today.count == 1 ? "prayer" : "prayers", systemImage: "hands.and.sparkles.fill")
                 StatTile(value: "\(minutes)", label: "minutes with God", systemImage: "clock.fill", tint: Theme.sageText)
-                StatTile(value: "\(instead)", label: "prayed instead of scrolling", systemImage: "iphone.gen3.slash", tint: Theme.roseText)
+                StatTile(value: "\(instead)", label: "prayed instead of scrolling", systemImage: "iphone.slash", tint: Theme.roseText)
             }
         }
     }

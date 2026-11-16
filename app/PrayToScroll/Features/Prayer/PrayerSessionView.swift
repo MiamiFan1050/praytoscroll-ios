@@ -220,11 +220,16 @@ private struct PrayingView: View {
             }
             VStack(spacing: 8) {
                 if let step = flow.currentStep {
-                    Image(systemName: step.symbol)
-                        .font(.system(size: size * 0.13, weight: .semibold))
-                        .foregroundStyle(Palette.warmGold)
-                        .symbolRenderingMode(.hierarchical)
-                        .contentTransition(.symbolEffect(.replace))
+                    if MascotView.hasArt {
+                        MascotView(pose: .praying, size: size * 0.46)
+                            .padding(.bottom, -size * 0.03)
+                    } else {
+                        Image(systemName: step.symbol)
+                            .font(.system(size: size * 0.13, weight: .semibold))
+                            .foregroundStyle(Palette.warmGold)
+                            .symbolRenderingMode(.hierarchical)
+                            .contentTransition(.symbolEffect(.replace))
+                    }
                     Text(step.overline)
                         .akOverline(color: Palette.warmGold)
                         .multilineTextAlignment(.center)

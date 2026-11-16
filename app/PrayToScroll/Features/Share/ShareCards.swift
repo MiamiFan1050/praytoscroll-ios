@@ -87,7 +87,14 @@ struct ShareCardView: View {
             }
         case .milestone(let m):
             VStack(spacing: 20) {
-                BadgeView(milestone: m, earned: true, size: 150)
+                if MascotView.hasArt {
+                    ZStack(alignment: .bottomTrailing) {
+                        MascotView(pose: .celebrating, size: 190)
+                        BadgeView(milestone: m, earned: true, size: 80).offset(x: 20, y: 6)
+                    }
+                } else {
+                    BadgeView(milestone: m, earned: true, size: 150)
+                }
                 Text(MilestoneEngine.title(for: m))
                     .font(.system(size: 36, weight: .bold, design: .serif))
                     .foregroundStyle(Palette.cream)

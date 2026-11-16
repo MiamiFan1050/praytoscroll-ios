@@ -94,7 +94,7 @@ final class SharedStore: @unchecked Sendable {
 
     func grantLaunchPass(appID: String, now: Date = Date()) {
         var passes = launchPasses.filter { $0.value > now }
-        passes[appID.lowercased()] = now.addingTimeInterval(GateEngine.launchPassSeconds)
+        passes[canonical(appID)] = now.addingTimeInterval(GateEngine.launchPassSeconds)
         launchPasses = passes
     }
 
@@ -106,13 +106,13 @@ final class SharedStore: @unchecked Sendable {
 
     func startTest(appID: String, now: Date = Date()) {
         var tests = testPending
-        tests[appID.lowercased()] = now
+        tests[canonical(appID)] = now
         testPending = tests
     }
 
     func clearTest(appID: String) {
         var tests = testPending
-        tests.removeValue(forKey: appID.lowercased())
+        tests.removeValue(forKey: canonical(appID))
         testPending = tests
     }
 
@@ -135,7 +135,7 @@ final class SharedStore: @unchecked Sendable {
 
     func recordGateFired(appID: String, at date: Date = Date()) {
         var fired = gateFiredDates
-        fired[appID.lowercased()] = date
+        fired[canonical(appID)] = date
         gateFiredDates = fired
         gateTriggers += 1
     }
@@ -222,6 +222,11 @@ final class SharedStore: @unchecked Sendable {
     }
 
     // MARK: Helpers
+
+    /// Catalog id for an app id or alias ("Twitter" → "x"), so passes, tests and setup proof line up with the gate.
+    private func canonical(_ appID: String) -> String {
+        GateEngine.canonicalID(appID, customApps: settings.customApps)
+    }
 
     private func dateMap(_ key: String) -> [String: Date] {
         let raw = defaults.dictionary(forKey: key) as? [String: Double] ?? [:]

@@ -220,6 +220,9 @@ final class AppModel {
         let until = GateEngine.unlock(from: now, minutes: GateEngine.emergencyMinutes, existing: store.unlockedUntil)
         store.unlockedUntil = until
         reloadGateState()
+        #if STRICT_LOCK
+        StrictLockStore.unlock(until: until)
+        #endif
         ReminderService.shared.scheduleWindowEnd(at: until, minutes: GateEngine.emergencyMinutes, enabled: settings.windowEndNudge)
         if let app { openApp(app) }
         return true
@@ -271,6 +274,9 @@ final class AppModel {
     func sceneBecameActive() {
         reloadGateState()
         refreshStreak()
+        #if STRICT_LOCK
+        StrictLockStore.enforce()
+        #endif
         if let pending = store.consumePendingGate() {
             handlePendingGate(pending)
         } else if let app = testingApp, let started = testStartedAt {
@@ -384,6 +390,9 @@ final class AppModel {
             until = end
         }
         reloadGateState()
+        #if STRICT_LOCK
+        if let until { StrictLockStore.unlock(until: until) }
+        #endif
         refreshChallenges()
         refreshReminders()
         WidgetCenter.shared.reloadAllTimelines()
@@ -556,8 +565,12 @@ final class AppModel {
     func openDemoRoute(_ route: String) {
         switch route {
         case "pray": startPrayer(source: .manual)
-        case "someone": startPrayer(style: .forSomeone, source: .manual)
+        case "gatepray": startPrayer(source: .gate, gatedAppID: "instagram")
+        case "quick": startPrayer(style: .quick, source: .manual)
+        case "someone": startPrayer(style: .forSomeone, source: .manual, personID: suggestedPerson()?.id)
+        case "choose": startPrayer(style: .forSomeone, source: .manual)
         case "gate": showGateSetup = true
+        case "people": selectedTab = .people
         case "answered":
             selectedTab = .people
             peopleShowsAnswered = true

@@ -55,10 +55,21 @@ struct CelebrationView: View {
 
     private var streakHero: some View {
         VStack(spacing: 14) {
-            StreakFlame(streak: shownStreak, lit: true, size: 118)
-                .matchedGeometryEffect(id: "flame", in: flameSpace)
+            if MascotView.hasArt {
+                ZStack(alignment: .bottomTrailing) {
+                    MascotView(pose: .celebrating, size: 180)
+                    StreakFlame(streak: shownStreak, lit: true, size: 70)
+                        .matchedGeometryEffect(id: "flame", in: flameSpace)
+                        .offset(x: 26, y: 8)
+                }
                 .scaleEffect(appeared ? 1 : 0.4)
                 .opacity(appeared ? 1 : 0)
+            } else {
+                StreakFlame(streak: shownStreak, lit: true, size: 118)
+                    .matchedGeometryEffect(id: "flame", in: flameSpace)
+                    .scaleEffect(appeared ? 1 : 0.4)
+                    .opacity(appeared ? 1 : 0)
+            }
             Text("Amen.")
                 .font(.system(size: 52, weight: .bold, design: .serif))
                 .foregroundStyle(Palette.cream)
@@ -129,7 +140,12 @@ struct CelebrationView: View {
 
     private func milestoneCard(_ milestone: Int) -> some View {
         HStack(spacing: 14) {
-            BadgeView(milestone: milestone, earned: true, size: 60)
+            ZStack(alignment: .bottomTrailing) {
+                BadgeView(milestone: milestone, earned: true, size: 60)
+                if MascotView.hasArt {
+                    MascotView(pose: .celebrating, size: 40).offset(x: 12, y: 8)
+                }
+            }
             VStack(alignment: .leading, spacing: 4) {
                 Text("New milestone").akOverline(color: Palette.warmGold)
                 Text(MilestoneEngine.title(for: milestone))

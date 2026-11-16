@@ -54,8 +54,9 @@ struct GateSetupView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            DoorwayIllustration(symbol: "key.fill")
-                .frame(width: 120, height: 120)
+            ArtImage(name: "PadlockGold") { DoorwayIllustration(symbol: "key.fill") }
+                .frame(width: 130, height: 130)
+                .shadow(color: Palette.gold.opacity(0.35), radius: 24)
                 .frame(maxWidth: .infinity)
             Text("Your apps wait for your Amen")
                 .font(.akTitle)

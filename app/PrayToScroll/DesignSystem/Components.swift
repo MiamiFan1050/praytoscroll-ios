@@ -386,8 +386,12 @@ struct EmptyState: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            DoorwayIllustration(symbol: systemImage)
-                .frame(width: 150, height: 150)
+            if MascotView.hasArt {
+                MascotView(pose: .sleeping, size: 170)
+            } else {
+                DoorwayIllustration(symbol: systemImage)
+                    .frame(width: 150, height: 150)
+            }
             Text(title)
                 .font(.akTitle3)
                 .foregroundStyle(Theme.textPrimary)

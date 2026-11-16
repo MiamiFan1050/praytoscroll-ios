@@ -4,7 +4,7 @@ import UIKit
 /// The praying lamb with a gold key. Uses the art in the asset catalog ("Mascot", "Mascot-<pose>")
 /// when it's there; until then, a lamb drawn in SwiftUI.
 struct MascotView: View {
-    enum Pose: String { case praying, celebrating, waving, sleeping }
+    enum Pose: String { case praying, celebrating, waving, sleeping, phone }
     var pose: Pose = .praying
     var size: CGFloat = 160
 
@@ -24,7 +24,45 @@ struct MascotView: View {
     }
 
     static func image(for pose: Pose) -> UIImage? {
-        UIImage(named: "Mascot-\(pose.rawValue)") ?? UIImage(named: "Mascot")
+        ArtAsset.image("Mascot-\(pose.rawValue)") ?? ArtAsset.image("Mascot")
+    }
+
+    /// True when the illustrated lamb art is in the asset catalog.
+    static var hasArt: Bool { image(for: .praying) != nil }
+}
+
+/// Illustrated art from the asset catalog, looked up once.
+enum ArtAsset {
+    private static var cache: [String: UIImage] = [:]
+    private static var missing: Set<String> = []
+
+    static func image(_ name: String) -> UIImage? {
+        if let hit = cache[name] { return hit }
+        if missing.contains(name) { return nil }
+        if let image = UIImage(named: name) {
+            cache[name] = image
+            return image
+        }
+        missing.insert(name)
+        return nil
+    }
+}
+
+/// An illustrated asset with a SwiftUI fallback when the file isn't bundled.
+struct ArtImage<Fallback: View>: View {
+    let name: String
+    @ViewBuilder var fallback: () -> Fallback
+
+    var body: some View {
+        if let image = ArtAsset.image(name) {
+            Image(uiImage: image)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .accessibilityHidden(true)
+        } else {
+            fallback()
+        }
     }
 }
 

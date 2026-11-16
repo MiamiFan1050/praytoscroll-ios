@@ -19,24 +19,36 @@ struct StreakFlame: View {
                         .frame(width: size * 1.5, height: size * 1.5)
                         .offset(y: size * 0.12)
                 }
-                FlameShape()
-                    .fill(lit ? AnyShapeStyle(Palette.flameGradient)
-                              : AnyShapeStyle(LinearGradient(colors: [Color(hex: 0x8C93A3), Color(hex: 0x5B6375)], startPoint: .top, endPoint: .bottom)))
-                    .frame(width: size * 0.8, height: size)
-                    .scaleEffect(x: 1 - flicker * 0.6, y: 1 + flicker, anchor: .bottom)
-                FlameShape()
-                    .fill(LinearGradient(colors: lit ? [Color.white, Palette.cream, Palette.warmGold] : [Color(hex: 0xD5D9E2), Color(hex: 0xA9AFBD)],
-                                         startPoint: .top, endPoint: .bottom))
-                    .frame(width: size * 0.46, height: size * 0.58)
-                    .offset(y: size * 0.19)
-                    .scaleEffect(x: 1, y: 1 - flicker * 0.8, anchor: .bottom)
+                if let art = ArtAsset.image("FlameStreak") {
+                    Image(uiImage: art)
+                        .resizable()
+                        .interpolation(.high)
+                        .scaledToFit()
+                        .frame(width: size, height: size)
+                        .saturation(lit ? 1 : 0)
+                        .opacity(lit ? 1 : 0.5)
+                        .scaleEffect(x: 1 - flicker * 0.4, y: 1 + flicker * 0.7, anchor: .bottom)
+                } else {
+                    FlameShape()
+                        .fill(lit ? AnyShapeStyle(Palette.flameGradient)
+                                  : AnyShapeStyle(LinearGradient(colors: [Color(hex: 0x8C93A3), Color(hex: 0x5B6375)], startPoint: .top, endPoint: .bottom)))
+                        .frame(width: size * 0.8, height: size)
+                        .scaleEffect(x: 1 - flicker * 0.6, y: 1 + flicker, anchor: .bottom)
+                    FlameShape()
+                        .fill(LinearGradient(colors: lit ? [Color.white, Palette.cream, Palette.warmGold] : [Color(hex: 0xD5D9E2), Color(hex: 0xA9AFBD)],
+                                             startPoint: .top, endPoint: .bottom))
+                        .frame(width: size * 0.46, height: size * 0.58)
+                        .offset(y: size * 0.19)
+                        .scaleEffect(x: 1, y: 1 - flicker * 0.8, anchor: .bottom)
+                }
                 if showsNumber {
                     Text("\(streak)")
                         .font(.system(size: size * (streak >= 100 ? 0.21 : 0.27), weight: .heavy, design: .serif))
                         .foregroundStyle(Palette.midnight)
                         .monospacedDigit()
                         .contentTransition(.numericText(value: Double(streak)))
-                        .offset(y: size * 0.27)
+                        .offset(x: ArtAsset.image("FlameStreak") == nil ? 0 : -size * 0.03,
+                                y: ArtAsset.image("FlameStreak") == nil ? size * 0.27 : size * 0.2)
                         .minimumScaleFactor(0.5)
                 }
             }

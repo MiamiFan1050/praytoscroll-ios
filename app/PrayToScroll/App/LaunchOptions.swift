@@ -7,7 +7,8 @@ struct LaunchOptions: Sendable {
     let showOnboarding: Bool
     /// `-uitest`: shorter prayer minimums and no animations that would slow tests.
     let isUITest: Bool
-    /// `-route <name>`: open a screen directly (demo only): celebration, someone, letknow, gate, stats, circle, answered.
+    /// `-route <name>`: open a screen directly (demo only): pray, gatepray, quick, someone, choose, gate, answered, circle,
+    /// stats, journal, word, settings, verified, troubleshoot (see AppModel.openDemoRoute).
     let route: String?
     /// `-appearance light|dark`
     let appearance: AppearancePreference?

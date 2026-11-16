@@ -52,6 +52,10 @@ targets:
         SUPPORTS_MACCATALYST: NO
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
         SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+      configs:
+        Release:
+          CODE_SIGN_IDENTITY: "Apple Distribution"
+          PROVISIONING_PROFILE_SPECIFIER: "AmenKey AppStore"
     info:
       path: PrayToScroll/Info.plist
       properties:
@@ -86,7 +90,7 @@ targets:
           - pinterest
           - shortcuts
           - sms
-        AKWebBase: https://praytoscroll.app
+        AKWebBase: https://praytoscroll.vercel.app
         AKAppStoreID: ""
     entitlements:
       path: PrayToScroll/PrayToScroll.entitlements
@@ -116,6 +120,10 @@ targets:
         PRODUCT_NAME: PrayToScrollWidget
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: YES
+      configs:
+        Release:
+          CODE_SIGN_IDENTITY: "Apple Distribution"
+          PROVISIONING_PROFILE_SPECIFIER: "AmenKey Widget AppStore"
     info:
       path: PrayToScrollWidget/Info.plist
       properties:

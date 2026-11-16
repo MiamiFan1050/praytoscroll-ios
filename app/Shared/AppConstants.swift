@@ -31,7 +31,7 @@ enum AppLinks {
     static var webBase: String {
         let value = Bundle.main.object(forInfoDictionaryKey: "AKWebBase") as? String
         let trimmed = (value ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "https://praytoscroll.app" : trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return trimmed.isEmpty ? "https://praytoscroll.vercel.app" : trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
 
     static var appStoreID: String? {
@@ -43,7 +43,7 @@ enum AppLinks {
     /// The link people get in "I just prayed for you" messages and share cards.
     static var shareURL: URL {
         if let id = appStoreID, let url = URL(string: "https://apps.apple.com/app/id\(id)") { return url }
-        return URL(string: webBase) ?? URL(string: "https://praytoscroll.app")!
+        return URL(string: webBase) ?? URL(string: "https://praytoscroll.vercel.app")!
     }
 
     static var reviewURL: URL? {
