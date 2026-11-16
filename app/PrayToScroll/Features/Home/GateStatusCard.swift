@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Gate status on Home: Locked / Unlocked 12:34 left / Daily key / Paused / Set up.
+/// Gate status on Home: Locked / Unlocked 12:34 left / Rest of today / Paused / Set up.
 struct GateStatusCard: View {
     @Environment(AppModel.self) private var model
     let onEmergency: () -> Void
@@ -33,8 +33,9 @@ struct GateStatusCard: View {
 
     private func unlocked(end: Date, now: Date, apps: [GatedApp]) -> some View {
         let isDaily = model.dailyKeyUntil.map { $0 >= end } ?? false
-        let total = isDaily ? 86_400.0 : Double(max(model.settings.unlockWindowMinutes, GateEngine.emergencyMinutes) * 60)
         let remaining = GateEngine.remaining(now: now, unlockedUntil: end)
+        // The ring empties over this window's length (it may differ from the default when picked on the Amen screen).
+        let total = max(remaining, Double(max(model.settings.unlockWindowMinutes, GateEngine.emergencyMinutes) * 60))
         return HStack(spacing: 16) {
             ZStack {
                 ProgressRing(progress: isDaily ? 1 : remaining / total, lineWidth: 6)
@@ -42,7 +43,7 @@ struct GateStatusCard: View {
                 Image(systemName: "lock.open.fill").foregroundStyle(Theme.goldIcon)
             }
             VStack(alignment: .leading, spacing: 4) {
-                Text(isDaily ? "Daily key" : "Unlocked").akOverline(color: Theme.sageText)
+                Text(isDaily ? "Rest of today" : "Unlocked").akOverline(color: Theme.sageText)
                 Text(isDaily ? "Open until \(end.formatted(date: .omitted, time: .shortened))" : "\(GateEngine.countdownText(remaining)) left")
                     .font(.system(.title2, design: .serif, weight: .bold))
                     .monospacedDigit()

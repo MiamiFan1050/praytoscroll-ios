@@ -29,7 +29,8 @@ struct GateSnapshot: Equatable, Sendable {
 
 /// Pure decision logic for the Prayer Gate (used by the App Intents, the app and the tests).
 enum GateEngine {
-    static let windowOptions = [5, 15, 30, 60]
+    /// The shortest window in Shortcuts mode (Screen Time's floor in v1.1 is 15).
+    static let minimumWindowMinutes = 5
     static let defaultWindowMinutes = 15
     static let emergencyMinutes = 5
     static let defaultDailyResetHour = 4
@@ -53,6 +54,12 @@ enum GateEngine {
     /// Extends (never shortens) the unlock window. Windows are absolute instants, so they work across midnight.
     static func unlock(from now: Date, minutes: Int, existing: Date?) -> Date {
         let proposed = now.addingTimeInterval(TimeInterval(max(1, minutes)) * 60)
+        guard let existing, existing > proposed else { return proposed }
+        return existing
+    }
+
+    /// Extends (never shortens) the unlock window to `proposed`.
+    static func unlock(from now: Date, until proposed: Date, existing: Date?) -> Date {
         guard let existing, existing > proposed else { return proposed }
         return existing
     }

@@ -10,6 +10,9 @@ struct CelebrationView: View {
     @State private var journal = ""
     @State private var journalSaved = false
     @State private var shareCard: ShareCardKind?
+    /// "Ask me after each prayer": the length picked on this screen, and the end it gives.
+    @State private var pickedUnlock: UnlockChoice?
+    @State private var pickedUntil: Date?
     @FocusState private var journalFocused: Bool
     @Namespace private var flameSpace
 
@@ -25,6 +28,7 @@ struct CelebrationView: View {
                     } else {
                         streakHero
                         unlockPill
+                        unlockChooser
                         if let milestone = flow.completion?.newMilestones.last {
                             milestoneCard(milestone)
                         }
@@ -103,7 +107,7 @@ struct CelebrationView: View {
 
     @ViewBuilder
     private var unlockPill: some View {
-        if let completion = flow.completion, let until = completion.unlockedUntil {
+        if let completion = flow.completion, let until = pickedUntil ?? completion.unlockedUntil {
             HStack(spacing: 10) {
                 Image(systemName: "lock.open.fill")
                     .foregroundStyle(Palette.midnight)
@@ -130,11 +134,28 @@ struct CelebrationView: View {
     }
 
     private func unlockTitle(completion: PrayerCompletion, until: Date) -> String {
-        switch completion.unlockMode {
-        case .window:
-            return "Unlocked for \(model.settings.unlockWindowMinutes) min"
-        case .dailyKey:
-            return "Daily key: open until \(until.formatted(date: .omitted, time: .shortened))"
+        let time = until.formatted(date: .omitted, time: .shortened)
+        switch pickedUnlock ?? completion.unlockChoice {
+        case .restOfToday: return "Open until \(time)"
+        case .custom: return "Unlocked until \(time)"
+        case .minutes(let m): return "Unlocked for \(UnlockChoice.label(minutes: m))"
+        }
+    }
+
+    /// "Ask me after each prayer": the lengths as big buttons, the default picked, before Continue.
+    @ViewBuilder
+    private var unlockChooser: some View {
+        if model.settings.askUnlockEachTime, let completion = flow.completion, completion.unlockedUntil != nil,
+           model.settings.gateEnabled {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("How long this time?").akOverline(color: Palette.warmGold)
+                UnlockChoiceGrid(presets: model.unlockPresets, selected: pickedUnlock ?? completion.unlockChoice) { choice in
+                    pickedUnlock = choice
+                    pickedUntil = model.changeLastUnlock(to: choice)
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("celebration.unlockChoices")
         }
     }
 

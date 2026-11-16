@@ -116,16 +116,17 @@ final class ReminderService {
     }
 
     /// "Your 15 minutes are up." A Shortcuts gate can't close an app, so a gentle nudge closes the loop.
-    func scheduleWindowEnd(at date: Date, minutes: Int, enabled: Bool) {
+    /// The "time's up" nudge at the end of an unlock window (replaces any earlier one). nil `minutes` = cancel only.
+    func scheduleWindowEnd(at date: Date, minutes: Int?, enabled: Bool) {
         center.removePendingNotificationRequests(withIdentifiers: [ID.windowEnd])
-        guard enabled else { return }
+        guard enabled, let minutes else { return }
         let interval = date.timeIntervalSinceNow
         guard interval > 5 else { return }
         Task {
             let status = await authorizationStatus()
             guard status == .authorized || status == .provisional || status == .ephemeral else { return }
             let content = UNMutableNotificationContent()
-            content.title = "Your \(minutes) minutes are up"
+            content.title = minutes == 60 ? "Your hour is up" : "Your \(UnlockChoice.spoken(minutes: minutes)) are up"
             content.body = "\(AppConstants.appName)'s waiting 🙏 Ready to put it down?"
             content.sound = .default
             content.userInfo = ["url": AppLinks.prayDeepLink.absoluteString]

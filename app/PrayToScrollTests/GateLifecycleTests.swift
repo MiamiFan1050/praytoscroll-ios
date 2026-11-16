@@ -123,6 +123,37 @@ final class GateLifecycleTests: XCTestCase {
     }
 
     @MainActor
+    func testAskAfterEachPrayerChangesOnlyThisPrayersWindow() throws {
+        let (model, store) = makeModel()
+        model.updateSettings { UnlockChoice.minutes(30).apply(to: &$0); $0.askUnlockEachTime = true }
+        let completion = pray(model)
+        XCTAssertEqual(completion.unlockChoice, .minutes(30), "the default is preselected")
+        let base = try XCTUnwrap(model.lastUnlockBase)
+        let longer = try XCTUnwrap(model.changeLastUnlock(to: .minutes(120)))
+        XCTAssertEqual(longer.timeIntervalSince(base.at), 7200, accuracy: 1)
+        let shorter = try XCTUnwrap(model.changeLastUnlock(to: .minutes(15)))
+        XCTAssertEqual(shorter.timeIntervalSince(base.at), 900, accuracy: 1, "picking a shorter length shortens this prayer")
+        XCTAssertEqual(store.unlockedUntil, shorter)
+        let rest = try XCTUnwrap(model.changeLastUnlock(to: .restOfToday))
+        XCTAssertEqual(Calendar.current.component(.hour, from: rest), model.settings.dailyKeyResetHour)
+        XCTAssertEqual(reason(decide("instagram", store, at: base.at.addingTimeInterval(3600))), .dailyKey)
+        _ = model.changeLastUnlock(to: .minutes(15))
+        XCTAssertNil(store.dailyKeyUntil, "switching back drops Rest of today")
+        XCTAssertEqual(model.unlockChoice, .minutes(30), "the default doesn't change")
+    }
+
+    @MainActor
+    func testAnotherPrayerNeverShortensAnOpenWindow() throws {
+        let (model, store) = makeModel()
+        model.updateSettings { UnlockChoice.minutes(120).apply(to: &$0) }
+        let first = try XCTUnwrap(pray(model).unlockedUntil)
+        model.updateSettings { UnlockChoice.minutes(15).apply(to: &$0) }
+        let second = try XCTUnwrap(pray(model).unlockedUntil)
+        XCTAssertEqual(second.timeIntervalSince(first), 0, accuracy: 1)
+        XCTAssertEqual(store.unlockedUntil?.timeIntervalSince(first) ?? -1, 0, accuracy: 1)
+    }
+
+    @MainActor
     func testPauseIsAlwaysTimeBoundAndResumes() throws {
         let (model, store) = makeModel()
         model.pauseGate(days: 7)

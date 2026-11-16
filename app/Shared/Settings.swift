@@ -59,16 +59,16 @@ enum AppearancePreference: String, Codable, CaseIterable, Identifiable, Sendable
 
 /// How a prayer unlocks the gated apps.
 enum UnlockMode: String, Codable, CaseIterable, Identifiable, Sendable {
-    /// Every prayer opens your apps for a window (5/15/30/60 min).
+    /// Every prayer opens your apps for a window (a preset or Custom length: see UnlockChoice).
     case window
-    /// "Daily key": your first prayer opens your apps until the reset time (default 4 AM).
+    /// "Rest of today" (formerly "Daily key"): a prayer opens your apps until the reset time (default 4 AM).
     case dailyKey
 
     var id: String { rawValue }
     var title: String {
         switch self {
         case .window: return "Every time"
-        case .dailyKey: return "Daily key"
+        case .dailyKey: return "Rest of today"
         }
     }
 }
@@ -129,6 +129,10 @@ struct AppSettings: Codable, Equatable, Sendable {
     var unlockMode: UnlockMode = .window
     var unlockWindowMinutes: Int = GateEngine.defaultWindowMinutes
     var dailyKeyResetHour: Int = GateEngine.defaultDailyResetHour
+    /// The window is a Custom length (UnlockChoice.custom) rather than a preset.
+    var unlockCustom: Bool = false
+    /// "Ask me after each prayer": the Amen screen offers the unlock lengths, the default preselected.
+    var askUnlockEachTime: Bool = false
     var lastMood: PrayerMood?
     var sessionTextScale: Double = 1
     var windowEndNudge: Bool = true
@@ -158,6 +162,8 @@ struct AppSettings: Codable, Equatable, Sendable {
         unlockMode = (try? c.decodeIfPresent(UnlockMode.self, forKey: .unlockMode)) ?? d.unlockMode
         unlockWindowMinutes = try c.decodeIfPresent(Int.self, forKey: .unlockWindowMinutes) ?? d.unlockWindowMinutes
         dailyKeyResetHour = try c.decodeIfPresent(Int.self, forKey: .dailyKeyResetHour) ?? d.dailyKeyResetHour
+        unlockCustom = try c.decodeIfPresent(Bool.self, forKey: .unlockCustom) ?? d.unlockCustom
+        askUnlockEachTime = try c.decodeIfPresent(Bool.self, forKey: .askUnlockEachTime) ?? d.askUnlockEachTime
         lastMood = try? c.decodeIfPresent(PrayerMood.self, forKey: .lastMood)
         sessionTextScale = try c.decodeIfPresent(Double.self, forKey: .sessionTextScale) ?? d.sessionTextScale
         windowEndNudge = try c.decodeIfPresent(Bool.self, forKey: .windowEndNudge) ?? d.windowEndNudge

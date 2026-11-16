@@ -549,55 +549,22 @@ struct OnboardingView: View {
         scrollPage {
             header(text("window.headline", "How long should Amen unlock?"),
                    text("window.subline", "After you pray, your apps stay open this long."))
-            VStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    ForEach(GateEngine.windowOptions, id: \.self) { minutes in
-                        let isOn = model.settings.unlockMode == .window && model.settings.unlockWindowMinutes == minutes
-                        Button {
-                            Haptics.selection()
-                            model.updateSettings { s in
-                                s.unlockMode = .window
-                                s.unlockWindowMinutes = minutes
-                            }
-                        } label: {
-                            VStack(spacing: 2) {
-                                Text("\(minutes)").font(.system(.title, design: .serif, weight: .bold))
-                                Text("min").font(.akCaption)
-                            }
-                            .foregroundStyle(isOn ? Palette.midnight : Palette.cream)
-                            .frame(maxWidth: .infinity, minHeight: 84)
-                            .background(RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                .fill(isOn ? AnyShapeStyle(Palette.goldButton) : AnyShapeStyle(Color.white.opacity(0.06))))
-                            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.white.opacity(isOn ? 0 : 0.1), lineWidth: 1))
-                        }
-                        .buttonStyle(PressScaleStyle())
-                        .accessibilityLabel("\(minutes) minutes")
-                        .accessibilityAddTraits(isOn ? .isSelected : [])
-                    }
-                }
-                let daily = model.settings.unlockMode == .dailyKey
-                Button {
-                    Haptics.selection()
-                    model.updateSettings { $0.unlockMode = .dailyKey }
-                } label: {
-                    HStack(spacing: 14) {
-                        IconBadge(systemImage: "key.horizontal.fill", tint: Palette.warmGold, size: 44)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Daily key").font(.akHeadline).foregroundStyle(Palette.cream)
-                            Text("Pray once in the morning and your apps stay open until 4 AM. Gentler, still prayer-first.")
-                                .font(.akFootnote).foregroundStyle(Palette.cream.opacity(0.65))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        Spacer(minLength: 0)
-                        Image(systemName: daily ? "checkmark.circle.fill" : "circle")
-                            .font(.title3)
-                            .foregroundStyle(daily ? Palette.gold : Palette.cream.opacity(0.3))
-                    }
-                    .akCard(padding: 14, cornerRadius: 20, highlighted: daily)
-                }
-                .buttonStyle(PressScaleStyle())
-                .accessibilityAddTraits(daily ? .isSelected : [])
+            UnlockChoiceGrid(presets: model.unlockPresets, selected: model.unlockChoice) { choice in
+                model.updateSettings { choice.apply(to: &$0) }
             }
+            Text(model.unlockChoice == .restOfToday
+                 ? "Pray once and your apps stay open until \(UnlockForView.hourLabel(model.settings.dailyKeyResetHour)). You can change the time in Settings."
+                 : "Want to decide each time? Turn on the switch below.")
+                .font(.akFootnote)
+                .foregroundStyle(Palette.cream.opacity(0.65))
+                .fixedSize(horizontal: false, vertical: true)
+            Toggle(isOn: model.binding(\.askUnlockEachTime)) {
+                Text("Ask me after each prayer").font(.akHeadline).foregroundStyle(Palette.cream)
+            }
+            .tint(Palette.gold)
+            .padding(14)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white.opacity(0.06)))
+            .accessibilityIdentifier("onboarding.askEachTime")
         }
     }
 

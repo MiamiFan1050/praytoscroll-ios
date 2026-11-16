@@ -92,6 +92,46 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(added.isSelected, "and is gated")
     }
 
+    func testUnlockForPickerThenAmenChoicesThenHomeShowsTheWindow() {
+        let app = launch(["-route", "settings"])
+        let unlockFor = app.buttons["settings.unlockFor"]
+        for _ in 0..<6 where !unlockFor.isHittable { app.swipeUp() }
+        XCTAssertTrue(unlockFor.waitForExistence(timeout: 10))
+        unlockFor.tap()
+        XCTAssertTrue(app.buttons["unlockFor.m5"].waitForExistence(timeout: 5), "5 min in Shortcuts mode")
+        app.buttons["unlockFor.m45"].tap()
+        XCTAssertTrue(app.buttons["unlockFor.m45"].isSelected)
+        app.buttons["unlockFor.custom"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["unlock.customStepper"].waitForExistence(timeout: 3))
+        app.buttons["unlockFor.m45"].tap()
+        let ask = app.switches["unlock.askEachTime"]
+        XCTAssertTrue(ask.waitForExistence(timeout: 3))
+        ask.tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()   // back to Settings
+        app.buttons["Done"].firstMatch.tap()
+
+        let pray = app.buttons["home.prayNow"]
+        XCTAssertTrue(pray.waitForExistence(timeout: 10))
+        pray.tap()
+        for _ in 0..<6 {
+            if app.descendants(matching: .any)["amenButton"].exists { break }
+            let next = app.buttons["session.next"]
+            if next.waitForExistence(timeout: 3) { next.tap() }
+        }
+        sayAmen(in: app)
+        let choices = app.descendants(matching: .any)["celebration.unlockChoices"]
+        XCTAssertTrue(choices.waitForExistence(timeout: 10), "Ask me after each prayer shows the lengths")
+        XCTAssertTrue(app.buttons["unlock.m45"].isSelected, "the default is preselected")
+        app.buttons["unlock.m120"].tap()
+        XCTAssertTrue(app.staticTexts["Unlocked for 2 h"].waitForExistence(timeout: 5))
+        let done = app.buttons["celebration.done"]
+        for _ in 0..<4 where !done.isHittable { app.swipeUp() }
+        done.tap()
+        let status = app.descendants(matching: .any)["home.gateStatus"]
+        XCTAssertTrue(status.waitForExistence(timeout: 10))
+        XCTAssertTrue(status.label.contains("1:59:") || status.label.contains("2:00:"), "Home counts down the 2 h picked: \(status.label)")
+    }
+
     func testDeepLinkJoinOpensTogether() {
         let app = launch([])
         XCTAssertTrue(app.buttons["home.prayNow"].waitForExistence(timeout: 10))

@@ -133,20 +133,17 @@ struct SettingsView: View {
                         .font(.akFootnote).foregroundStyle(Theme.textSecondary)
                 }
             }
-            Picker(selection: model.binding(\.unlockMode)) {
-                ForEach(UnlockMode.allCases) { Text($0.title).tag($0) }
-            } label: { settingsLabel("Unlock", "lock.open.fill") }
-            if model.settings.unlockMode == .window {
-                Picker(selection: model.binding(\.unlockWindowMinutes)) {
-                    ForEach(GateEngine.windowOptions, id: \.self) { Text("\($0) min").tag($0) }
-                } label: { settingsLabel("Each prayer opens apps for", "clock.fill") }
-            } else {
-                Picker(selection: model.binding(\.dailyKeyResetHour)) {
-                    ForEach([2, 3, 4, 5, 6], id: \.self) { hour in
-                        Text(hourLabel(hour)).tag(hour)
-                    }
-                } label: { settingsLabel("Daily key resets at", "arrow.counterclockwise") }
+            NavigationLink {
+                UnlockForView()
+            } label: {
+                HStack {
+                    settingsLabel("Unlock for", "lock.open.fill")
+                    Spacer()
+                    Text(model.settings.askUnlockEachTime ? "\(model.unlockChoice.title) · ask" : model.unlockChoice.title)
+                        .font(.akFootnote).foregroundStyle(Theme.textSecondary)
+                }
             }
+            .accessibilityIdentifier("settings.unlockFor")
             Toggle(isOn: model.binding(\.windowEndNudge)) { settingsLabel("Nudge when time's up", "bell.badge.fill") }
                 .tint(Palette.gold)
             if model.isPaused(), let until = model.pausedUntil {
