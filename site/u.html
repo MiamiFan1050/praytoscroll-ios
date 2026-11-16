@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Add me on Pray to Scroll</title>
+  <meta name="description" content="Add me as a friend on Pray to Scroll. Pray first. Scroll after.">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0E1726">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/style.css">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Pray to Scroll">
+  <meta property="og:title" content="Add me on Pray to Scroll">
+  <meta property="og:description" content="Let's keep each other praying. Pray first. Scroll after.">
+  <meta property="og:image" content="https://praytoscroll.vercel.app/assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body class="join">
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="/" aria-label="Pray to Scroll home">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="#E9B949" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 31V19.5a11.5 11.5 0 0 1 23 0V31z"/><path d="M32 31v25M32 45.5h7.5M32 52h5.5"/></g><path d="M32 14.5v12M27.5 19.5h9" stroke="#F5D58A" stroke-width="2.6" stroke-linecap="round"/></svg>
+        <span>Pray to Scroll</span>
+      </a>
+      <nav class="nav" aria-label="Main"><a href="/support.html#circles">Help</a></nav>
+    </div>
+  </header>
+
+  <main class="join-main">
+    <div class="join-card">
+      <img class="mark" src="/assets/mascot.png" alt="" width="96" height="96" onerror="this.onerror=null;this.src='/assets/favicon.svg'">
+
+      <!-- A friend's profile link: praytoscroll.vercel.app/u/<username> (also /u?n=<username>) -->
+      <div id="profile" hidden>
+        <h1>Add me on Pray to Scroll</h1>
+        <p>Let's keep each other praying. Friends see each other's streaks and can pray for each other.</p>
+        <div class="code-label" style="margin-top:24px">Username</div>
+        <div class="code" id="handle" aria-live="polite" style="letter-spacing:0;font-size:1.6rem"></div>
+        <div class="join-actions">
+          <a class="btn btn-gold" id="open" href="prayscroll://">Open in Pray to Scroll</a>
+          <a class="btn btn-ghost" id="store" href="https://apps.apple.com/us/search?term=Pray%20to%20Scroll">Get it on the App Store</a>
+        </div>
+        <p class="join-help">Already have it? Tap <b>Open</b>, or go to <b>Together &rarr; Friends &rarr; Add</b> and type the username above.</p>
+      </div>
+
+      <div id="invalid" hidden>
+        <h1>This link is missing a username</h1>
+        <p>Ask your friend to send their link again, or open Pray to Scroll and add them by their exact username under <b style="color:var(--cream)">Together &rarr; Friends</b>.</p>
+        <div class="join-actions">
+          <a class="btn btn-gold" href="prayscroll://">Open Pray to Scroll</a>
+          <a class="btn btn-ghost" href="https://apps.apple.com/us/search?term=Pray%20to%20Scroll">Get it on the App Store</a>
+        </div>
+      </div>
+
+      <noscript>
+        <h1>Add a friend on Pray to Scroll</h1>
+        <p>Open Pray to Scroll, go to <b>Together &rarr; Friends &rarr; Add</b> and type the username from this link (the part after <b>/u/</b>).</p>
+      </noscript>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <nav aria-label="Footer">
+        <a href="/privacy.html">Privacy</a>
+        <a href="/terms.html">Terms</a>
+        <a href="/support.html">Support</a>
+      </nav>
+      <p>&copy; 2026 Mark Morrison</p>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      // Set once the app is live, e.g. "https://apps.apple.com/app/id1234567890".
+      var APP_STORE_URL = "";
+      var raw = "";
+      try {
+        var parts = window.location.pathname.split("/").filter(Boolean);
+        if (parts.length >= 2 && parts[0] === "u") raw = decodeURIComponent(parts[1]);
+        if (!raw) raw = new URLSearchParams(window.location.search).get("n") || "";
+      } catch (e) {}
+      // Same rules as the app: 3-20 characters, a-z 0-9 and _, case-insensitive.
+      var handle = raw.replace(/^@+/, "").toLowerCase();
+      var valid = /^[a-z0-9_]{3,20}$/.test(handle);
+      document.getElementById(valid ? "profile" : "invalid").hidden = false;
+      if (APP_STORE_URL) {
+        var links = document.querySelectorAll('a[href^="https://apps.apple.com"]');
+        for (var i = 0; i < links.length; i++) links[i].href = APP_STORE_URL;
+      }
+      if (!valid) return;
+      document.getElementById("handle").textContent = "@" + handle;
+      document.getElementById("open").href = "prayscroll://u/" + encodeURIComponent(handle);
+      document.title = "Add @" + handle + " on Pray to Scroll";
+    })();
+  </script>
+</body>
+</html>

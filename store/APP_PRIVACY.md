@@ -28,10 +28,10 @@ Everything else stays on the device and is **not** "collected" (see the table at
 | User Content | Emails or Text Messages, Photos or Videos, Audio Data, Gameplay Content, Customer Support, Other User Content | No | The journal and prayer list stay on the device. Messages are sent from Apple's Messages sheet. The support form is on the website, outside the app. |
 | Browsing History | Browsing History | No | |
 | Search History | Search History | No | Journal search runs on the device. |
-| **Identifiers** | **User ID** | **Yes** | The circle **nickname** (a screen name) and the anonymous CloudKit user record ID that Apple attaches to each record. The **circle code** is stored with them. |
+| **Identifiers** | **User ID** | **Yes** | The circle **nickname** (a screen name), the optional **@username** (v1.1, friends) and the anonymous CloudKit user record ID that Apple attaches to each record. The **circle code** is stored with them. |
 | Identifiers | Device ID | No | No IDFA or IDFV is used. |
 | Purchases | Purchase History | No | |
-| **Usage Data** | **Product Interaction** | **Yes** | The **weekly prayer count** and **current streak** shown on the circle leaderboard. |
+| **Usage Data** | **Product Interaction** | **Yes** | The **weekly prayer count** and **current streak** shown on the circle leaderboard and (v1.1) next to friends; v1.1 "prayed for you" rows (who prayed for whom, and on which day). |
 | Usage Data | Advertising Data, Other Usage Data | No | |
 | Diagnostics | Crash Data, Performance Data, Other Diagnostic Data | No | There's no crash or analytics SDK. Crash reports that users choose to share with developers come through Apple, and Apple collects those. |
 | Surroundings / Body | Environment Scanning, Hands, Head | No | |
@@ -60,7 +60,11 @@ tick Sensitive Info with the same answers as below (App Functionality, linked, n
 - **Data Linked to You:** Identifiers, Usage Data.
 - **Data Not Linked to You:** none.
 
-(A user who never joins a circle sends nothing. The label still lists these types because the app can collect them.)
+(A user who never joins a circle and never picks a username sends nothing. The label still lists these types because the app can collect them.)
+
+**v1.1 friends:** usernames, friend requests/links, "prayed for you" rows and blocks live in the same CloudKit public
+database. They fall under the types already ticked (User ID, Product Interaction, and Other User Content for circle
+prayer requests): no new data type. There are no messages between friends.
 
 ## Not collected: stays on the device
 

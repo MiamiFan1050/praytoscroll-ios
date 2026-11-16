@@ -18,13 +18,17 @@ struct TogetherView: View {
             AppBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
+                    FriendsSection()
                     circlesSection
                     ChallengesSection()
                 }
                 .padding(.horizontal, Spacing.page)
                 .padding(.bottom, 36)
             }
-            .refreshable { await load() }
+            .refreshable {
+                await load()
+                model.friendsRevision += 1
+            }
         }
         .navigationTitle("Together")
         .navigationBarTitleDisplayMode(.large)

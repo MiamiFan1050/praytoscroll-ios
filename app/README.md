@@ -52,7 +52,9 @@ Launch arguments (scheme or UI tests):
 - `-uitest`: short prayer minimums (3 s, sample 2 s).
 - `-onboarding`: with `-demo`, start at onboarding.
 - `-route <name>`: open a screen: `pray`, `gatepray`, `quick`, `someone`, `choose`, `gate`, `people`, `answered`,
-  `circle`, `stats`, `journal`, `word`, `settings`, `verified`, `troubleshoot`.
+  `circle`, `stats`, `journal`, `word`, `settings`, `verified`, `troubleshoot`, `friends`.
+- `-noUsername`: with `-demo`, start without a @username (the demo friends @grace, @sam_p, @jordan_k and @hannah_b
+  still exist to find; @grace is taken).
 - `-appearance light|dark`.
 
 `ScreenshotTests` saves `01-home` … `10-someone` as XCTest attachments (lifetime `.keepAlways`) and, when
@@ -81,6 +83,24 @@ checks for links, phone numbers, handles and blocked words) and `CirclePrayed` (
 request, counted once per iCloud account). Requests show for 7 days; there are no replies or messages. Each request
 has Report (to `CircleReport`, reason prefixed `Prayer request <id>:`) and Block. To remove one, delete its record in
 the Console. The App Store privacy label needs "Other User Content" (linked, App Functionality) before v1.1 ships.
+
+## Usernames + friends (v1.1, CloudKit)
+
+Optional @username (3–20 of a–z 0–9 _, case-insensitive, `UsernameRules`: reserved list + the nickname filter; one
+change every 30 days). Same public database, record types in `CloudKit/schema.ckdb`:
+
+- `Username`: recordName = the lowercase handle, so a second save of the same name fails (the claim is atomic).
+  World-readable with no queryable field, so it can only be fetched by typing the exact name: there is no directory.
+- `FriendProfile` (nickname, emoji, streak, owned circles), `FriendRequest`, `FriendLink` (one per side; a friendship
+  is both links), `PrayedFor` (one per friend per day), `FriendBlock`: signed-in iCloud users only, fetched by record
+  name or exact id. Reports go to `CircleReport` with circleCode `friends`.
+
+Friends add each other by exact @username or the profile link `https://praytoscroll.vercel.app/u/<name>`
+(`site/u.html` + the `site/vercel.json` rewrite; a plain page with an Open button and the App Store button, since
+the app has no associated-domains entitlement for universal links). There are no messages: the only thing a friend
+can send is "prayed for you", shown in the app on the next open (push would need the aps-environment entitlement).
+Erase All Data deletes the username, profile, links, requests, prayed-for rows and blocks
+(`CloudKitFriendService.deleteMyData`). `MockFriendService` (Debug only) has the same rules for UI tests.
 
 ## The Screen Time lock (v1.1)
 

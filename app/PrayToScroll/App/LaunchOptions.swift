@@ -10,12 +10,14 @@ struct LaunchOptions: Sendable {
     /// `-longMinimum` with `-uitest`: keep the real-length minimum, for tests that check Amen starts locked.
     let longMinimum: Bool
     /// `-route <name>`: open a screen directly (demo only): pray, gatepray, gateany, gateask, quick, someone, choose, gate, answered, circle,
-    /// stats, journal, word, settings, verified, troubleshoot, lock (see AppModel.openDemoRoute).
+    /// stats, journal, word, settings, verified, troubleshoot, lock, friends (see AppModel.openDemoRoute).
     let route: String?
     /// `-appearance light|dark`
     let appearance: AppearancePreference?
     /// `-shortcutsGate` with `-demo`: the v1.0 Shortcuts gate instead of the (demo) Screen Time lock.
     let shortcutsGate: Bool
+    /// `-noUsername` with `-demo`: start without a @username (the demo friends still exist to find).
+    let noUsername: Bool
     /// `-today yyyy-MM-dd` (Debug UI tests only): the date seasonal content (Advent) uses. Release ignores it.
     let today: Date?
 
@@ -29,6 +31,7 @@ struct LaunchOptions: Sendable {
         isUITest = arguments.contains("-uitest")
         longMinimum = arguments.contains("-longMinimum")
         shortcutsGate = arguments.contains("-shortcutsGate")
+        noUsername = arguments.contains("-noUsername")
         if let index = arguments.firstIndex(of: "-today"), arguments.indices.contains(index + 1) {
             let parser = DateFormatter()
             parser.locale = Locale(identifier: "en_US_POSIX")
@@ -53,6 +56,7 @@ struct LaunchOptions: Sendable {
         isUITest = false
         longMinimum = false
         shortcutsGate = false
+        noUsername = false
         today = nil
         route = nil
         appearance = nil

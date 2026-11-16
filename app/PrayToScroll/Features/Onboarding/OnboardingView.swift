@@ -14,10 +14,14 @@ struct OnboardingView: View {
     @State private var lockDenied = false
     @State private var reminderTime = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var name = ""
+    @State private var handle = ""
+    @State private var handleError: String?
+    @State private var handleWorking = false
+    @State private var friendsAvailability: CircleAvailability?
     @FocusState private var nameFocused: Bool
 
     enum Step: Int, CaseIterable {
-        case welcome, scrollQuiz, mirror, promise, tryIt, chooseApps, style, window, reminders, name, gateSetup, firstPrayer
+        case welcome, scrollQuiz, mirror, promise, tryIt, chooseApps, style, window, reminders, name, username, gateSetup, firstPrayer
     }
 
     private var copy: CopyBook { model.content.copy }
@@ -140,6 +144,7 @@ struct OnboardingView: View {
         case .window: return text("window.cta", "Continue")
         case .reminders: return text("reminders.cta", "Turn on reminders")
         case .name: return text("name.cta", "Continue")
+        case .username: return handleWorking ? "Saving…" : (UsernameRules.normalize(handle).isEmpty ? "Skip for now" : "Save username")
         case .gateSetup: return text("gateSetup.cta", "Show me how")
         case .firstPrayer: return text("firstPrayer.cta", "Start praying")
         }
@@ -155,7 +160,11 @@ struct OnboardingView: View {
     }
 
     private var ctaDisabled: Bool {
-        step == .chooseApps && model.settings.gatedAppIDs.isEmpty
+        if step == .username {
+            let typed = UsernameRules.normalize(handle)
+            return handleWorking || (!typed.isEmpty && (UsernameRules.problem(with: typed) != nil || friendsAvailability != .available))
+        }
+        return step == .chooseApps && model.settings.gatedAppIDs.isEmpty
     }
 
     private var secondaryTitle: String? {
@@ -164,6 +173,7 @@ struct OnboardingView: View {
         case .chooseApps: return useShortcuts ? "I'll choose later" : "Use Shortcuts instead"
         case .reminders: return text("reminders.secondary", "Not now")
         case .name: return "Skip"
+        case .username: return UsernameRules.normalize(handle).isEmpty ? nil : "Skip"
         case .gateSetup: return text("gateSetup.secondary", "I'll do this later")
         case .firstPrayer: return "Maybe later"
         default: return nil
@@ -221,6 +231,8 @@ struct OnboardingView: View {
         case .name:
             saveName()
             advance()
+        case .username:
+            saveHandle()
         case .gateSetup:
             if model.settings.gatedAppIDs.isEmpty {
                 advance()
@@ -251,6 +263,9 @@ struct OnboardingView: View {
             advance()
         case .name:
             name = ""
+            advance()
+        case .username:
+            handle = ""
             advance()
         case .firstPrayer:
             finish(pray: false)
@@ -312,6 +327,7 @@ struct OnboardingView: View {
         case .window: windowPage
         case .reminders: remindersPage
         case .name: namePage
+        case .username: usernamePage
         case .gateSetup: gateSetupPage
         case .firstPrayer: firstPrayerPage
         }
@@ -757,6 +773,49 @@ struct OnboardingView: View {
                 .foregroundStyle(Palette.cream.opacity(0.5))
         }
         .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { nameFocused = true } }
+    }
+
+    /// Optional: a @username so friends can add you. Skippable; Settings → Username any time.
+    private var usernamePage: some View {
+        scrollPage {
+            header("Pick a @username", "Optional. Friends add you by it and see your streak, never what you pray. Nobody can find you until you pick one.")
+            UsernameField(text: $handle, dark: true)
+                .padding(.horizontal, 18)
+                .frame(minHeight: 64)
+                .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Color.white.opacity(0.07)))
+                .onChange(of: handle) { _, _ in handleError = nil }
+            let typed = UsernameRules.normalize(handle)
+            if let problem = typed.isEmpty ? nil : UsernameRules.problem(with: typed) {
+                Text(problem.message).font(.akFootnote).foregroundStyle(Palette.rose)
+                    .accessibilityIdentifier("onboarding.usernameProblem")
+            } else if let handleError {
+                Text(handleError).font(.akFootnote).foregroundStyle(Palette.rose)
+                    .accessibilityIdentifier("onboarding.usernameError")
+            } else if let status = friendsAvailability, status != .available {
+                Text("Usernames use iCloud. You can pick one later in Settings.")
+                    .font(.akFootnote).foregroundStyle(Palette.cream.opacity(0.6))
+            } else {
+                Text("3–20 letters, numbers or _. You can change it once every 30 days.")
+                    .font(.akFootnote).foregroundStyle(Palette.cream.opacity(0.5))
+            }
+        }
+        .task { friendsAvailability = await model.friends.availability() }
+    }
+
+    private func saveHandle() {
+        let typed = UsernameRules.normalize(handle)
+        guard !typed.isEmpty else { advance(); return }
+        handleWorking = true
+        Task {
+            do {
+                try await model.claimUsername(typed)
+                handleWorking = false
+                advance()
+            } catch {
+                handleError = (error as? FriendError)?.errorDescription ?? error.localizedDescription
+                handleWorking = false
+            }
+        }
     }
 
     private var gateSetupPage: some View {

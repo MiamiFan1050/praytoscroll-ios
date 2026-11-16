@@ -281,4 +281,127 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["circle.title"].waitForExistence(timeout: 10)
                       || app.descendants(matching: .any)["circle.nickname"].waitForExistence(timeout: 5))
     }
+
+    // MARK: Usernames + friends (v1.1)
+
+    private func reveal(_ element: XCUIElement, in app: XCUIApplication, swipes: Int = 6) {
+        for _ in 0..<swipes where !(element.exists && element.isHittable) { app.swipeUp() }
+    }
+
+    private func clearAndType(_ field: XCUIElement, _ text: String) {
+        field.tap()
+        let current = field.value as? String ?? ""
+        if !current.isEmpty, current != "username" {
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: current.count + 2))
+        }
+        field.typeText(text)
+    }
+
+    /// Settings → Username: reserved names are refused as you type, a taken name fails on save, a free one sticks
+    /// (lowercased), and Settings shows it.
+    func testPickAUsernameInSettings() {
+        let app = launch(["-route", "settings", "-noUsername"])
+        let row = app.buttons["settings.username"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        reveal(row, in: app, swipes: 10)
+        XCTAssertTrue(row.label.contains("None"), row.label)
+        row.tap()
+
+        let field = app.textFields["username.field"]
+        let save = app.buttons["username.save"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        clearAndType(field, "admin")
+        XCTAssertTrue(app.descendants(matching: .any)["username.problem"].waitForExistence(timeout: 3), "reserved")
+        XCTAssertFalse(save.isEnabled)
+
+        clearAndType(field, "Grace")
+        XCTAssertEqual(field.value as? String, "grace", "lowercased as you type")
+        XCTAssertTrue(waitUntil(5) { save.isEnabled })
+        save.tap()
+        let error = app.descendants(matching: .any)["username.error"]
+        XCTAssertTrue(error.waitForExistence(timeout: 5), "someone already has @grace")
+        XCTAssertTrue(error.label.contains("taken"), error.label)
+
+        clearAndType(field, "Faith_Walker")
+        XCTAssertTrue(waitUntil(5) { save.isEnabled })
+        save.tap()
+        XCTAssertTrue(waitUntil(5) { !app.descendants(matching: .any)["username.error"].exists && !save.isEnabled },
+                      "saved: nothing left to save")
+        XCTAssertEqual(field.value as? String, "faith_walker")
+        app.navigationBars.buttons.element(boundBy: 0).tap()   // back to Settings
+        XCTAssertTrue(waitUntil(5) { row.label.contains("@faith_walker") }, row.label)
+    }
+
+    /// Together → Friends: find someone by their exact @username (no partial matches), send a request, accept one.
+    func testAddAFriendByExactUsernameAndAcceptARequest() {
+        let app = launch(["-route", "friends"])
+        let add = app.buttons["friends.add"]
+        XCTAssertTrue(add.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any)["friends.myHandle"].exists)
+        add.tap()
+
+        let field = app.textFields["username.field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        clearAndType(field, "hann")
+        app.buttons["friends.search.find"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["friends.search.error"].waitForExistence(timeout: 5),
+                      "no partial matches: there's no directory")
+
+        clearAndType(field, "@Hannah_B")
+        app.buttons["friends.search.find"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["friends.search.result"].waitForExistence(timeout: 5))
+        let send = app.buttons["friends.search.send"]
+        XCTAssertTrue(send.waitForExistence(timeout: 3))
+        send.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["friends.search.requested"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["friends.search.block"].exists, "report + block on every username")
+        app.buttons["Done"].firstMatch.tap()
+
+        let cancel = app.buttons["friends.cancel.hannah_b"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5), "the outgoing request shows with Cancel")
+
+        let accept = app.buttons["friends.accept.jordan_k"]
+        XCTAssertTrue(accept.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["friends.requestMenu.jordan_k"].exists, "report + block on every request")
+        accept.tap()
+        let jordan = app.descendants(matching: .any)["friends.row.jordan_k"].firstMatch
+        reveal(jordan, in: app)
+        XCTAssertTrue(jordan.waitForExistence(timeout: 5), "now a friend, with their streak")
+        XCTAssertFalse(app.buttons["friends.accept.jordan_k"].exists)
+    }
+
+    /// "@grace prayed for you 🙏" shows in the app; "Pray for" a friend runs a prayer, and after the Amen it reads Prayed.
+    func testPrayedForItemAndPrayingForAFriend() {
+        let app = launch(["-route", "friends"])
+        let item = app.descendants(matching: .any)["friends.prayedFor.grace"].firstMatch
+        XCTAssertTrue(item.waitForExistence(timeout: 10))
+        XCTAssertTrue(item.label.contains("@grace prayed for you"), item.label)
+        XCTAssertTrue(app.descendants(matching: .any)["friends.row.me"].firstMatch.exists, "my streak sits with theirs")
+
+        let prayFor = app.buttons["friends.prayFor.grace"]
+        reveal(prayFor, in: app)
+        XCTAssertTrue(prayFor.isEnabled)
+        prayFor.tap()
+        for _ in 0..<6 {
+            if app.descendants(matching: .any)["amenButton"].exists { break }
+            let next = app.buttons["session.next"]
+            if next.waitForExistence(timeout: 3) { next.tap() }
+        }
+        sayAmen(in: app)
+        XCTAssertTrue(app.descendants(matching: .any)["celebration.title"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.descendants(matching: .any)["letknow.title"].exists, "no text message to offer: they see it in the app")
+        let done = app.buttons["celebration.done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        done.tap()
+        XCTAssertTrue(prayFor.waitForExistence(timeout: 10))
+        XCTAssertTrue(waitUntil(8) { !prayFor.isEnabled }, "Prayed today")
+    }
+
+    func testProfileLinkOpensAddFriend() {
+        let app = launch([])
+        XCTAssertTrue(app.buttons["home.prayNow"].waitForExistence(timeout: 10))
+        app.open(URL(string: "prayscroll://u/hannah_b")!)
+        XCTAssertTrue(app.descendants(matching: .any)["friends.search.result"].waitForExistence(timeout: 10),
+                      "the link opens Add a friend with their username looked up")
+    }
 }

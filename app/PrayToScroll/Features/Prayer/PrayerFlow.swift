@@ -66,7 +66,11 @@ final class PrayerFlow {
         self.style = request.style
         self.verse = request.verse ?? model.verses.verse()
         self.mood = request.mood
-        self.phase = request.style == .forSomeone && request.personID == nil ? .choosePerson : .praying
+        self.phase = request.style == .forSomeone && request.personID == nil && request.friend == nil ? .choosePerson : .praying
+        if let friend = request.friend {
+            // "Pray for @friend": their nickname, nothing from my private prayer list.
+            personName = friend.displayName.isEmpty ? friend.atHandle : friend.displayName
+        }
         if let personID = request.personID, let person = model.fetchPerson(id: personID) {
             choose(person: person)
         }
@@ -318,9 +322,10 @@ final class PrayerFlow {
         let outcome = PrayerOutcome(style: style, source: request.source, gatedAppID: request.gatedAppID,
                                     startedAt: startedAt, completedAt: Date(), personID: personID,
                                     personName: personName, verseRef: verseRefForHistory,
-                                    circleRequest: request.circleRequest)
+                                    circleRequest: request.circleRequest, friend: request.friend)
         completion = model.completePrayer(outcome)
-        withAnimationPhase(style == .forSomeone && !personName.isEmpty ? .letThemKnow : .celebration)
+        // A friend sees "prayed for you" in the app, so there's no text message to offer.
+        withAnimationPhase(style == .forSomeone && !personName.isEmpty && request.friend == nil ? .letThemKnow : .celebration)
     }
 
     private var verseRefForHistory: String {

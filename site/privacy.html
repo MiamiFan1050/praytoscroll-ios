@@ -67,12 +67,29 @@
           <tr><td>The circle code</td><td>So the app knows which circle you're in</td><td>Members of your circle</td></tr>
           <tr><td>Your weekly prayer count</td><td>The leaderboard</td><td>Members of your circle</td></tr>
           <tr><td>Your current streak</td><td>The leaderboard</td><td>Members of your circle</td></tr>
+          <tr><td>Prayer requests you post: a topic and an optional short line (no links or contact details), and who tapped &ldquo;I prayed&rdquo;</td><td>So your circle can pray for you</td><td>Members of your circle, for 7 days</td></tr>
         </tbody>
       </table>
     </div>
     <p><strong>Nothing else is shared.</strong> Not your journal, your prayer list, the names of people you pray for, your requests, your contacts, your location or your real name (unless you choose to use it as your nickname).</p>
     <p>CloudKit needs you to be signed in to iCloud. Apple links your circle record to an anonymous, app-specific identifier so only you can update it. We never receive your Apple ID, name, email address or phone number. Circle records are sent over encrypted connections and stored on Apple's servers. As the developer, we can view and delete circle records in Apple's CloudKit tools, and we do so only to provide support or remove records that break our <a href="terms.html">Terms</a>.</p>
     <p><strong>Removing circle data:</strong> leave the circle in the app and your membership record is deleted. Circle records that stop being updated also expire and are deleted automatically. You can also <a href="https://docs.google.com/forms/d/e/1FAIpQLSd970nDhpb_sqjTqumvty5jvxK4t3gkhYplR6XmVWjTiQun6Q/viewform">contact us</a> with your circle code and nickname and we'll delete your record by hand.</p>
+
+    <h2 id="friends">Friends and usernames (optional)</h2>
+    <p>You can pick a @username so friends can add you. Until you pick one, nobody can find you. There is no directory and no search: a friend has to type your exact username or open your link. When you pick a username, Pray to Scroll stores in the same CloudKit public database:</p>
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead><tr><th>Stored</th><th>Why</th><th>Who can see it</th></tr></thead>
+        <tbody>
+          <tr><td>Your username</td><td>So a friend can add you by typing it exactly</td><td>Anyone who types it exactly</td></tr>
+          <tr><td>Your circle nickname, emoji and current streak</td><td>Your friends list</td><td>People who look up your exact username, and your friends</td></tr>
+          <tr><td>Friend requests and friendships (usernames only, no messages)</td><td>So you can accept, decline or remove friends</td><td>You and the other person</td></tr>
+          <tr><td>&ldquo;Prayed for you&rdquo; (who, and on which day)</td><td>So a friend sees you prayed for them</td><td>You and that friend</td></tr>
+          <tr><td>People you block</td><td>So they can't find you or send you requests</td><td>The app on your and their iPhone (they aren't told)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Friends can't send each other messages. You can report or block anyone from their username, a friend request or your friends list. <strong>Erase All Data</strong> in Settings deletes your username, profile, friendships, requests and &ldquo;prayed for you&rdquo; records.</p>
 
     <h2 id="contacts">Contacts</h2>
     <p>When you pray for someone from your contacts, iOS shows Apple's contact picker. Pray to Scroll never gets access to your address book. It uses only the name of the person you pick, and stores that name on your device in your prayer list.</p>

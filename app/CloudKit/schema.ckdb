@@ -101,3 +101,117 @@ DEFINE SCHEMA
         GRANT CREATE TO "_icloud",
         GRANT READ TO "_world"
     );
+
+    // v1.1 usernames + friends. No directory: nothing below is world-queryable, and Username has no queryable field
+    // at all (not even ___recordID), so a name can only be fetched by typing it exactly.
+
+    // recordName IS the lowercase handle ("grace"), so a second save of the same name fails: the claim is atomic.
+    // World-readable so an exact @username lookup works; it only says which random member id holds the name.
+    // Changing a name deletes the old record, freeing it (the app allows one change per 30 days).
+    RECORD TYPE Username (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        memberID        STRING,
+        createdAt       TIMESTAMP,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    // recordName profile-<memberID>. Nickname, emoji, streak and the circles a person owns (friends join without a
+    // code). Fetched by record name only. Signed-in iCloud users only, never the world.
+    RECORD TYPE FriendProfile (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        memberID        STRING,
+        handle          STRING,
+        displayName     STRING,
+        emoji           STRING,
+        streak          INT64,
+        lastPrayedDay   STRING,
+        openCircles     LIST<STRING>,
+        updatedAt       TIMESTAMP,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_icloud"
+    );
+
+    // recordName freq-<fromID>-<toID> (one per pair). The recipient accepts by adding a FriendLink; declining is
+    // private (the sender is never told). No message field: requests carry handles only.
+    RECORD TYPE FriendRequest (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        fromID          STRING QUERYABLE,
+        toID            STRING QUERYABLE,
+        fromHandle      STRING,
+        toHandle        STRING,
+        createdAt       TIMESTAMP,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_icloud"
+    );
+
+    // recordName link-<ownerID>-<friendID>. A friendship is one link each way (each side writes only its own).
+    // Removing a friend deletes my link; the other app sees it's gone and drops theirs.
+    RECORD TYPE FriendLink (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        ownerID         STRING QUERYABLE,
+        friendID        STRING QUERYABLE,
+        createdAt       TIMESTAMP,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_icloud"
+    );
+
+    // recordName pf-<fromID>-<toID>-<yyyy-mm-dd>: "@me prayed for you 🙏", once a day per friend. Shown in the app on
+    // the next open (no push: that would need a new entitlement). The app shows only friends' rows, for 7 days.
+    RECORD TYPE PrayedFor (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        fromID          STRING QUERYABLE,
+        toID            STRING QUERYABLE,
+        fromHandle      STRING,
+        day             STRING,
+        createdAt       TIMESTAMP,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_icloud"
+    );
+
+    // recordName fblock-<blockerID>-<blockedID>. Read by both apps so a blocked person can't find the blocker,
+    // send requests or see their streak. Username/friend reports reuse CircleReport (circleCode "friends").
+    RECORD TYPE FriendBlock (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        blockerID       STRING QUERYABLE,
+        blockedID       STRING QUERYABLE,
+        createdAt       TIMESTAMP,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_icloud"
+    );

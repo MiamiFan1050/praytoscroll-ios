@@ -26,6 +26,8 @@ struct SessionRequest: Identifiable, Equatable {
     var topic: PrayerTopic?
     /// "Pray now" on a circle prayer request: the Amen records "I prayed 🙏" on it.
     var circleRequest: CirclePrayerRequest?
+    /// "Pray for @friend": the Amen shows them "@you prayed for you 🙏".
+    var friend: FriendProfile?
 }
 
 /// What happened in a finished prayer.
@@ -39,6 +41,7 @@ struct PrayerOutcome {
     var personName: String = ""
     var verseRef: String = ""
     var circleRequest: CirclePrayerRequest?
+    var friend: FriendProfile?
 }
 
 /// What the celebration shows.
@@ -71,6 +74,7 @@ final class AppModel {
     let store: SharedStore
     let container: ModelContainer
     let circles: any CircleService
+    let friends: any FriendService
     /// Screen Time shields (Apple's in the app, a stand-in in the Debug demo, a fake in unit tests).
     let lock: any AppLock
     let content = ContentStore.shared
@@ -92,6 +96,12 @@ final class AppModel {
     var sampleCompleted = false
     var activeSession: SessionRequest?
     var pendingJoinCode: String?
+    /// A praytoscroll.vercel.app/u/<name> or prayscroll://u/<name> link: Together opens the add-friend lookup.
+    var pendingFriendHandle: String?
+    /// My @username (nil until chosen; friends can't find me before that).
+    var username: String?
+    /// Bumped after any friend change so the Friends section reloads.
+    var friendsRevision = 0
     var pendingChallengeID: String?
     var verifiedGateApp: GatedApp?
     var troubleshootApp: GatedApp?
@@ -127,12 +137,14 @@ final class AppModel {
         self.container = modelContainer
         #if DEBUG
         self.circles = demo ? MockCircleService.demo() : CloudKitCircleService()
+        self.friends = demo ? MockFriendService.demo(withUsername: !options.showOnboarding && !options.noUsername) : CloudKitFriendService()
         self.lock = injectedLock ?? (demo ? (options.showOnboarding ? DemoLock(authorized: false, picked: []) : DemoLock()) : ScreenTimeLock())
         if demo {
             DemoSeeder.seedDefaults(store: sharedStore, options: options)
         }
         #else
         self.circles = CloudKitCircleService()
+        self.friends = CloudKitFriendService()
         self.lock = injectedLock ?? ScreenTimeLock()
         #endif
         var loaded = sharedStore.settings
@@ -150,8 +162,12 @@ final class AppModel {
             self.settings = seeded
         }
         #endif
+        self.username = sharedStore.username
         reloadGateState()
         refreshStreak()
+        #if DEBUG
+        if demo { Task { await self.refreshUsername() } }
+        #endif
     }
 
     private static func makeContainer(inMemory: Bool) -> ModelContainer {
@@ -478,10 +494,11 @@ final class AppModel {
     func startPrayer(style: UnlockStyle? = nil, source: SessionSource, gatedAppID: String? = nil,
                      personID: UUID? = nil, mood: PrayerMood? = nil, isSample: Bool = false,
                      verse: Verse? = nil, seedPrompt: String? = nil, topic: PrayerTopic? = nil,
-                     circleRequest: CirclePrayerRequest? = nil) {
+                     circleRequest: CirclePrayerRequest? = nil, friend: FriendProfile? = nil) {
         let request = SessionRequest(style: style ?? defaultSessionStyle, source: source, gatedAppID: gatedAppID,
                                      personID: personID, mood: mood, isSample: isSample,
-                                     verse: verse, seedPrompt: seedPrompt, topic: topic, circleRequest: circleRequest)
+                                     verse: verse, seedPrompt: seedPrompt, topic: topic, circleRequest: circleRequest,
+                                     friend: friend)
         if activeSession != nil {
             activeSession = nil
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { self.activeSession = request }
@@ -551,6 +568,12 @@ final class AppModel {
                 circleRevision += 1
             }
         }
+        if let friend = outcome.friend {
+            Task {
+                try? await friends.prayedFor(friend)
+                friendsRevision += 1
+            }
+        }
 
         // Milestones
         let earned = MilestoneEngine.newlyEarned(streak: streak.current, alreadyAwarded: Set(settings.awardedMilestones))
@@ -567,6 +590,7 @@ final class AppModel {
         refreshReminders()
         WidgetCenter.shared.reloadAllTimelines()
         reportCircleProgress()
+        publishFriendProfile()
 
         return PrayerCompletion(previousStreak: previous, streak: streak, newMilestones: earned,
                                 unlockMode: settings.unlockMode, unlockedUntil: until,
@@ -741,6 +765,51 @@ final class AppModel {
         }
     }
 
+    // MARK: Friends
+
+    /// My friend profile: the circle nickname + emoji and my streak (never my first name or what I prayed).
+    func myFriendProfile() -> FriendProfile {
+        FriendProfile(memberID: store.circleMemberID, handle: username ?? "", displayName: settings.circleName,
+                      emoji: settings.circleDisplayEmoji, streak: streak.current,
+                      lastPrayedDay: store.lastPrayerAt.map { DayKey($0).string } ?? "")
+    }
+
+    /// Keeps my profile current for friends, with the circles I own (friends can join those without a code).
+    func publishFriendProfile() {
+        guard username != nil else { return }   // hidden until a username is chosen
+        let base = myFriendProfile()
+        let me = store.circleMemberID
+        let circles = self.circles
+        let friends = self.friends
+        Task {
+            let owned = ((try? await circles.myCircles()) ?? []).filter { $0.ownerID == me }
+            var profile = base
+            profile.openCircles = owned.map { FriendProfile.OpenCircle(code: $0.code, name: $0.name) }
+            try? await friends.publish(profile)
+        }
+    }
+
+    /// Claims a @username (atomic: "taken" if someone has it). Frees the old one; once every 30 days.
+    @discardableResult
+    func claimUsername(_ raw: String) async throws -> String {
+        let handle = try await friends.claim(handle: raw, profile: myFriendProfile())
+        username = handle
+        store.username = handle
+        friendsRevision += 1
+        publishFriendProfile()
+        return handle
+    }
+
+    func refreshUsername() async {
+        let server = await friends.myHandle()
+        if server != username { username = server }
+    }
+
+    /// "Pray for @friend": a prayer for them; the Amen shows them "@me prayed for you 🙏".
+    func prayFor(friend: FriendProfile) {
+        startPrayer(style: .forSomeone, source: .manual, friend: friend)
+    }
+
     // MARK: Reminders
 
     func refreshReminders() {
@@ -767,6 +836,9 @@ final class AppModel {
         case .join(let code):
             selectedTab = .together
             pendingJoinCode = code
+        case .user(let handle):
+            selectedTab = .together
+            pendingFriendHandle = handle
         case .challenge(let id):
             selectedTab = .together
             pendingChallengeID = id
@@ -806,6 +878,7 @@ final class AppModel {
             selectedTab = .together
             openCircleCode = "K7Q2MX"
         case "stats": selectedTab = .progress
+        case "friends": selectedTab = .together
         case "journal":
             selectedTab = .progress
             openJournal = true
@@ -835,14 +908,21 @@ final class AppModel {
         try? context.save()
         // Delete my circle rows BEFORE the member id goes: resetAll() would otherwise mint a new id first,
         // and the old nickname/count rows would stay in the public database.
+        // The same goes for my Username record, friend links, requests and prayed-for rows.
         let codes = store.circleCodes
         let memberID = store.circleMemberID
         let circles = self.circles
+        let friends = self.friends
+        let handle = username ?? store.username
         let store = self.store
-        store.resetAll(keepingCircleMemberID: !codes.isEmpty)
+        let keepID = !codes.isEmpty || handle != nil
+        store.resetAll(keepingCircleMemberID: keepID)
+        username = nil
+        friendsRevision += 1
         Task {
             try? await circles.deleteMyData(codes: codes)
-            if !codes.isEmpty, store.circleMemberID == memberID { store.forgetCircleMemberID() }
+            if let handle { try? await friends.deleteMyData(handle: handle) }
+            if keepID, store.circleMemberID == memberID { store.forgetCircleMemberID() }
         }
         settings = AppSettings()
         store.settings = settings

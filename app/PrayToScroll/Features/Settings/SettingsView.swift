@@ -40,7 +40,7 @@ struct SettingsView: View {
                 dismiss()
             }
         } message: {
-            Text("Your people, journal, streak and settings are deleted from this iPhone, and you leave every circle. This can't be undone.")
+            Text("Your people, journal, streak and settings are deleted from this iPhone, you leave every circle, and your username and friends are deleted. This can't be undone.")
         }
         .confirmationDialog("Delete your circle data?", isPresented: $confirmDeleteCircles, titleVisibility: .visible) {
             Button("Delete and leave all circles", role: .destructive) {
@@ -257,6 +257,17 @@ struct SettingsView: View {
 
     private var circlesSection: some View {
         Section {
+            NavigationLink {
+                UsernameView()
+            } label: {
+                HStack {
+                    settingsLabel("Username", "at")
+                    Spacer()
+                    Text(model.username.map { "@" + $0 } ?? "None")
+                        .font(.akFootnote).foregroundStyle(Theme.textSecondary)
+                }
+            }
+            .accessibilityIdentifier("settings.username")
             Picker(selection: model.binding(\.circleDisplayEmoji)) {
                 ForEach(["🕊️", "🌻", "⛰️", "🌿", "🔥", "🌙", "🌷", "⭐️", "🐑", "📖", "☀️", "🌊"], id: \.self) { Text($0).tag($0) }
             } label: { settingsLabel("Your circle emoji", "face.smiling.fill") }

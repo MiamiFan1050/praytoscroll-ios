@@ -4,6 +4,8 @@ import Foundation
 enum DeepLink: Equatable {
     case pray(appID: String?, mood: PrayerMood?)
     case join(code: String)
+    /// A friend's profile link: prayscroll://u/<name> or https://<domain>/u/<name>.
+    case user(handle: String)
     case challenge(id: String)
     case stats
     case people
@@ -41,6 +43,11 @@ enum DeepLink: Equatable {
             guard let raw = value("c") ?? value("code") ?? parts.dropFirst().first,
                   let code = CircleCode.normalize(raw) else { return nil }
             self = .join(code: code)
+        case "u", "user", "friend":
+            guard let raw = parts.dropFirst().first ?? value("n") ?? value("u") else { return nil }
+            let handle = UsernameRules.normalize(raw)
+            guard UsernameRules.problem(with: handle) == nil || UsernameRules.problem(with: handle) == .reserved else { return nil }
+            self = .user(handle: handle)
         case "challenge", "challenges":
             guard let id = parts.dropFirst().first ?? value("id") else { return nil }
             self = .challenge(id: id)
