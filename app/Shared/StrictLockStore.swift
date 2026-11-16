@@ -1,18 +1,19 @@
-#if STRICT_LOCK
+#if !NO_SCREEN_TIME
+// (NO_SCREEN_TIME is set only by tools/run-unit-tests.sh, whose Mac Catalyst runner has no Screen Time frameworks.)
 import DeviceActivity
 import FamilyControls
 import Foundation
 import ManagedSettings
 
-/// v1.1 Strict Lock: Screen Time shields shared by the app and its three extensions (compiled only with STRICT_LOCK).
+/// Screen Time plumbing shared by the app and its three extensions: the picked apps, the shield and the relock timer.
 enum StrictLockStore {
     private static let selectionKey = "ak.strict.selection"
-    private static let enabledKey = "ak.strict.enabled"
     static let relockActivity = DeviceActivityName("ak.strict.relock")
     static let managedStore = ManagedSettingsStore(named: ManagedSettingsStore.Name("prayToScroll"))
 
     private static var defaults: UserDefaults { SharedStore.shared.defaults }
 
+    /// The apps, categories and sites picked in Apple's FamilyActivityPicker (opaque tokens, never names or usage).
     static var selection: FamilyActivitySelection {
         get {
             guard let data = defaults.data(forKey: selectionKey),
@@ -24,17 +25,14 @@ enum StrictLockStore {
         }
     }
 
-    static var isEnabled: Bool {
-        get { defaults.bool(forKey: enabledKey) }
-        set { defaults.set(newValue, forKey: enabledKey) }
-    }
-
-    static var hasSelection: Bool {
+    static var lockedCount: Int {
         let s = selection
-        return !s.applicationTokens.isEmpty || !s.categoryTokens.isEmpty || !s.webDomainTokens.isEmpty
+        return s.applicationTokens.count + s.categoryTokens.count + s.webDomainTokens.count
     }
 
-    /// Shields the chosen apps, categories and sites.
+    static var hasSelection: Bool { lockedCount > 0 }
+
+    /// Shields the picked apps, categories and sites.
     static func shield() {
         let s = selection
         managedStore.shield.applications = s.applicationTokens.isEmpty ? nil : s.applicationTokens
@@ -48,31 +46,38 @@ enum StrictLockStore {
         managedStore.shield.webDomains = nil
     }
 
-    /// After a prayer: lift the shields and have the monitor extension put them back when the window ends.
-    /// DeviceActivity schedules must span at least 15 minutes, so a shorter window starts in the past and ends on time.
-    static func unlock(until end: Date, now: Date = Date(), calendar: Calendar = .current) {
-        guard isEnabled else { return }
-        unshield()
+    /// Starts the timer whose end puts the shield back (DeviceActivityMonitorExtension.intervalDidEnd).
+    /// The caller only asks for windows of at least 15 minutes (ShieldPlanner). Throws when Screen Time refuses.
+    static func scheduleRelock(at end: Date, now: Date = Date(), calendar: Calendar = .current) throws {
         let center = DeviceActivityCenter()
         center.stopMonitoring([relockActivity])
-        let start = min(now, end.addingTimeInterval(-15 * 60))
-        let components: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute, .second]
-        let schedule = DeviceActivitySchedule(intervalStart: calendar.dateComponents(components, from: start),
+        let components: Set<Calendar.Component> = [.era, .year, .month, .day, .hour, .minute, .second]
+        let schedule = DeviceActivitySchedule(intervalStart: calendar.dateComponents(components, from: now),
                                               intervalEnd: calendar.dateComponents(components, from: end),
                                               repeats: false)
-        do {
-            try center.startMonitoring(relockActivity, during: schedule)
-        } catch {
-            // If monitoring can't start, fail closed on the next app launch instead of leaving apps open forever.
-            defaults.set(end.timeIntervalSince1970, forKey: "ak.strict.relockAt")
-        }
+        try center.startMonitoring(relockActivity, during: schedule)
+        SharedStore.shared.relockScheduledFor = end
     }
 
-    /// Called by the app on launch: re-shield if a relock was missed.
-    static func enforce(now: Date = Date()) {
-        guard isEnabled else { return }
-        let unlockedUntil = [SharedStore.shared.unlockedUntil, SharedStore.shared.dailyKeyUntil].compactMap { $0 }.max()
-        if let unlockedUntil, unlockedUntil > now { return }
+    static func cancelRelock() {
+        DeviceActivityCenter().stopMonitoring([relockActivity])
+        SharedStore.shared.relockScheduledFor = nil
+    }
+
+    static var isMonitoring: Bool { DeviceActivityCenter().activities.contains(relockActivity) }
+
+    /// The monitor extension when a window ends: shield again unless another window is still open.
+    static func relockIfDue(now: Date = Date()) {
+        let store = SharedStore.shared
+        let settings = store.settings
+        if let scheduled = store.relockScheduledFor, scheduled <= now.addingTimeInterval(ShieldPlanner.monitorSlack) {
+            store.relockScheduledFor = nil
+        }
+        guard settings.lockMethod == .screenTime, settings.gateEnabled, hasSelection else { return }
+        let plan = ShieldPlanner.plan(now: now, active: true, unlockedUntil: store.unlockedUntil,
+                                      pausedUntil: store.pausedUntil, dailyKeyUntil: store.dailyKeyUntil,
+                                      slack: ShieldPlanner.monitorSlack)
+        if case .open = plan { return }
         shield()
     }
 }

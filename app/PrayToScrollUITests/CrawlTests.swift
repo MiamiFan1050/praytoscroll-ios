@@ -46,6 +46,9 @@ final class CrawlTests: XCTestCase {
     func test10GateSetup() {
         crawl(Target(number: 10, name: "gate-setup", args: route("gate"), marker: "gate.title", cover: .navBar("Prayer Gate")))
     }
+    func test26LockSetup() {
+        crawl(Target(number: 26, name: "lock-setup", args: route("lock"), marker: "lock.title", cover: .navBar("Lock your apps")))
+    }
     func test11GateVerified() {
         crawl(Target(number: 11, name: "gate-verified", args: route("verified"), marker: "verified.title", cover: .marker))
     }
@@ -124,6 +127,12 @@ final class CrawlTests: XCTestCase {
             }
             Thread.sleep(forTimeInterval: 1.0)
             _ = dismissSystemAlert(log: &log)
+            if app.buttons["lockpicker.done"].exists {   // "Choose apps" opened the (demo) Screen Time picker
+                log.note("app picker opened; picking TikTok")
+                if app.buttons["lockpicker.row.tiktok"].exists { app.buttons["lockpicker.row.tiktok"].tap() }
+                app.buttons["lockpicker.done"].tap()
+                Thread.sleep(forTimeInterval: 1.0)
+            }
             if app.descendants(matching: .any)["gate.title"].exists {   // "Show me how" opened gate setup
                 log.note("gate setup opened from onboarding; closing it")
                 app.buttons["Done"].firstMatch.tap()

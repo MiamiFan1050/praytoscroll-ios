@@ -2,7 +2,7 @@
 # Typechecks the app, the widget and the unit tests WITHOUT Xcode, against the Mac Catalyst iOSSupport
 # frameworks in the Command Line Tools SDK. The CLT has no SwiftData/Foundation macro plugins, so a scratch
 # copy of the sources gets @Model replaced by hand-written PersistentModel stubs and #Predicate by a shim.
-# Usage: tools/typecheck.sh [app|widget|tests|strict|all]   (prints "error:" lines; exit 0 = clean)
+# Usage: tools/typecheck.sh [app|widget|extensions|tests|all]   (prints "error:" lines; exit 0 = clean)
 set -uo pipefail
 cd "$(dirname "$0")/.."
 APP="$(pwd)"
@@ -72,13 +72,12 @@ if [ "$what" = app ] || [ "$what" = all ]; then
   run app-release $(find PrayToScroll Shared -name "*.swift")
 fi
 if [ "$what" = widget ] || [ "$what" = all ]; then
-  run widget -application-extension $(find PrayToScrollWidget Shared -name "*.swift")
+  run widget -application-extension $(find PrayToScrollWidget Shared -name "*.swift" ! -name StrictLockStore.swift)
 fi
-if [ "$what" = strict ] || [ "$what" = all ]; then
-  # v1.1 Strict Lock: the app with STRICT_LOCK + its three Screen Time extensions.
-  run strict-app -D STRICT_LOCK $(find PrayToScroll Shared StrictLock/App -name "*.swift")
+if [ "$what" = extensions ] || [ "$what" = all ]; then
+  # The three Screen Time extensions (shield look, shield buttons, relock monitor).
   for ext in ShieldConfiguration ShieldAction DeviceActivityMonitor; do
-    run "strict-$ext" -D STRICT_LOCK -application-extension -parse-as-library $(find "StrictLock/$ext" Shared -name "*.swift")
+    run "ext-$ext" -application-extension -parse-as-library $(find "StrictLock/$ext" Shared -name "*.swift")
   done
 fi
 if { [ "$what" = tests ] || [ "$what" = all ]; } && [ -d PrayToScrollTests ]; then

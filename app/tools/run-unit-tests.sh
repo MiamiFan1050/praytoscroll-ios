@@ -32,7 +32,7 @@ print('print("\\(ran) tests, \\(ShimResults.failures.count) failures")')
 print('ShimResults.failures.forEach { print("FAIL", $0) }')
 print('exit(ShimResults.failures.isEmpty ? 0 : 1)')
 PY
-xcrun swiftc -swift-version 5 -Onone -D DEBUG -sdk "$SDK" -target arm64-apple-ios17.0-macabi \
+xcrun swiftc -swift-version 5 -Onone -D DEBUG -D NO_SCREEN_TIME -sdk "$SDK" -target arm64-apple-ios17.0-macabi \
   -Fsystem "$SDK/System/iOSSupport/System/Library/Frameworks" \
   -L "$SDK/System/iOSSupport/usr/lib/swift" \
   -module-name PrayToScrollTestRunner -o "$WORK/test-runner" \

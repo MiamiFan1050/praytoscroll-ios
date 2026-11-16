@@ -44,6 +44,9 @@ final class SharedStore: @unchecked Sendable {
         static let testPending = "ak.gate.testPending"
         static let setupMarked = "ak.gate.setupMarked"
         static let promptBags = "ak.prompts.bags"
+        static let screenTimeActive = "ak.strict.active"
+        static let relockScheduledFor = "ak.strict.relockAt"
+        static let screenTimeOfferDismissed = "ak.strict.offerDismissed"
     }
 
     // MARK: Settings
@@ -85,7 +88,27 @@ final class SharedStore: @unchecked Sendable {
         let s = settings
         return GateSnapshot(gateEnabled: s.gateEnabled, gatedAppIDs: Set(s.gatedAppIDs), customApps: s.customApps,
                             unlockedUntil: unlockedUntil, pausedUntil: pausedUntil, dailyKeyUntil: dailyKeyUntil,
-                            launchPasses: launchPasses, testPending: testPending)
+                            launchPasses: launchPasses, testPending: testPending, screenTimeActive: screenTimeActive)
+    }
+
+    // MARK: Screen Time (Strict Lock)
+
+    /// True while Screen Time shields are in charge (set by the app after every lock sync).
+    var screenTimeActive: Bool {
+        get { defaults.bool(forKey: Key.screenTimeActive) }
+        set { defaults.set(newValue, forKey: Key.screenTimeActive) }
+    }
+
+    /// The window end the running DeviceActivity relock timer was started for.
+    var relockScheduledFor: Date? {
+        get { date(Key.relockScheduledFor) }
+        set { setDate(newValue, Key.relockScheduledFor) }
+    }
+
+    /// A v1.0 Shortcuts user closed the "lock with Screen Time" card on Home.
+    var screenTimeOfferDismissed: Bool {
+        get { defaults.bool(forKey: Key.screenTimeOfferDismissed) }
+        set { defaults.set(newValue, forKey: Key.screenTimeOfferDismissed) }
     }
 
     /// Short per-app passes so PrayToScroll reopening an app never re-triggers the gate.

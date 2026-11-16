@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The honest escape hatch: once a day, open the app for 5 minutes without praying.
+/// The honest escape hatch: once a day, open the app for a few minutes (15 under Screen Time) without praying.
 struct EmergencyPassSheet: View {
     let app: GatedApp?
     var onUsed: () -> Void = {}
@@ -17,12 +17,12 @@ struct EmergencyPassSheet: View {
                     .font(.akTitle)
                     .foregroundStyle(Theme.textPrimary)
                 if model.canUseEmergencyPass {
-                    Text("Open \(app?.name ?? "your apps") for \(GateEngine.emergencyMinutes) minutes without praying. You get one pass a day, and it shows in your stats.")
+                    Text("Open \(app?.name ?? "your apps") for \(model.emergencyMinutes) minutes without praying. You get one pass a day, and it shows in your stats.")
                         .font(.akCallout)
                         .foregroundStyle(Theme.textSecondary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
-                    PrimaryButton(app.map { "Open \($0.name) for \(GateEngine.emergencyMinutes) min" } ?? "Unlock for \(GateEngine.emergencyMinutes) min",
+                    PrimaryButton(app.map { "Open \($0.name) for \(model.emergencyMinutes) min" } ?? "Unlock for \(model.emergencyMinutes) min",
                                   systemImage: "lock.open.fill") {
                         model.useEmergencyPass(for: app)
                         dismiss()

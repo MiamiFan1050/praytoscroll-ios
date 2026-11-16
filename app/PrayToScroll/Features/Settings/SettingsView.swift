@@ -17,15 +17,6 @@ struct SettingsView: View {
             gateSection
             remindersSection
             circlesSection
-            #if STRICT_LOCK
-            Section {
-                NavigationLink { StrictLockSettingsView() } label: {
-                    settingsLabel("Strict Lock", "lock.shield.fill", tint: Theme.roseText)
-                }
-            } footer: {
-                Text("Uses Apple's Screen Time to shield apps until you pray. Works without Shortcuts.")
-            }
-            #endif
             aboutSection
             dataSection
         }
@@ -124,21 +115,35 @@ struct SettingsView: View {
             Toggle(isOn: model.binding(\.gateEnabled)) { settingsLabel("Prayer Gate", "key.fill") }
                 .tint(Palette.gold)
             NavigationLink {
-                GateSetupView(showsDoneButton: false)
+                LockSetupView(showsDoneButton: false)
             } label: {
                 HStack {
-                    settingsLabel("Gated apps & setup", "square.grid.2x2.fill")
+                    settingsLabel("Locked apps", "lock.shield.fill")
                     Spacer()
-                    Text("\(model.protectedCount) of \(model.settings.gatedApps.count) protected")
+                    Text(model.usesScreenTime ? "\(model.lock.lockedCount) with Screen Time" : "Set up")
                         .font(.akFootnote).foregroundStyle(Theme.textSecondary)
+                }
+            }
+            .accessibilityIdentifier("settings.lockedApps")
+            if model.settings.lockMethod == .shortcuts {
+                NavigationLink {
+                    GateSetupView(showsDoneButton: false)
+                } label: {
+                    HStack {
+                        settingsLabel("Gated apps & setup", "square.grid.2x2.fill")
+                        Spacer()
+                        Text("\(model.protectedCount) of \(model.settings.gatedApps.count) protected")
+                            .font(.akFootnote).foregroundStyle(Theme.textSecondary)
+                    }
                 }
             }
             Picker(selection: model.binding(\.unlockMode)) {
                 ForEach(UnlockMode.allCases) { Text($0.title).tag($0) }
             } label: { settingsLabel("Unlock", "lock.open.fill") }
             if model.settings.unlockMode == .window {
-                Picker(selection: model.binding(\.unlockWindowMinutes)) {
-                    ForEach(GateEngine.windowOptions, id: \.self) { Text("\($0) min").tag($0) }
+                Picker(selection: Binding(get: { model.effectiveWindowMinutes },
+                                          set: { value in model.updateSettings { $0.unlockWindowMinutes = value } })) {
+                    ForEach(ShieldPlanner.windowOptions(for: model.settings.lockMethod), id: \.self) { Text("\($0) min").tag($0) }
                 } label: { settingsLabel("Each prayer opens apps for", "clock.fill") }
             } else {
                 Picker(selection: model.binding(\.dailyKeyResetHour)) {

@@ -1,12 +1,17 @@
 import SwiftUI
 import UserNotifications
 
-/// First run: welcome → scroll quiz → mirror → promise → try it → apps → style → window → reminders → name → gate → first prayer.
+/// First run: welcome → scroll quiz → mirror → promise → try it → apps (Screen Time picker) → style → window → reminders
+/// → name → gate (Shortcuts fallback only) → first prayer.
 struct OnboardingView: View {
     @Environment(AppModel.self) private var model
     @State private var step: Step = .welcome
     @State private var goingBack = false
     @State private var showGateSetup = false
+    @State private var showLockPicker = false
+    /// The Shortcuts gate instead of Screen Time: the person asked for it, or declined Screen Time access.
+    @State private var useShortcuts = false
+    @State private var lockDenied = false
     @State private var reminderTime = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var name = ""
     @FocusState private var nameFocused: Bool
@@ -51,6 +56,7 @@ struct OnboardingView: View {
             }
         }
         .environment(\.colorScheme, .dark)
+        .background(model.lock.picker(isPresented: $showLockPicker) { model.lockSelectionChanged() })
         .sheet(isPresented: $showGateSetup, onDismiss: { advance() }) {
             NavigationStack { GateSetupView() }
                 .environment(model)
@@ -127,7 +133,9 @@ struct OnboardingView: View {
         case .mirror: return text("mirror.cta", "I want that")
         case .promise: return text("promise.cta", "I'm in")
         case .tryIt: return model.sampleCompleted ? "Continue" : "Try a 15-second prayer"
-        case .chooseApps: return model.settings.gatedAppIDs.isEmpty ? "Choose at least one" : text("chooseApps.cta", "Continue")
+        case .chooseApps:
+            if !useShortcuts { return model.lock.hasSelection ? "Continue" : "Choose apps" }
+            return model.settings.gatedAppIDs.isEmpty ? "Choose at least one" : text("chooseApps.cta", "Continue")
         case .style: return text("unlockStyle.cta", "Continue")
         case .window: return text("window.cta", "Continue")
         case .reminders: return text("reminders.cta", "Turn on reminders")
@@ -153,7 +161,7 @@ struct OnboardingView: View {
     private var secondaryTitle: String? {
         switch step {
         case .tryIt: return model.sampleCompleted ? nil : "Skip"
-        case .chooseApps: return "I'll choose later"
+        case .chooseApps: return useShortcuts ? "I'll choose later" : "Use Shortcuts instead"
         case .reminders: return text("reminders.secondary", "Not now")
         case .name: return "Skip"
         case .gateSetup: return text("gateSetup.secondary", "I'll do this later")
@@ -164,15 +172,22 @@ struct OnboardingView: View {
 
     // MARK: Actions
 
+    /// The Shortcuts setup step only exists for the Shortcuts gate.
+    private func skips(_ step: Step) -> Bool {
+        step == .gateSetup && model.usesScreenTime
+    }
+
     private func advance() {
-        guard let next = Step(rawValue: step.rawValue + 1) else { return }
+        guard var next = Step(rawValue: step.rawValue + 1) else { return }
+        if skips(next), let after = Step(rawValue: next.rawValue + 1) { next = after }
         goingBack = false
         nameFocused = false
         withAnimation(.spring(response: 0.5, dampingFraction: 0.88)) { step = next }
     }
 
     private func back() {
-        guard let previous = Step(rawValue: step.rawValue - 1) else { return }
+        guard var previous = Step(rawValue: step.rawValue - 1) else { return }
+        if skips(previous), let before = Step(rawValue: previous.rawValue - 1) { previous = before }
         goingBack = true
         nameFocused = false
         withAnimation(.spring(response: 0.5, dampingFraction: 0.88)) { step = previous }
@@ -181,6 +196,12 @@ struct OnboardingView: View {
 
     private func primaryAction() {
         switch step {
+        case .chooseApps:
+            if useShortcuts || model.lock.hasSelection {
+                advance()
+            } else {
+                Task { await allowScreenTimeAndPick() }
+            }
         case .tryIt:
             if model.sampleCompleted {
                 advance()
@@ -215,6 +236,13 @@ struct OnboardingView: View {
 
     private func secondaryAction() {
         switch step {
+        case .chooseApps:
+            if useShortcuts {
+                advance()
+            } else {
+                withAnimation { useShortcuts = true }
+                model.updateSettings { $0.lockMethod = .shortcuts }
+            }
         case .reminders:
             model.updateSettings { s in
                 s.reminders.dailyEnabled = false
@@ -228,6 +256,19 @@ struct OnboardingView: View {
             finish(pray: false)
         default:
             advance()
+        }
+    }
+
+    /// Screen Time first: Apple's one-time permission, then Apple's app picker. Declined → the Shortcuts gate.
+    private func allowScreenTimeAndPick() async {
+        let result = model.lock.authorization == .approved ? .approved : await model.lock.requestAuthorization()
+        if result == .approved {
+            model.updateSettings { $0.lockMethod = .screenTime }
+            showLockPicker = true
+        } else {
+            lockDenied = true
+            withAnimation { useShortcuts = true }
+            model.updateSettings { $0.lockMethod = .shortcuts }
         }
     }
 
@@ -480,11 +521,59 @@ struct OnboardingView: View {
     private var chooseAppsPage: some View {
         scrollPage {
             header(text("chooseApps.headline", "Which apps pull you in?"),
-                   text("chooseApps.subline", "Pick the ones you open without thinking."))
-            Text("Start with 1–3. You can add more any time.")
-                .font(.akFootnote.weight(.semibold))
-                .foregroundStyle(Palette.warmGold)
-            AppPickerView(embedded: true)
+                   useShortcuts ? text("chooseApps.subline", "Pick the ones you open without thinking.")
+                                : "Pick them in Apple's Screen Time list. They stay locked until you pray.")
+            if useShortcuts {
+                if lockDenied {
+                    Label("Screen Time wasn't allowed, so we'll use a Shortcuts gate. You can switch in Settings any time.",
+                          systemImage: "info.circle.fill")
+                        .font(.akFootnote)
+                        .foregroundStyle(Palette.cream.opacity(0.75))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Text("Start with 1–3. You can add more any time.")
+                    .font(.akFootnote.weight(.semibold))
+                    .foregroundStyle(Palette.warmGold)
+                AppPickerView(embedded: true)
+            } else {
+                screenTimeChooser
+            }
+        }
+    }
+
+    private var screenTimeChooser: some View {
+        let _ = model.lockRevision
+        return VStack(alignment: .leading, spacing: 16) {
+            if model.lock.hasSelection {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Locked until you pray").akOverline(color: Palette.warmGold)
+                    model.lock.icons(size: 44, limit: 6)
+                    Button("Change apps") { showLockPicker = true }
+                        .font(.akSubheadlineSemibold)
+                        .foregroundStyle(Palette.warmGold)
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("onboarding.changeApps")
+                }
+                .akCard(padding: 16, cornerRadius: 20, highlighted: true)
+            } else {
+                Text("Start with the 1–3 you open without thinking: TikTok, Instagram, YouTube…")
+                    .font(.akFootnote.weight(.semibold))
+                    .foregroundStyle(Palette.warmGold)
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                lockPoint("lock.fill", "Open a locked app and it asks you to pray first.")
+                lockPoint("hands.and.sparkles.fill", "Say Amen and it opens for your window.")
+                lockPoint("arrow.uturn.backward", "When time's up it locks again, even mid-scroll.")
+                lockPoint("hand.raised.fill", "Apple only shares anonymous tokens with us. Never your usage.")
+            }
+        }
+    }
+
+    private func lockPoint(_ symbol: String, _ line: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: symbol).foregroundStyle(Palette.warmGold).frame(width: 22)
+            Text(line).font(.akFootnote).foregroundStyle(Palette.cream.opacity(0.8))
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -547,8 +636,8 @@ struct OnboardingView: View {
                    text("window.subline", "After you pray, your apps stay open this long."))
             VStack(spacing: 10) {
                 HStack(spacing: 10) {
-                    ForEach(GateEngine.windowOptions, id: \.self) { minutes in
-                        let isOn = model.settings.unlockMode == .window && model.settings.unlockWindowMinutes == minutes
+                    ForEach(ShieldPlanner.windowOptions(for: model.settings.lockMethod), id: \.self) { minutes in
+                        let isOn = model.settings.unlockMode == .window && model.effectiveWindowMinutes == minutes
                         Button {
                             Haptics.selection()
                             model.updateSettings { s in
@@ -570,6 +659,12 @@ struct OnboardingView: View {
                         .accessibilityLabel("\(minutes) minutes")
                         .accessibilityAddTraits(isOn ? .isSelected : [])
                     }
+                }
+                if model.settings.lockMethod == .screenTime {
+                    Text("Screen Time locks apps again no sooner than 15 minutes, so windows start there.")
+                        .font(.akCaption)
+                        .foregroundStyle(Palette.cream.opacity(0.6))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 let daily = model.settings.unlockMode == .dailyKey
                 Button {

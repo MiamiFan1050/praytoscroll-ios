@@ -8,7 +8,7 @@ SwiftUI app, iOS 17+, Swift 5 mode. The Xcode project is generated with XcodeGen
 | `PrayToScrollWidget` | Streak, verse and Pray now widgets (home + lock screen) |
 | `PrayToScrollTests` | Unit tests (gate, streak + freeze, challenges, links, prompt bag, copy, name filter, bundled content) |
 | `PrayToScrollUITests` | Flow checks + App Store screenshots (`ScreenshotTests`) |
-| v1.1 only: `PrayToScrollShieldConfig`, `PrayToScrollShieldAction`, `PrayToScrollMonitor` | Strict Lock (Screen Time) extensions, in `project-strictlock.yml` |
+| `PrayToScrollShieldConfig`, `PrayToScrollShieldAction`, `PrayToScrollMonitor` (v1.1) | Screen Time lock: the shield's look ("Pray to open TikTok"), its Pray now button (posts a notification that opens the prayer), the relock when a window ends |
 
 The display name is set in one place: `APP_DISPLAY_NAME` in `project.yml` (code reads it via `AppConstants.appName`).
 The web base for links (privacy, support, `join?c=CODE`) is `AKWebBase` in `project.yml`.
@@ -76,17 +76,19 @@ Public database, schema in `CloudKit/schema.ckdb` (import with `xcrun cktool imp
 Production in the CloudKit Console). Stored: circle name/code, nickname, emoji, weekly count, streak, under a random
 per-install member id. Reports (`CircleReport`) are readable only in the Console: review them within 24 hours.
 
-## Switching Strict Lock on (v1.1)
+## The Screen Time lock (v1.1)
 
-Strict Lock uses Screen Time (FamilyControls). It needs Apple's Family Controls (Distribution) entitlement approved
-for `com.amenkeyapp.ios`, `.shieldconfig`, `.shieldaction` and `.monitor`, and matching provisioning profiles.
-Until then it is compiled out: the sources in `StrictLock/` and `Shared/StrictLockStore.swift` only build with the
-`STRICT_LOCK` flag.
+The picked apps are locked with Screen Time (FamilyControls `.individual`, ManagedSettings shields, a
+DeviceActivity relock timer). The Shortcuts gate is the fallback when Screen Time access is declined.
 
-```bash
-xcodegen generate --spec project-strictlock.yml   # adds the 3 extensions + STRICT_LOCK + family-controls
-```
+- `Shared/ShieldPlanner.swift`: every decision (pure, unit-tested in `ShieldPlannerTests`, incl. a simulated-device
+  property test). Apple's schedules span at least 15 minutes, so under Screen Time every window (and the emergency
+  pass, and a Daily key near its reset) is at least 15 minutes and the UI says so. The relock timer is started
+  BEFORE a shield comes down; if Screen Time refuses it, the apps stay locked and the app shows why.
+- `Shared/StrictLockStore.swift`: the shield, the picked tokens and the timer, shared by the app and the extensions.
+- `PrayToScroll/Services/AppLock.swift`: the app's lock API: `ScreenTimeLock` (real), `DemoLock` (Debug only:
+  the simulator can't show Apple's picker or shields), and a stub for the Catalyst unit runner (`NO_SCREEN_TIME`,
+  set only by `tools/run-unit-tests.sh`).
 
-That adds Settings → Strict Lock (Screen Time authorization, app picker, on/off). After each prayer the shields lift
-for the unlock window and the monitor extension puts them back; if monitoring fails, the app re-shields on the next
-launch. Go back to v1.0 with plain `xcodegen generate`.
+Signing a Release build needs Family Controls (Distribution) approved for `com.amenkeyapp.ios`, `.shieldconfig`,
+`.shieldaction` and `.monitor`, and App Store profiles with that capability for all four (names in `project.yml`).

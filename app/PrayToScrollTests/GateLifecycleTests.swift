@@ -9,7 +9,7 @@ final class GateLifecycleTests: XCTestCase {
     @MainActor
     private func makeModel() -> (AppModel, SharedStore) {
         let store = SharedStore(defaults: makeScratchDefaults())
-        return (AppModel(options: LaunchOptions(arguments: ["-demo"]), store: store), store)
+        return (AppModel(options: LaunchOptions(arguments: ["-demo", "-shortcutsGate"]), store: store), store)
     }
 
     @MainActor

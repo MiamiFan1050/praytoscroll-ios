@@ -22,12 +22,15 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
 
     private func make(name: String?) -> ShieldConfiguration {
         let cream = UIColor(hex: 0xFBF6EC)
+        let app = name ?? "this app"
         return ShieldConfiguration(
             backgroundBlurStyle: .systemUltraThinMaterialDark,
             backgroundColor: UIColor(hex: 0x0E1726),
-            icon: UIImage(systemName: "key.fill")?.withTintColor(UIColor(hex: 0xE9B949), renderingMode: .alwaysOriginal),
-            title: ShieldConfiguration.Label(text: "Pray first", color: cream),
-            subtitle: ShieldConfiguration.Label(text: "\(name ?? "This app") opens after a short prayer.\nKnees before feeds.", color: cream.withAlphaComponent(0.75)),
+            icon: UIImage(systemName: "hands.and.sparkles.fill")?.withTintColor(UIColor(hex: 0xE9B949), renderingMode: .alwaysOriginal),
+            title: ShieldConfiguration.Label(text: "Pray to open \(app)", color: cream),
+            subtitle: ShieldConfiguration.Label(
+                text: "A short prayer, then \(app) opens for your window.\nTap Pray now, then the notification. Or open \(AppConstants.appName) yourself.",
+                color: cream.withAlphaComponent(0.75)),
             primaryButtonLabel: ShieldConfiguration.Label(text: "Pray now", color: UIColor(hex: 0x0E1726)),
             primaryButtonBackgroundColor: UIColor(hex: 0xE9B949),
             secondaryButtonLabel: ShieldConfiguration.Label(text: "Not now", color: cream.withAlphaComponent(0.7))

@@ -25,6 +25,8 @@ enum DemoSeeder {
         settings.unlockMode = .window
         settings.unlockWindowMinutes = 15
         settings.gatedAppIDs = ["instagram", "tiktok", "youtube", "x"]
+        // v1.1: the demo locks with Screen Time (DemoLock stands in for Apple's shields); first run starts unchosen.
+        settings.lockMethod = options.showOnboarding || options.shortcutsGate ? .shortcuts : .screenTime
         settings.hasOnboarded = !options.showOnboarding
         settings.scrollHoursPerDay = 3.5
         settings.reminders.dailyEnabled = true

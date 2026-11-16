@@ -14,12 +14,21 @@ struct GateStatusCard: View {
     @ViewBuilder
     private func content(now: Date) -> some View {
         let apps = model.settings.gatedApps
+        let _ = model.lockRevision
         if !model.settings.gateEnabled {
             row(symbol: "lock.slash.fill", tint: Theme.textTertiary, title: "Prayer Gate is off",
                 detail: "Turn it on in Settings whenever you're ready.", actionTitle: "Settings") { model.showSettings = true }
+        } else if let problem = model.lockProblem {
+            row(symbol: "exclamationmark.lock.fill", tint: Theme.roseText, title: "Your apps stayed locked",
+                detail: problem, actionTitle: "Try again") { model.retryLock() }
+        } else if model.usesScreenTime {
+            screenTimeContent(now: now)
+        } else if model.settings.lockMethod == .screenTime {
+            row(symbol: "lock.fill", tint: Theme.goldIcon, title: "Choose the apps to lock",
+                detail: "Pick them in Apple's Screen Time list. They'll wait for your Amen.", actionTitle: "Choose") { model.showLockSetup = true }
         } else if apps.isEmpty || (model.protectedCount == 0 && model.setupMarked.isEmpty) {
-            row(symbol: "key.fill", tint: Theme.goldIcon, title: "Set up your Prayer Gate",
-                detail: "About a minute per app. Your apps will wait for your Amen.", actionTitle: "Set up") { model.showGateSetup = true }
+            row(symbol: "lock.fill", tint: Theme.goldIcon, title: "Lock your apps until you pray",
+                detail: "Pick TikTok, Instagram or any app. A prayer opens them.", actionTitle: "Set up") { model.showLockSetup = true }
         } else if model.isPaused(now: now), let until = model.pausedUntil {
             row(symbol: "pause.circle.fill", tint: Theme.goldIcon,
                 title: "Paused until \(until.formatted(.dateTime.weekday(.abbreviated).hour().minute()))",
@@ -31,9 +40,59 @@ struct GateStatusCard: View {
         }
     }
 
-    private func unlocked(end: Date, now: Date, apps: [GatedApp]) -> some View {
+    // MARK: Screen Time
+
+    @ViewBuilder
+    private func screenTimeContent(now: Date) -> some View {
+        if model.isPaused(now: now), let until = model.pausedUntil {
+            row(symbol: "pause.circle.fill", tint: Theme.goldIcon,
+                title: "Paused until \(until.formatted(.dateTime.weekday(.abbreviated).hour().minute()))",
+                detail: "Your apps lock again then, by themselves.", actionTitle: "Resume") { model.pauseGate(days: nil) }
+        } else if let end = model.currentUnlockEnd(now: now) {
+            unlocked(end: end, now: now, apps: [], openCount: model.lock.lockedCount, relocks: true)
+        } else {
+            lockedScreenTime
+        }
+    }
+
+    /// "Locked: [real app icons]": the premise at a glance.
+    private var lockedScreenTime: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                IconBadge(systemImage: "lock.fill", tint: Theme.goldIcon, size: 44)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Locked").akOverline()
+                    Text("These wait for your Amen")
+                        .font(.akHeadline)
+                        .foregroundStyle(Theme.textPrimary)
+                }
+                Spacer(minLength: 0)
+            }
+            HStack(spacing: 8) {
+                model.lock.icons(size: 34, limit: 6)
+                Spacer(minLength: 8)
+                if model.canUseEmergencyPass {
+                    Button("I need it now", action: onEmergency)
+                        .font(.akFootnote.weight(.semibold))
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(minHeight: 44)
+                }
+            }
+        }
+        .akCard()
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.gateStatus")
+        .contextMenu {
+            Button { model.pauseGate(days: 1) } label: { Label("Pause for 1 day", systemImage: "pause") }
+            Button { model.pauseGate(days: 3) } label: { Label("Pause for 3 days", systemImage: "pause") }
+            Button { model.pauseGate(days: 7) } label: { Label("Pause for 1 week", systemImage: "pause") }
+            Button { model.showLockSetup = true } label: { Label("Locked apps", systemImage: "lock.shield") }
+        }
+    }
+
+    private func unlocked(end: Date, now: Date, apps: [GatedApp], openCount: Int? = nil, relocks: Bool = false) -> some View {
         let isDaily = model.dailyKeyUntil.map { $0 >= end } ?? false
-        let total = isDaily ? 86_400.0 : Double(max(model.settings.unlockWindowMinutes, GateEngine.emergencyMinutes) * 60)
+        let total = isDaily ? 86_400.0 : Double(max(model.effectiveWindowMinutes, model.emergencyMinutes) * 60)
         let remaining = GateEngine.remaining(now: now, unlockedUntil: end)
         return HStack(spacing: 16) {
             ZStack {
@@ -48,7 +107,10 @@ struct GateStatusCard: View {
                     .monospacedDigit()
                     .foregroundStyle(Theme.textPrimary)
                     .contentTransition(.numericText(countsDown: true))
-                Text("\(apps.count) \(apps.count == 1 ? "app is" : "apps are") open. Enjoy, then put it down.")
+                let count = openCount ?? apps.count
+                Text(relocks
+                     ? "\(count) \(count == 1 ? "app is" : "apps are") open. They lock again at \(end.formatted(date: .omitted, time: .shortened))."
+                     : "\(count) \(count == 1 ? "app is" : "apps are") open. Enjoy, then put it down.")
                     .font(.akFootnote)
                     .foregroundStyle(Theme.textSecondary)
             }

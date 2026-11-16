@@ -9,6 +9,32 @@ struct HomeView: View {
     @State private var showEmergency = false
     @State private var circleSummary: CircleSummary?
 
+    /// v1.0 users on the Shortcuts gate: offer the real lock once (closable).
+    private var screenTimeOffer: some View {
+        HStack(alignment: .top, spacing: 12) {
+            IconBadge(systemImage: "lock.shield.fill", tint: Theme.goldIcon, size: 40)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("New: a real lock").akOverline()
+                Text("Lock TikTok, Instagram or any app with Screen Time. No Shortcuts, and it locks again by itself.")
+                    .font(.akFootnote)
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Try it") { model.showLockSetup = true }
+                    .font(.akSubheadlineSemibold)
+                    .foregroundStyle(Theme.goldText)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("home.tryScreenTime")
+            }
+            Spacer(minLength: 0)
+            Button { withAnimation { model.dismissScreenTimeOffer() } } label: {
+                Image(systemName: "xmark").font(.footnote.weight(.semibold)).foregroundStyle(Theme.textTertiary)
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Close")
+        }
+        .akCard(padding: 14)
+    }
+
     var body: some View {
         ZStack {
             AppBackground()
@@ -16,6 +42,7 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     header
                     GateStatusCard(onEmergency: { showEmergency = true })
+                    if model.offersScreenTime { screenTimeOffer }
                     HStack(alignment: .top, spacing: 14) {
                         prayNowCard
                         streakCard

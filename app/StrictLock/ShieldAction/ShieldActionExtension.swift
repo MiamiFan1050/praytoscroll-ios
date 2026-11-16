@@ -18,12 +18,14 @@ final class ShieldActionExtension: ShieldActionDelegate {
     private func respond(to action: ShieldAction, _ completionHandler: @escaping (ShieldActionResponse) -> Void) {
         switch action {
         case .primaryButtonPressed:
-            SharedStore.shared.setPendingGate(appID: "strict")
+            // A shield can't open another app: leave a pending prayer and a tap-to-pray notification.
+            SharedStore.shared.setPendingGate(appID: AppLinks.screenTimeGateID)
             let content = UNMutableNotificationContent()
-            content.title = "Tap to pray"
-            content.body = "Your prayer is ready. Hold Amen and your apps open."
-            content.userInfo = ["url": AppLinks.prayDeepLink.absoluteString]
-            content.interruptionLevel = .timeSensitive
+            content.title = "Your prayer is ready"
+            content.body = "Tap to pray. Say Amen and your apps open."
+            content.userInfo = ["url": AppLinks.prayDeepLink(app: AppLinks.screenTimeGateID).absoluteString]
+            content.interruptionLevel = .active
+            content.sound = nil
             let request = UNNotificationRequest(identifier: "ak.strict.pray", content: content,
                                                 trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false))
             UNUserNotificationCenter.current().add(request) { _ in completionHandler(.close) }

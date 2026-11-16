@@ -132,7 +132,7 @@ struct CelebrationView: View {
     private func unlockTitle(completion: PrayerCompletion, until: Date) -> String {
         switch completion.unlockMode {
         case .window:
-            return "Unlocked for \(model.settings.unlockWindowMinutes) min"
+            return "Unlocked for \(model.effectiveWindowMinutes) min"
         case .dailyKey:
             return "Daily key: open until \(until.formatted(date: .omitted, time: .shortened))"
         }

@@ -75,15 +75,16 @@ jobs:
             -destination "generic/platform=iOS" -derivedDataPath ../build-release \
             CODE_SIGNING_ALLOWED=NO build 2>&1 | tee ../out/release.log | grep -E "error:|\*\* BUILD" || true
           grep -q "\*\* BUILD SUCCEEDED \*\*" ../out/release.log
-          # App Store requires a privacy manifest (UserDefaults is a required-reason API) in the app and the widget.
+          # App Store requires a privacy manifest (UserDefaults is a required-reason API) in the app, the widget and
+          # the three Screen Time extensions.
           find ../build-release/Build/Products -name PrivacyInfo.xcprivacy -path "*.app/*" | tee ../out/privacy-manifests.txt
-          [ "$(grep -c . ../out/privacy-manifests.txt)" -ge 2 ]
+          [ "$(grep -c . ../out/privacy-manifests.txt)" -ge 5 ]
           # No dormant code in the Release binary (guideline 2.5.19): no demo/mock/StoreKit types, no StoreKit link.
           APPDIR=$(find ../build-release/Build/Products -maxdepth 2 -name "*.app" -type d | head -1)
           BIN="$APPDIR/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APPDIR/Info.plist")"
           strings -a "$BIN" > ../out/release-strings.txt
           grep -q CloudKitCircleService ../out/release-strings.txt   # control: the scan does see Swift type names
-          { grep -E "DemoSeeder|MockCircleService|ProStore|com\.amenkeyapp\.ios\.demo" ../out/release-strings.txt || true; } | sort -u > ../out/release-dormant.txt
+          { grep -E "DemoSeeder|MockCircleService|DemoLock|ProStore|com\.amenkeyapp\.ios\.demo" ../out/release-strings.txt || true; } | sort -u > ../out/release-dormant.txt
           { otool -L "$BIN" | grep -i storekit || true; } >> ../out/release-dormant.txt
           cat ../out/release-dormant.txt
           [ ! -s ../out/release-dormant.txt ]

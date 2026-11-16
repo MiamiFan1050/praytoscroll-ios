@@ -102,6 +102,9 @@ private struct PrayingView: View {
                 if let app = flow.gatedApp {
                     waitingPill(app)
                         .padding(.top, 10)
+                } else if flow.request.gatedAppID == AppLinks.screenTimeGateID {
+                    screenTimePill
+                        .padding(.top, 10)
                 }
 
                 if flow.showWelcomeBack {
@@ -166,6 +169,21 @@ private struct PrayingView: View {
     private func adjustText(_ delta: Double) {
         model.updateSettings { $0.sessionTextScale = min(1.5, max(0.8, $0.sessionTextScale + delta)) }
         Haptics.selection()
+    }
+
+    /// From a Screen Time shield: the picked apps' real icons wait for the Amen.
+    private var screenTimePill: some View {
+        HStack(spacing: 8) {
+            model.lock.icons(size: 22, limit: 4)
+            Text("Waiting for your Amen")
+                .font(.akFootnote.weight(.semibold))
+                .foregroundStyle(Palette.cream.opacity(0.85))
+        }
+        .padding(.leading, 6)
+        .padding(.trailing, 14)
+        .padding(.vertical, 6)
+        .background(Capsule().fill(Color.white.opacity(0.06)))
+        .overlay(Capsule().strokeBorder(Palette.gold.opacity(0.25), lineWidth: 1))
     }
 
     private func waitingPill(_ app: GatedApp) -> some View {

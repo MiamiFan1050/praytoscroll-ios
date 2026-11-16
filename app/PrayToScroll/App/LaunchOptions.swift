@@ -10,10 +10,12 @@ struct LaunchOptions: Sendable {
     /// `-longMinimum` with `-uitest`: keep the real-length minimum, for tests that check Amen starts locked.
     let longMinimum: Bool
     /// `-route <name>`: open a screen directly (demo only): pray, gatepray, quick, someone, choose, gate, answered, circle,
-    /// stats, journal, word, settings, verified, troubleshoot (see AppModel.openDemoRoute).
+    /// stats, journal, word, settings, verified, troubleshoot, lock (see AppModel.openDemoRoute).
     let route: String?
     /// `-appearance light|dark`
     let appearance: AppearancePreference?
+    /// `-shortcutsGate` with `-demo`: the v1.0 Shortcuts gate instead of the (demo) Screen Time lock.
+    let shortcutsGate: Bool
 
     static let current = LaunchOptions(arguments: ProcessInfo.processInfo.arguments)
 
@@ -24,6 +26,7 @@ struct LaunchOptions: Sendable {
         showOnboarding = arguments.contains("-onboarding")
         isUITest = arguments.contains("-uitest")
         longMinimum = arguments.contains("-longMinimum")
+        shortcutsGate = arguments.contains("-shortcutsGate")
         if let index = arguments.firstIndex(of: "-route"), arguments.indices.contains(index + 1) {
             route = arguments[index + 1]
         } else {
@@ -39,6 +42,7 @@ struct LaunchOptions: Sendable {
         showOnboarding = false
         isUITest = false
         longMinimum = false
+        shortcutsGate = false
         route = nil
         appearance = nil
         #endif

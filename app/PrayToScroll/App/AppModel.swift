@@ -56,6 +56,8 @@ final class AppModel {
     let store: SharedStore
     let container: ModelContainer
     let circles: any CircleService
+    /// Screen Time shields (Apple's in the app, a stand-in in the Debug demo, a fake in unit tests).
+    let lock: any AppLock
     let content = ContentStore.shared
     let verses = VerseProvider.shared
 
@@ -80,16 +82,21 @@ final class AppModel {
     var troubleshootApp: GatedApp?
     var showSettings = false
     var showGateSetup = false
+    var showLockSetup = false
     var peopleShowsAnswered = false
     var openCircleCode: String?
     var toast: String?
     var shortcutsInstalled = true
+    /// Set when Screen Time refuses the relock timer: the apps stay locked and this explains why (never silent).
+    var lockProblem: String?
+    /// Bumped after the picked apps change, so views showing their icons refresh.
+    private(set) var lockRevision = 0
 
     private var testingApp: GatedApp?
     private var testStartedAt: Date?
 
     /// `store` is injectable so unit tests can drive the real gate/streak code against scratch defaults.
-    init(options: LaunchOptions = .current, store injected: SharedStore? = nil) {
+    init(options: LaunchOptions = .current, store injected: SharedStore? = nil, lock injectedLock: (any AppLock)? = nil) {
         self.options = options
         #if DEBUG
         let demo = options.isDemo
@@ -105,11 +112,13 @@ final class AppModel {
         self.container = modelContainer
         #if DEBUG
         self.circles = demo ? MockCircleService.demo() : CloudKitCircleService()
+        self.lock = injectedLock ?? (demo ? (options.showOnboarding ? DemoLock(authorized: false, picked: []) : DemoLock()) : ScreenTimeLock())
         if demo {
             DemoSeeder.seedDefaults(store: sharedStore, options: options)
         }
         #else
         self.circles = CloudKitCircleService()
+        self.lock = injectedLock ?? ScreenTimeLock()
         #endif
         var loaded = sharedStore.settings
         #if DEBUG
@@ -152,11 +161,73 @@ final class AppModel {
         change(&copy)
         guard copy != settings else { return }
         let remindersChanged = copy.reminders != settings.reminders || copy.firstName != settings.firstName
+        let lockChanged = copy.gateEnabled != settings.gateEnabled || copy.lockMethod != settings.lockMethod
         settings = copy
         store.settings = copy
         Haptics.enabled = copy.hapticsEnabled
         if remindersChanged { refreshReminders() }
+        if lockChanged { syncLock() }
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    // MARK: Screen Time lock
+
+    /// Screen Time shields are the lock (picked in onboarding / Settings, access granted, apps picked).
+    var usesScreenTime: Bool {
+        settings.lockMethod == .screenTime && lock.authorization == .approved && lock.hasSelection
+    }
+
+    /// The unlock window actually used: Screen Time can't relock sooner than 15 minutes.
+    var effectiveWindowMinutes: Int {
+        ShieldPlanner.effectiveWindowMinutes(settings.unlockWindowMinutes, method: usesScreenTime ? .screenTime : .shortcuts)
+    }
+
+    var emergencyMinutes: Int { ShieldPlanner.emergencyMinutes(for: usesScreenTime ? .screenTime : .shortcuts) }
+
+    /// Brings Apple's shields in line with the gate state: shielded, open with a relock timer, or off.
+    /// Called after every unlock, pause, resume, setting change, app pick and on every return to the app.
+    func syncLock(now: Date = Date()) {
+        let active = settings.gateEnabled && usesScreenTime
+        let plan = ShieldPlanner.plan(now: now, active: active, unlockedUntil: store.unlockedUntil,
+                                      pausedUntil: store.pausedUntil, dailyKeyUntil: store.dailyKeyUntil)
+        store.screenTimeActive = active
+        let lock = self.lock
+        let step = ShieldPlanner.step(for: plan, now: now, scheduledRelock: lock.scheduledRelock, monitoring: lock.isMonitoring)
+        let ok = ShieldPlanner.perform(step, now: now, shield: { lock.shield() }, unshield: { lock.unshield() },
+                                       schedule: { try lock.scheduleRelock(at: $0, now: now) }, cancel: { lock.cancelRelock() })
+        lockProblem = ok ? nil : "Screen Time couldn't start the timer that locks your apps again, so they stay locked for now. Try again in a moment."
+    }
+
+    /// After the picker: start with "Screen Time" as the lock and shield the new picks.
+    func lockSelectionChanged() {
+        lockRevision += 1
+        if lock.hasSelection, lock.authorization == .approved, settings.lockMethod != .screenTime {
+            updateSettings { $0.lockMethod = .screenTime }   // syncs
+        } else {
+            syncLock()
+        }
+    }
+
+    /// Home's card for people who set up the v1.0 Shortcuts gate: the real lock is one tap away.
+    var offersScreenTime: Bool {
+        let _ = lockRevision
+        return settings.gateEnabled && settings.lockMethod == .shortcuts && !settings.gatedAppIDs.isEmpty
+            && lock.authorization != .denied && !store.screenTimeOfferDismissed
+    }
+
+    func dismissScreenTimeOffer() {
+        store.screenTimeOfferDismissed = true
+        lockRevision += 1
+    }
+
+    func retryLock() {
+        lockProblem = nil
+        syncLock()
+    }
+
+    /// Under Screen Time an unlock is at least 15 minutes (the shortest relock Apple runs).
+    private func lockSafeEnd(_ end: Date, now: Date) -> Date {
+        usesScreenTime ? ShieldPlanner.end(atLeastMinimumFrom: now, proposed: end) : end
     }
 
     func binding<Value>(_ keyPath: WritableKeyPath<AppSettings, Value>) -> Binding<Value> {
@@ -229,6 +300,7 @@ final class AppModel {
             toast = "Gate is back on"
         }
         reloadGateState()
+        syncLock()
         WidgetCenter.shared.reloadAllTimelines()
     }
 
@@ -239,13 +311,11 @@ final class AppModel {
         let now = Date()
         store.emergencyLastUsed = now
         store.emergencyUses += 1
-        let until = GateEngine.unlock(from: now, minutes: GateEngine.emergencyMinutes, existing: store.unlockedUntil)
+        let until = lockSafeEnd(GateEngine.unlock(from: now, minutes: emergencyMinutes, existing: store.unlockedUntil), now: now)
         store.unlockedUntil = until
         reloadGateState()
-        #if STRICT_LOCK
-        StrictLockStore.unlock(until: until)
-        #endif
-        ReminderService.shared.scheduleWindowEnd(at: until, minutes: GateEngine.emergencyMinutes, enabled: settings.windowEndNudge)
+        syncLock(now: now)
+        ReminderService.shared.scheduleWindowEnd(at: until, minutes: emergencyMinutes, enabled: settings.windowEndNudge)
         if let app { openApp(app) }
         return true
     }
@@ -296,9 +366,7 @@ final class AppModel {
     func sceneBecameActive() {
         reloadGateState()
         refreshStreak()
-        #if STRICT_LOCK
-        StrictLockStore.enforce()
-        #endif
+        syncLock()
         if let pending = store.consumePendingGate() {
             handlePendingGate(pending)
         } else if let app = testingApp, let started = testStartedAt {
@@ -406,19 +474,17 @@ final class AppModel {
         var until: Date?
         switch settings.unlockMode {
         case .window:
-            let end = GateEngine.unlock(from: now, minutes: settings.unlockWindowMinutes, existing: store.unlockedUntil)
+            let end = lockSafeEnd(GateEngine.unlock(from: now, minutes: effectiveWindowMinutes, existing: store.unlockedUntil), now: now)
             store.unlockedUntil = end
             until = end
-            ReminderService.shared.scheduleWindowEnd(at: end, minutes: settings.unlockWindowMinutes, enabled: settings.windowEndNudge)
+            ReminderService.shared.scheduleWindowEnd(at: end, minutes: effectiveWindowMinutes, enabled: settings.windowEndNudge)
         case .dailyKey:
-            let end = GateEngine.dailyKeyUntil(from: now, resetHour: settings.dailyKeyResetHour, calendar: .current)
+            let end = lockSafeEnd(GateEngine.dailyKeyUntil(from: now, resetHour: settings.dailyKeyResetHour, calendar: .current), now: now)
             store.dailyKeyUntil = end
             until = end
         }
         reloadGateState()
-        #if STRICT_LOCK
-        if let until { StrictLockStore.unlock(until: until) }
-        #endif
+        syncLock(now: now)
         refreshChallenges()
         refreshReminders()
         WidgetCenter.shared.reloadAllTimelines()
@@ -598,6 +664,7 @@ final class AppModel {
         case "someone": startPrayer(style: .forSomeone, source: .manual, personID: suggestedPerson()?.id)
         case "choose": startPrayer(style: .forSomeone, source: .manual)
         case "gate": showGateSetup = true
+        case "lock": showLockSetup = true
         case "people": selectedTab = .people
         case "answered":
             selectedTab = .people
@@ -621,6 +688,12 @@ final class AppModel {
     // MARK: Reset
 
     func resetAllData() {
+        // Lift Screen Time shields first: the picked apps are erased with everything else.
+        lock.cancelRelock()
+        lock.unshield()
+        lock.forgetSelection()
+        store.screenTimeActive = false
+        lockRevision += 1
         try? context.delete(model: PrayerSession.self)
         try? context.delete(model: JournalEntry.self)
         try? context.delete(model: PrayerRequest.self)

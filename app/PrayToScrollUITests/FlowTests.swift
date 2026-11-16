@@ -59,6 +59,76 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(app.buttons["onboarding.back"].waitForExistence(timeout: 5), "moved past the welcome screen")
     }
 
+    /// v1.1 Strict Lock: onboarding asks for Screen Time, shows the app picker (DemoLock stands in for Apple's in
+    /// Debug), the picked apps' icons appear, the Shortcuts setup step is skipped and Home shows "Locked" with them.
+    func testOnboardingPicksAppsToLockWithScreenTime() {
+        let app = launch(["-onboarding", "-noMotion"])
+        let cta = app.buttons["onboarding.cta"]
+        let secondary = app.buttons["onboarding.secondary"]
+        let headline = app.descendants(matching: .any)["onboarding.headline"].firstMatch
+        XCTAssertTrue(cta.waitForExistence(timeout: 10))
+
+        func step() {
+            let opensSomething = ["prayer", "Show me how", "Start praying"].contains { cta.label.contains($0) }
+            if cta.exists, cta.isEnabled, cta.isHittable, !(opensSomething && secondary.exists) {
+                cta.tap()
+            } else if secondary.exists, secondary.isHittable {
+                secondary.tap()
+            }
+            Thread.sleep(forTimeInterval: 0.8)
+            let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            for label in ["Allow", "Don’t Allow", "Don't Allow"] where springboard.alerts.buttons[label].exists {
+                springboard.alerts.buttons[label].tap()
+                break
+            }
+        }
+
+        // To "Which apps pull you in?"
+        for _ in 0..<10 where !(headline.exists && headline.label.contains("Which apps")) { step() }
+        XCTAssertTrue(headline.label.contains("Which apps"), "reached the app step")
+        XCTAssertEqual(cta.label, "Choose apps")
+        XCTAssertEqual(secondary.label, "Use Shortcuts instead", "the Shortcuts gate stays as the fallback")
+
+        // Allow Screen Time → Apple's picker (the demo stand-in) → pick TikTok and Instagram.
+        cta.tap()
+        let done = app.buttons["lockpicker.done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 8), "the app picker opens")
+        app.buttons["lockpicker.row.tiktok"].tap()
+        app.buttons["lockpicker.row.instagram"].tap()
+        done.tap()
+        let icons = app.descendants(matching: .any)["lock.icons"].firstMatch
+        XCTAssertTrue(icons.waitForExistence(timeout: 5), "the picked apps' icons show")
+        XCTAssertTrue(icons.label.contains("TikTok") && icons.label.contains("Instagram"), icons.label)
+        XCTAssertTrue(waitUntil(5) { cta.label == "Continue" })
+
+        // Onward to Home: the Shortcuts setup page never appears.
+        var sawShortcutsSetup = false
+        for _ in 0..<12 where !app.buttons["home.prayNow"].exists {
+            if headline.exists, headline.label.contains("Set up your Prayer Gate") { sawShortcutsSetup = true }
+            if app.buttons["lockpicker.done"].exists { app.buttons["lockpicker.done"].tap() }
+            step()
+        }
+        XCTAssertFalse(sawShortcutsSetup, "Screen Time needs no Shortcuts setup")
+        XCTAssertTrue(app.buttons["home.prayNow"].waitForExistence(timeout: 8), "reached Home")
+        let status = app.descendants(matching: .any)["home.gateStatus"].firstMatch
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        let homeIcons = app.descendants(matching: .any)["lock.icons"].firstMatch
+        XCTAssertTrue(homeIcons.waitForExistence(timeout: 5), "Home shows Locked: [the picked apps]")
+        XCTAssertTrue(homeIcons.label.contains("TikTok"), homeIcons.label)
+    }
+
+    /// Settings → Locked apps shows what's locked and the 15-minute note; the window choices start at 15.
+    func testLockedAppsScreenShowsThePickedApps() {
+        let app = launch(["-route", "lock"])
+        XCTAssertTrue(app.descendants(matching: .any)["lock.title"].waitForExistence(timeout: 10))
+        let icons = app.descendants(matching: .any)["lock.icons"].firstMatch
+        XCTAssertTrue(icons.waitForExistence(timeout: 5))
+        XCTAssertTrue(icons.label.contains("TikTok"), icons.label)
+        XCTAssertTrue(app.buttons["lock.choose"].exists, "apps can be changed")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS '15 minutes'")).firstMatch.exists,
+                      "the 15-minute minimum is said in the UI")
+    }
+
     func testCircleLeaderboardShowsMeAndReportMenu() {
         let app = launch(["-route", "circle"])
         XCTAssertTrue(app.descendants(matching: .any)["circle.title"].waitForExistence(timeout: 10))

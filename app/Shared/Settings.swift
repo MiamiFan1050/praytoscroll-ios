@@ -57,6 +57,16 @@ enum AppearancePreference: String, Codable, CaseIterable, Identifiable, Sendable
     }
 }
 
+/// How the apps are kept closed until you pray.
+enum LockMethod: String, Codable, CaseIterable, Identifiable, Sendable {
+    /// v1.0: a Shortcuts automation brings you here when you open a gated app (no Screen Time access needed).
+    case shortcuts
+    /// v1.1: Apple's Screen Time shields the apps you picked until you pray, and puts the shield back on time.
+    case screenTime
+
+    var id: String { rawValue }
+}
+
 /// How a prayer unlocks the gated apps.
 enum UnlockMode: String, Codable, CaseIterable, Identifiable, Sendable {
     /// Every prayer opens your apps for a window (5/15/30/60 min).
@@ -135,6 +145,8 @@ struct AppSettings: Codable, Equatable, Sendable {
     var gatedAppIDs: [String] = []
     var customApps: [GatedApp] = []
     var gateEnabled: Bool = true
+    /// Screen Time shields (picked in onboarding) or the Shortcuts gate (the fallback when Screen Time is declined).
+    var lockMethod: LockMethod = .shortcuts
     var reminders: ReminderSettings = ReminderSettings()
     var appearance: AppearancePreference = .dark
     var scrollHoursPerDay: Double = 3
@@ -164,6 +176,7 @@ struct AppSettings: Codable, Equatable, Sendable {
         gatedAppIDs = try c.decodeIfPresent([String].self, forKey: .gatedAppIDs) ?? d.gatedAppIDs
         customApps = (try? c.decodeIfPresent([GatedApp].self, forKey: .customApps)) ?? d.customApps
         gateEnabled = try c.decodeIfPresent(Bool.self, forKey: .gateEnabled) ?? d.gateEnabled
+        lockMethod = (try? c.decodeIfPresent(LockMethod.self, forKey: .lockMethod)) ?? d.lockMethod
         reminders = (try? c.decodeIfPresent(ReminderSettings.self, forKey: .reminders)) ?? d.reminders
         appearance = (try? c.decodeIfPresent(AppearancePreference.self, forKey: .appearance)) ?? d.appearance
         scrollHoursPerDay = try c.decodeIfPresent(Double.self, forKey: .scrollHoursPerDay) ?? d.scrollHoursPerDay
