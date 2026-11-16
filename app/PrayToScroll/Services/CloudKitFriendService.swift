@@ -126,7 +126,9 @@ final class CloudKitFriendService: FriendService, @unchecked Sendable {
                 }
             }
             if let profileRecord = try? await db.record(for: profileID(member)) {
-                return Self.profile(from: profileRecord)
+                var profile = Self.profile(from: profileRecord)
+                profile.openCircles = []   // circle codes are for friends, not for anyone who types the name
+                return profile
             }
             return FriendProfile(memberID: member, handle: handle, displayName: handle, emoji: "🙂", streak: 0, lastPrayedDay: "")
         } catch let error as FriendError {

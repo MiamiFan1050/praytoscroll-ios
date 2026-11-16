@@ -73,7 +73,9 @@ final class MockFriendService: FriendService, @unchecked Sendable {
         try lock.withLock {
             guard let owner = ledger.owner(of: raw), let profile = profiles[owner] else { throw FriendError.notFound }
             if blocks.contains("\(owner)>\(meID)") || blocks.contains("\(meID)>\(owner)") { throw FriendError.notFound }
-            return profile
+            var found = profile
+            found.openCircles = []   // circle codes are for friends only
+            return found
         }
     }
 
