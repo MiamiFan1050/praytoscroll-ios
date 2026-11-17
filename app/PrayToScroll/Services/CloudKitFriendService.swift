@@ -8,7 +8,9 @@ import Foundation
 ///                                                           which makes the claim atomic. World-readable for exact
 ///                                                           lookup by name only (no queryable fields).
 /// - `FriendProfile` recordName `profile-<memberID>`         memberID, handle, displayName, emoji, streak,
-///                                                           lastPrayedDay, openCircles, updatedAt
+///                                                           lastPrayedDay, openCircles, savedRefs, updatedAt
+///                                                           (savedRefs: verse references, only when the person
+///                                                           turned on "Friends see verses I save")
 /// - `FriendRequest` recordName `freq-<from>-<to>`           fromID, toID, fromHandle, toHandle, createdAt
 /// - `FriendLink`    recordName `link-<owner>-<friend>`      ownerID, friendID, createdAt. A friendship is a link
 ///                                                           each way (each side can only write its own records).
@@ -334,10 +336,19 @@ final class CloudKitFriendService: FriendService, @unchecked Sendable {
         record["lastPrayedDay"] = profile.lastPrayedDay as CKRecordValue
         record["openCircles"] = profile.openCircles.map { "\($0.code)|\($0.name)" } as CKRecordValue
         record["updatedAt"] = Date() as CKRecordValue
+        // Always written (an empty list when sharing is off), so turning sharing off clears what friends saw.
+        record["savedRefs"] = Array(profile.savedRefs.prefix(FriendProfile.maxSavedRefs)) as CKRecordValue
         do {
             _ = try await db.modifyRecords(saving: [record], deleting: [], savePolicy: .allKeys, atomically: false)
         } catch {
-            throw Self.map(error)
+            // A server whose schema predates savedRefs refuses the unknown field: keep the profile (streak, circles)
+            // current without it.
+            record["savedRefs"] = nil
+            do {
+                _ = try await db.modifyRecords(saving: [record], deleting: [], savePolicy: .allKeys, atomically: false)
+            } catch {
+                throw Self.map(error)
+            }
         }
     }
 
@@ -405,7 +416,8 @@ final class CloudKitFriendService: FriendService, @unchecked Sendable {
                              emoji: record["emoji"] as? String ?? "🙂",
                              streak: record["streak"] as? Int ?? 0,
                              lastPrayedDay: record["lastPrayedDay"] as? String ?? "",
-                             openCircles: circles)
+                             openCircles: circles,
+                             savedRefs: record["savedRefs"] as? [String] ?? [])
     }
 
     private static func request(from record: CKRecord) -> FriendRequest? {

@@ -12,6 +12,10 @@ struct FriendProfile: Identifiable, Hashable, Sendable {
     var lastPrayedDay: String
     /// Circles they own that friends can join without a code.
     var openCircles: [OpenCircle] = []
+    /// References of verses they saved in Scroll the Word, newest first. Empty unless they turned on sharing.
+    var savedRefs: [String] = []
+
+    static let maxSavedRefs = 50
 
     var id: String { memberID }
     var atHandle: String { "@" + handle }
@@ -22,6 +26,28 @@ struct FriendProfile: Identifiable, Hashable, Sendable {
         var code: String
         var name: String
         var id: String { code }
+    }
+}
+
+/// "Grace and 2 friends saved this": friends' saved verses, by reference.
+enum FriendSaves {
+    static func byRef(_ friends: [FriendProfile]) -> [String: [String]] {
+        var map: [String: [String]] = [:]
+        for friend in friends {
+            let name = friend.displayName.isEmpty ? friend.atHandle : friend.displayName
+            for ref in Set(friend.savedRefs.prefix(FriendProfile.maxSavedRefs)) { map[ref, default: []].append(name) }
+        }
+        return map.mapValues { $0.sorted() }
+    }
+
+    /// "Grace saved this", "Grace and Sam saved this", "Grace and 2 friends saved this".
+    static func line(_ names: [String]) -> String? {
+        guard let first = names.first else { return nil }
+        switch names.count {
+        case 1: return "\(first) saved this"
+        case 2: return "\(first) and \(names[1]) saved this"
+        default: return "\(first) and \(names.count - 1) friends saved this"
+        }
     }
 }
 

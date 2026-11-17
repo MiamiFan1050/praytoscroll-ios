@@ -31,7 +31,7 @@ enum WordFeedPlanner {
     }
 
     /// Appends a seen verse (moving it to the end if it was seen before), keeping at most `limit` entries.
-    static func markSeen(_ day: Int, in seen: [Int], limit: Int = 400) -> [Int] {
+    static func markSeen(_ day: Int, in seen: [Int], limit: Int = 1500) -> [Int] {
         var list = seen.filter { $0 != day }
         list.append(day)
         if list.count > limit { list.removeFirst(list.count - limit) }

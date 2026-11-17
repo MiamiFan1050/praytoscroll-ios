@@ -9,10 +9,55 @@ enum FriendInvite {
     }
 }
 
+/// The text "Send to someone" sends from Scroll the Word: the verse, its reference and the app's link.
+enum VerseMessage {
+    static let opening = "Thought of you when I read this 🙏"
+    static let maxLength = 480
+
+    static func build(verse: Verse, link: URL = AppLinks.shareURL) -> String {
+        let text = verse.displayText.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "\u{201C}\u{201D}\""))
+        return "\(opening)\n\n\u{201C}\(text)\u{201D} \(verse.ref)\n\n\(link.absoluteString)"
+    }
+}
+
 /// "Invite from contacts": search your contacts, tap one person, and Messages opens with their number and your
 /// invite filled in. One person at a time, and you tap Send yourself: no bulk invites, nothing sent automatically.
 struct InviteContactSheet: View {
     let handle: String
+
+    var body: some View {
+        ContactTextSheet(title: "Invite a friend",
+                         intro: "Pick one person. Messages opens with your invite ready, and you tap Send.",
+                         message: FriendInvite.message(handle: handle),
+                         idPrefix: "invite", action: "Invite", sentLabel: "Invited")
+    }
+}
+
+/// "Send to someone": the same one-person contacts flow with a verse.
+struct SendVerseSheet: View {
+    let verse: Verse
+    var onSent: () -> Void = {}
+
+    var body: some View {
+        ContactTextSheet(title: "Send this verse",
+                         intro: "Pick someone who needs it. Messages opens with the verse ready, and you tap Send.",
+                         message: VerseMessage.build(verse: verse),
+                         idPrefix: "send", action: "Send", sentLabel: "Sent", onSent: onSent)
+    }
+}
+
+/// Search your contacts, tap one person, and Messages opens with their number and the text filled in. One person at
+/// a time, and you tap Send yourself: nothing is sent automatically. Contacts stay on this iPhone.
+struct ContactTextSheet: View {
+    let title: String
+    let intro: String
+    let message: String
+    /// Accessibility identifiers: "<prefix>.search", "<prefix>.contact.<name>", "<prefix>.picker", "<prefix>.done".
+    let idPrefix: String
+    var action: String = "Invite"
+    var sentLabel: String = "Invited"
+    var onSent: () -> Void = {}
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @State private var search: ContactSearch?
@@ -26,7 +71,6 @@ struct InviteContactSheet: View {
     struct Invitee: Identifiable { var id: String; var name: String; var phone: String? }
 
     private var trimmed: String { query.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var message: String { FriendInvite.message(handle: handle) }
 
     var body: some View {
         NavigationStack {
@@ -34,7 +78,7 @@ struct InviteContactSheet: View {
                 AppBackground()
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 10) {
-                        Text("Pick one person. Messages opens with your invite ready, and you tap Send.")
+                        Text(intro)
                             .font(.akFootnote)
                             .foregroundStyle(Theme.textSecondary)
                         searchField
@@ -46,7 +90,7 @@ struct InviteContactSheet: View {
                                     Label("Choose from Contacts", systemImage: "person.crop.circle.badge.plus")
                                 }
                                 .buttonStyle(QuietButtonStyle())
-                                .accessibilityIdentifier("invite.picker")
+                                .accessibilityIdentifier("\(idPrefix).picker")
                             }
                         }
                         Text("Your contacts stay on this iPhone. Nothing is sent unless you tap Send.")
@@ -59,11 +103,11 @@ struct InviteContactSheet: View {
                 }
                 .scrollDismissesKeyboard(.interactively)
             }
-            .navigationTitle("Invite a friend")
+            .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }.accessibilityIdentifier("invite.done")
+                    Button("Done") { dismiss() }.accessibilityIdentifier("\(idPrefix).done")
                 }
             }
             .background(
@@ -95,7 +139,7 @@ struct InviteContactSheet: View {
                 .textInputAutocapitalization(.words)
                 .autocorrectionDisabled()
                 .focused($focused)
-                .accessibilityIdentifier("invite.search")
+                .accessibilityIdentifier("\(idPrefix).search")
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 52)
@@ -113,11 +157,11 @@ struct InviteContactSheet: View {
                     Avatar(name: contact.name, emoji: "", colorIndex: 3, size: 40)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(contact.name).font(.akBodyMedium).foregroundStyle(Theme.textPrimary)
-                        Text(done ? "Invite ready to send again" : (contact.phone ?? "No number: share the link instead"))
+                        Text(done ? "Ready to send again" : (contact.phone ?? "No number: share it instead"))
                             .font(.akFootnote).foregroundStyle(Theme.textSecondary)
                     }
                     Spacer()
-                    Text(done ? "Invited" : "Invite")
+                    Text(done ? sentLabel : action)
                         .font(.akSubheadlineSemibold)
                         .foregroundStyle(done ? Theme.textSecondary : Theme.goldText)
                 }
@@ -127,7 +171,7 @@ struct InviteContactSheet: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(PressScaleStyle())
-            .accessibilityIdentifier("invite.contact.\(contact.name)")
+            .accessibilityIdentifier("\(idPrefix).contact.\(contact.name)")
         }
     }
 
@@ -170,6 +214,7 @@ struct InviteContactSheet: View {
         if sent {
             invited.insert(person.id)
             Haptics.success()
+            onSent()
         }
     }
 }

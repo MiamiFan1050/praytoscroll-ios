@@ -17,14 +17,127 @@ final class WordTests: XCTestCase {
         for _ in 0..<4 {
             app.swipeUp()
             Thread.sleep(forTimeInterval: 1.0)
-            let verse = visibleVerse(app) ?? "(prompt card)"
-            seen.append(verse)
+            seen.append(cardKey(app) ?? "(no card)")
         }
         XCTAssertEqual(Set(seen).count, seen.count, "each swipe shows a new card: \(seen)")
         app.swipeDown()
         Thread.sleep(forTimeInterval: 1.0)
-        let back = visibleVerse(app) ?? "(prompt card)"
+        let back = cardKey(app) ?? "(no card)"
         XCTAssertTrue(seen.dropLast().contains(back), "swiping back returns to an earlier card: \(back)")
+    }
+
+    /// Whatever card is on screen: a verse ("<text>. <ref>") or the main line of a quiz, fact, question or prompt.
+    private func cardKey(_ app: XCUIApplication) -> String? {
+        let refPattern = "(?s).*\\. (1 |2 |3 )?[A-Z][A-Za-z ]+ [0-9]+:[0-9]+(-[0-9]+)?$"
+        let ids = ["word.finish", "word.finish.full", "word.who", "word.fact", "word.reflect", "word.prompt", "word.milestone"]
+        let cards = app.descendants(matching: .any).matching(NSPredicate(format: "label MATCHES %@ OR identifier IN %@", refPattern, ids))
+        return firstHittable(cards, timeout: 4)?.label
+    }
+
+    func testFinishTheVerse() {
+        let app = launchDemo(["-route", "word", "-wordCard", "finish"])
+        let prompt = app.descendants(matching: .any)["word.finish"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 10), "the feed opens on a Finish the verse card")
+        XCTAssertTrue(prompt.label.contains("blank"), "the ending is blanked: \(prompt.label)")
+        let choices = (0..<3).map { app.buttons["word.finish.choice.\($0)"] }
+        XCTAssertTrue(choices.allSatisfy { $0.exists }, "three endings")
+        XCTAssertEqual(Set(choices.map(\.label)).count, 3)
+        choices[1].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["word.finish.result"].waitForExistence(timeout: 4), "the card says right or not")
+        XCTAssertTrue(app.descendants(matching: .any)["word.finish.full"].waitForExistence(timeout: 4), "the whole verse shows")
+        let right = choices.filter { ($0.value as? String) == "Right answer" }
+        XCTAssertEqual(right.count, 1, "exactly one ending is marked right")
+        let result = app.descendants(matching: .any)["word.finish.result"].label
+        XCTAssertTrue(result.hasPrefix(choices[1] == right.first ? "Right!" : "Not quite"), result)
+        choices[0].tap()
+        XCTAssertEqual(app.descendants(matching: .any)["word.finish.result"].label, result, "one answer per card")
+        app.swipeUp()
+        XCTAssertNotNil(visibleVerse(app), "a verse follows the quiz")
+    }
+
+    func testWhoSaidIt() {
+        let app = launchDemo(["-route", "word", "-wordCard", "whoSaid"])
+        let quote = app.descendants(matching: .any)["word.who"]
+        XCTAssertTrue(quote.waitForExistence(timeout: 10), "the feed opens on a Who said it? card")
+        XCTAssertTrue(quote.label.hasPrefix("Who said it?"))
+        let choices = (0..<3).map { app.buttons["word.who.choice.\($0)"] }
+        XCTAssertTrue(choices.allSatisfy { $0.exists }, "three names")
+        choices[2].tap()
+        let result = app.descendants(matching: .any)["word.who.result"]
+        XCTAssertTrue(result.waitForExistence(timeout: 4))
+        let right = choices.filter { ($0.value as? String) == "Right answer" }
+        XCTAssertEqual(right.count, 1)
+        let speaker = right.first?.label ?? "?"
+        XCTAssertTrue(result.label.contains(speaker), "the card names the speaker: \(result.label)")
+        XCTAssertTrue(result.label.hasPrefix(choices[2] == right.first ? "Right!" : "It was"), result.label)
+    }
+
+    func testDailyGoalRingCelebratesThenLetsYouPrayOrKeepGoing() {
+        let app = launchDemo(["-route", "word"])
+        XCTAssertTrue(app.descendants(matching: .any)["word.feed"].waitForExistence(timeout: 10))
+        let goal = app.descendants(matching: .any)["word.goal"]
+        XCTAssertTrue(goal.waitForExistence(timeout: 5))
+        XCTAssertTrue(goal.label.contains("1 of 10"), "today's first verse counts: \(goal.label)")
+        XCTAssertTrue(goal.label.contains("4 days in a row"), "the demo's goal streak: \(goal.label)")
+        goal.tap()
+        let five = app.buttons["word.goal.option.5"]
+        XCTAssertTrue(five.waitForExistence(timeout: 5), "the progress sheet offers goals")
+        XCTAssertTrue(app.descendants(matching: .any)["word.progress.level"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["word.badge.firstSave"].exists)
+        five.tap()
+        XCTAssertTrue(waitUntil(3) { five.isSelected })
+        app.buttons["Done"].tap()
+        XCTAssertTrue(waitUntil(4) { goal.label.contains("1 of 5") }, goal.label)
+
+        let milestone = app.descendants(matching: .any)["word.milestone"]
+        for _ in 0..<12 where !(milestone.exists && milestone.isHittable) {
+            app.swipeUp()
+            Thread.sleep(forTimeInterval: 1.0)
+        }
+        XCTAssertTrue(milestone.exists && milestone.isHittable, "a celebration card after the fifth verse")
+        XCTAssertTrue(milestone.label.contains("Goal done"), milestone.label)
+        XCTAssertTrue(app.buttons["word.milestone.pray"].exists, "offers prayer")
+        XCTAssertTrue(goal.label.contains("5 days in a row"), "today joins the streak: \(goal.label)")
+        app.buttons["word.milestone.keepGoing"].tap()
+        XCTAssertTrue(waitUntil(4) { !milestone.isHittable }, "Keep going moves on")
+        XCTAssertNotNil(cardKey(app))
+    }
+
+    func testSaveToABoardAndFriendsWhoSavedIt() {
+        let app = launchDemo(["-route", "word"])
+        XCTAssertTrue(app.descendants(matching: .any)["word.feed"].waitForExistence(timeout: 10))
+        let friends = firstHittable(app.descendants(matching: .any).matching(identifier: "word.friendsSaved"))
+        XCTAssertEqual(friends?.label, "Grace and Sam saved this", "the demo friends saved today's verse")
+
+        firstHittable(app.buttons.matching(identifier: "word.save"))?.tap()
+        let addToBoard = app.buttons["word.toast.board"]
+        XCTAssertTrue(addToBoard.waitForExistence(timeout: 4), "saving offers a board")
+        addToBoard.tap()
+        let morning = app.buttons["word.board.Morning"]
+        XCTAssertTrue(morning.waitForExistence(timeout: 5))
+        morning.tap()
+        XCTAssertTrue(waitUntil(3) { (morning.value as? String) == "Added" })
+
+        app.buttons["word.board.new"].tap()
+        let name = app.textFields["word.board.newName"]
+        XCTAssertTrue(name.waitForExistence(timeout: 3))
+        name.tap()
+        name.typeText("Hard Mondays")
+        app.buttons["word.board.create"].tap()
+        let mine = app.buttons["word.board.Hard Mondays"]
+        XCTAssertTrue(mine.waitForExistence(timeout: 4), "the new board is listed")
+        XCTAssertEqual(mine.value as? String, "Added")
+        app.buttons["Done"].tap()
+
+        app.buttons["word.saved"].tap()
+        XCTAssertTrue(app.navigationBars["Saved verses"].waitForExistence(timeout: 5))
+        app.segmentedControls.buttons["Boards"].tap()
+        let morningRow = app.buttons["saved.board.Morning"]
+        XCTAssertTrue(morningRow.waitForExistence(timeout: 4))
+        XCTAssertTrue(morningRow.label.contains("3 verses"), "two demo verses + this one: \(morningRow.label)")
+        XCTAssertTrue(app.buttons["saved.board.Hard Mondays"].label.contains("1 verse"))
+        morningRow.tap()
+        XCTAssertTrue(app.navigationBars["☀️ Morning"].waitForExistence(timeout: 4), "the board opens")
     }
 
     func testSaveSharePrayThis() {

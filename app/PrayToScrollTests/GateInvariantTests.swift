@@ -64,14 +64,14 @@ final class WordFeedTests: XCTestCase {
         let prompts = ["Thank God for one thing.", "Pray for {name}.", "Ask for patience today."]
         for start in [1, 59, 60, 200, 365, 366] {
             let ordered = WordFeedPlanner.order(verses: verses, topic: nil, seen: [], today: start, seed: UInt64(start))
-            let items = FeedItem.build(ordered: ordered, prompts: prompts, promptOffset: start)
-            let shown = items.compactMap(\.verse)
+            let items = FeedMixer.build(.init(verses: ordered, content: ScrollContent(), prompts: prompts, topic: nil, seed: UInt64(start)))
+            let shown = items.compactMap(\.readableVerse)
             XCTAssertEqual(shown.count, 366)
             XCTAssertEqual(Set(shown.map(\.day)).count, 366, "every day once (start \(start))")
-            XCTAssertEqual(shown.first?.day, start, "the feed opens on today's verse")
+            XCTAssertEqual(items.first?.verse?.day, start, "the feed opens on today's verse")
             XCTAssertEqual(Set(items.map(\.id)).count, items.count, "ids are unique, so paging can't jump")
             let promptCards = items.compactMap(\.prompt)
-            XCTAssertEqual(promptCards.count, 366 / 5, "a prayer prompt after every 5 verses")
+            XCTAssertFalse(promptCards.isEmpty, "prayer prompts in the mix")
             XCTAssertFalse(promptCards.contains { $0.contains("{name}") }, "no unfilled name placeholders")
         }
     }

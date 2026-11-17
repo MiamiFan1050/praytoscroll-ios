@@ -66,6 +66,12 @@ tick Sensitive Info with the same answers as below (App Functionality, linked, n
 database. They fall under the types already ticked (User ID, Product Interaction, and Other User Content for circle
 prayer requests): no new data type. There are no messages between friends.
 
+**v1.1 Scroll the Word "Friends see verses I save" (off by default):** when the user turns it on, the references of
+their 50 most recent saved verses (e.g. "Psalm 23:1", never a note or anything typed) are added to their friend
+profile, so friends see "Grace saved this". Product Interaction, already ticked: no new data type. Turning it off
+clears the list on the next profile update; Erase All Data deletes the profile. Reading progress (verses read, goal,
+streak, level, badges, boards and the "For you" theme weights) stays on the device.
+
 ## Not collected: stays on the device
 
 | Data | Where it lives |
@@ -74,7 +80,7 @@ prayer requests): no new data type. There are no messages between friends.
 | Prayer list: people, relationships, requests, answered prayers | SwiftData on the device |
 | Journal, sessions, streak history, challenges, settings, first name | SwiftData / App Group on the device |
 | People added from Contacts: name + one phone number for texting | SwiftData on the device (the address book itself is never copied) |
-| Scroll the Word: verses read or swiped | Bundled World English Bible; nothing is fetched or sent |
+| Scroll the Word: verses read or swiped, daily goal, streak, level, badges, boards, "For you" theme weights, quiz scores | Bundled World English Bible + App Group UserDefaults; nothing is fetched or sent (saved verse references only if the user turns on "Friends see verses I save", above) |
 | Reminders | Local notifications only, no push server |
 | Device backups | Apple's iCloud or computer backups, under Apple's policy. We can't access them. |
 

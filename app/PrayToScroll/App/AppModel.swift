@@ -125,6 +125,14 @@ final class AppModel {
     private(set) var lockRevision = 0
     #endif
 
+    /// Scroll the Word progress: verses read, goal streak, level, badges, boards, "For you" weights. On this iPhone only.
+    var wordProgress = WordProgress() {
+        didSet { store.wordProgressData = try? JSONEncoder().encode(wordProgress) }
+    }
+    /// v1.1 friends: who saved which verse ("Grace saved this"), by reference. Loaded when the feed opens.
+    private(set) var friendSaves: [String: [String]] = [:]
+    private var friendSavesLoadedAt: Date?
+
     private var testingApp: GatedApp?
     private var testStartedAt: Date?
 
@@ -177,6 +185,9 @@ final class AppModel {
         }
         #endif
         self.username = sharedStore.username
+        if let data = sharedStore.wordProgressData, let saved = try? JSONDecoder().decode(WordProgress.self, from: data) {
+            self.wordProgress = saved
+        }
         reloadGateState()
         refreshStreak()
         #if DEBUG
@@ -809,11 +820,42 @@ final class AppModel {
 
     // MARK: Friends
 
-    /// My friend profile: the circle nickname + emoji and my streak (never my first name or what I prayed).
+    /// My friend profile: the circle nickname + emoji and my streak (never my first name or what I prayed), plus the
+    /// references of verses I saved when I've chosen to share them.
     func myFriendProfile() -> FriendProfile {
         FriendProfile(memberID: store.circleMemberID, handle: username ?? "", displayName: settings.circleName,
                       emoji: settings.circleDisplayEmoji, streak: streak.current,
-                      lastPrayedDay: store.lastPrayerAt.map { DayKey($0).string } ?? "")
+                      lastPrayedDay: store.lastPrayerAt.map { DayKey($0).string } ?? "",
+                      savedRefs: settings.shareSavesWithFriends ? recentSavedRefs() : [])
+    }
+
+    /// The last 50 saved verse references, newest first.
+    func recentSavedRefs(limit: Int = FriendProfile.maxSavedRefs) -> [String] {
+        var fetch = FetchDescriptor<SavedVerse>(sortBy: [SortDescriptor(\.savedAt, order: .reverse)])
+        fetch.fetchLimit = limit
+        return ((try? context.fetch(fetch)) ?? []).map(\.ref)
+    }
+
+    // MARK: Scroll the Word
+
+    /// Loads friends' saved verses (at most every 5 minutes), for "Grace and 2 friends saved this".
+    func refreshFriendSaves(force: Bool = false) {
+        guard username != nil else {
+            friendSaves = [:]
+            return
+        }
+        if !force, let at = friendSavesLoadedAt, Date().timeIntervalSince(at) < 300 { return }
+        friendSavesLoadedAt = Date()
+        let friends = self.friends
+        Task {
+            guard let snapshot = try? await friends.snapshot() else { return }
+            self.friendSaves = FriendSaves.byRef(snapshot.friends)
+        }
+    }
+
+    /// A verse was saved or un-saved: friends who can see my saves get the new list.
+    func savedVersesChanged() {
+        if settings.shareSavesWithFriends { publishFriendProfile() }
     }
 
     /// Keeps my profile current for friends, with the circles I own (friends can join those without a code).
@@ -965,6 +1007,8 @@ final class AppModel {
         store.resetAll(keepingCircleMemberID: keepID)
         username = nil
         friendsRevision += 1
+        wordProgress = WordProgress()
+        friendSaves = [:]
         Task {
             try? await circles.deleteMyData(codes: codes)
             if let handle { try? await friends.deleteMyData(handle: handle) }

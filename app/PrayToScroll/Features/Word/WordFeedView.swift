@@ -1,10 +1,11 @@
 import SwiftData
 import SwiftUI
 
-/// "Scroll the Word": a full-screen, swipe-up feed of verses (with a prayer prompt every few cards).
-/// Topic feeds, a one-line "what this means", double-tap to save, swipe left (or "Pray this") to pray the verse,
-/// Listen (read aloud), A−/A+ and WEB/KJV under "Aa", and a share card. Verses you've seen go to the back, so a new
-/// session never repeats what you just read.
+/// "Scroll the Word": a full-screen, swipe-up feed. Verses on original photo backdrops with a slow drift, mixed with
+/// "What this means", "Finish the verse", "Who said it?", Bible facts, questions to sit with, prayer prompts and
+/// "Who needs this today?" cards. A haptic tick on every card, a heart burst on double-tap, swipe left to pray.
+/// A daily goal ring, a goal streak, levels, badges and boards; "For you" learns from hearts, saves, shares and how
+/// long you stay on a verse, on this iPhone only. When the goal is met: "Goal done 🙏", pray or keep going.
 struct WordFeedView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.modelContext) private var context
@@ -12,11 +13,23 @@ struct WordFeedView: View {
     @State private var shareCard: ShareCardKind?
     @State private var showSaved = false
     @State private var showDisplay = false
+    @State private var showProgress = false
+    @State private var boardVerse: Verse?
+    @State private var sendVerse: Verse?
     @State private var position: String?
     @State private var items: [FeedItem] = []
     /// nil = "For you" (every verse).
     @State private var topic: String?
+    /// Quiz picks by card id.
+    @State private var answers: [String: String] = [:]
+    /// Cards already counted this session (scrolling back never counts twice).
+    @State private var counted: Set<String> = []
+    @State private var visibleSince = Date()
+    @State private var savedToast: Verse?
+    @State private var milestoneCount = 0
     private let reader = VerseReader.shared
+
+    private var today: DayKey { DayKey.today() }
 
     var body: some View {
         let savedRefs = Set(saved.map(\.ref))
@@ -27,16 +40,15 @@ struct WordFeedView: View {
                 LazyVStack(spacing: 0) {
                     ForEach(items) { item in
                         FeedCard(item: item,
+                                 isCurrent: item.id == position,
                                  translation: settings.translation,
                                  textScale: settings.wordTextScale,
                                  showMeaning: settings.showMeanings,
-                                 isSpeaking: item.verse.map { reader.speakingDay == $0.day } ?? false,
-                                 isSaved: item.verse.map { savedRefs.contains($0.ref) } ?? false,
-                                 onSave: { toggleSave(item, savedRefs: savedRefs, forceOn: false) },
-                                 onDoubleTap: { toggleSave(item, savedRefs: savedRefs, forceOn: true) },
-                                 onShare: { share(item) },
-                                 onListen: { listen(item) },
-                                 onPray: { pray(item) })
+                                 isSpeaking: item.readableVerse.map { reader.speakingDay == $0.day } ?? false,
+                                 isSaved: item.readableVerse.map { savedRefs.contains($0.ref) } ?? false,
+                                 friendsLine: item.readableVerse.flatMap { FriendSaves.line(model.friendSaves[$0.ref] ?? []) },
+                                 answer: answers[item.id],
+                                 actions: actions(for: item, savedRefs: savedRefs))
                             .containerRelativeFrame([.horizontal, .vertical])
                             .id(item.id)
                     }
@@ -52,6 +64,13 @@ struct WordFeedView: View {
                 header
                 topicBar
             }
+
+            if let verse = savedToast {
+                savedToastView(verse)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 24)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
         .environment(\.colorScheme, .dark)
         .sheet(item: $shareCard) { kind in ShareCardSheet(kind: kind).environment(model) }
@@ -64,36 +83,96 @@ struct WordFeedView: View {
                 .environment(model)
                 .presentationDetents([.medium, .large])
         }
-        .onChange(of: position) { _, id in
+        .sheet(isPresented: $showProgress) {
+            NavigationStack { WordProgressSheet() }
+                .environment(model)
+                .presentationDetents([.large])
+        }
+        .sheet(item: $boardVerse) { verse in
+            NavigationStack { SaveToBoardSheet(verse: verse) { ensureSaved(verse) } }
+                .environment(model)
+                .presentationDetents([.medium, .large])
+        }
+        .sheet(item: $sendVerse) { verse in
+            SendVerseSheet(verse: verse) {
+                model.wordProgress.signal(.sent, theme: verse.theme)
+                celebrate(model.wordProgress.recordSent(today: today))
+            }
+            .environment(model)
+        }
+        .onChange(of: position) { old, id in
             Haptics.selection()
+            cardLeft(old)
             cardBecameVisible(id)
         }
         .onChange(of: topic) { _, _ in rebuild() }
+        .onChange(of: model.settings.ambientSound) { _, on in on ? AmbientSound.shared.start() : AmbientSound.shared.stop() }
         .onAppear {
             if items.isEmpty { rebuild() }
+            if model.settings.ambientSound { AmbientSound.shared.start() }
+            model.refreshFriendSaves()
         }
-        .onDisappear { reader.stop() }
+        .onDisappear {
+            reader.stop()
+            AmbientSound.shared.stop()
+            cardLeft(position)
+        }
     }
 
+    // MARK: Header
+
     private var header: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Scroll the Word")
-                    .font(.system(.title3, design: .serif, weight: .bold))
-                    .foregroundStyle(Palette.cream)
-                Text("The only feed worth the swipe")
-                    .font(.akCaption)
-                    .foregroundStyle(Palette.cream.opacity(0.6))
+        let progress = model.wordProgress
+        let read = progress.readOn(today.string)
+        let goal = model.settings.wordGoal
+        let streak = progress.streak(today: today)
+        return HStack(spacing: 10) {
+            Button { showProgress = true } label: {
+                HStack(spacing: 10) {
+                    ZStack {
+                        ProgressRing(progress: Double(read) / Double(max(1, goal)), lineWidth: 4, track: Palette.cream.opacity(0.2))
+                        Text("\(min(read, 999))")
+                            .font(.system(.footnote, design: .rounded, weight: .bold))
+                            .foregroundStyle(Palette.cream)
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+                    }
+                    .frame(width: 34, height: 34)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(read >= goal ? "Goal done" : "\(read) of \(goal)")
+                            .font(.akSubheadlineSemibold)
+                            .foregroundStyle(Palette.cream)
+                            .monospacedDigit()
+                        Text("Level \(progress.level.number) · \(progress.level.name)")
+                            .font(.akCaption)
+                            .foregroundStyle(Palette.cream.opacity(0.65))
+                    }
+                    if streak > 0 {
+                        HStack(spacing: 3) {
+                            Image(systemName: "flame.fill").foregroundStyle(Palette.flameGradient)
+                            Text("\(streak)").font(.akSubheadlineSemibold).foregroundStyle(Palette.cream).monospacedDigit()
+                        }
+                    }
+                }
+                .padding(.leading, 6)
+                .padding(.trailing, 14)
+                .frame(minHeight: 44)
+                .background(Capsule().fill(.ultraThinMaterial))
             }
-            Spacer()
+            .buttonStyle(PressScaleStyle(scale: 0.96))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Daily goal, \(read) of \(goal) verses. Level \(progress.level.number)."
+                                + (streak > 0 ? " Goal met \(streak) days in a row." : ""))
+            .accessibilityIdentifier("word.goal")
+            Spacer(minLength: 4)
             Button { showDisplay = true } label: {
                 Text("Aa")
                     .font(.system(.headline, design: .serif, weight: .bold))
                     .foregroundStyle(Palette.cream)
-                    .frame(width: 44, height: 40)
-                    .background(Capsule().fill(.ultraThinMaterial))
+                    .frame(width: 44, height: 44)
+                    .background(Circle().fill(.ultraThinMaterial))
             }
-            .accessibilityLabel("Text size, translation and read aloud")
+            .accessibilityLabel("Text size, translation, read aloud and sound")
             .accessibilityIdentifier("word.display")
             Button { showSaved = true } label: {
                 HStack(spacing: 6) {
@@ -101,7 +180,7 @@ struct WordFeedView: View {
                     Text("\(saved.count)").font(.akSubheadlineSemibold).foregroundStyle(Palette.cream).monospacedDigit()
                 }
                 .padding(.horizontal, 14)
-                .frame(minHeight: 40)
+                .frame(minHeight: 44)
                 .background(Capsule().fill(.ultraThinMaterial))
             }
             .accessibilityLabel("Saved verses, \(saved.count)")
@@ -143,24 +222,86 @@ struct WordFeedView: View {
         .accessibilityIdentifier("word.topic.\(value ?? "all")")
     }
 
+    private func savedToastView(_ verse: Verse) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "heart.fill").foregroundStyle(Palette.rose)
+            Text("Saved").font(.akSubheadlineSemibold).foregroundStyle(Palette.cream)
+            Spacer(minLength: 8)
+            Button {
+                savedToast = nil
+                boardVerse = verse
+            } label: {
+                Text("Add to a board")
+                    .font(.akSubheadlineSemibold)
+                    .foregroundStyle(Palette.midnight)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 36)
+                    .background(Capsule().fill(Palette.goldButton))
+            }
+            .accessibilityIdentifier("word.toast.board")
+        }
+        .padding(.leading, 18)
+        .padding(.trailing, 8)
+        .frame(minHeight: 52)
+        .background(Capsule().fill(.ultraThinMaterial))
+        .padding(.horizontal, Spacing.page)
+        .padding(.trailing, 70)
+    }
+
+    // MARK: Building the feed
+
     private func rebuild() {
         reader.stop()
-        let today = DayKey(Date(), calendar: .current).dayOfYear(calendar: .current)
-        let ordered = WordFeedPlanner.order(verses: model.verses.verses, topic: topic, seen: model.store.wordSeen,
-                                            today: model.verses.verse(forDayOfYear: today).day, seed: model.store.wordSeed)
-        items = FeedItem.build(ordered: ordered, prompts: model.content.prompts.quick,
-                               promptOffset: Int(model.store.wordSeed % 997) + model.store.wordSeen.count / 5)
+        answers = [:]
+        let dayOfYear = today.dayOfYear(calendar: .current)
+        let all = ScrollContent.shared.feedVerses(daily: model.verses.verses)
+        let seen = model.store.wordSeen
+        var ordered = WordFeedPlanner.order(verses: all, topic: topic, seen: seen,
+                                            today: model.verses.verse(forDayOfYear: dayOfYear).day, seed: model.store.wordSeed)
+        if topic == nil {
+            ordered = ForYouRanker.order(ordered, affinity: model.wordProgress.affinity, seed: model.store.wordSeed,
+                                         seen: Set(seen), pinFirst: true)
+        }
+        var built = FeedMixer.build(.init(verses: ordered, content: ScrollContent.shared, prompts: model.content.prompts.quick,
+                                          topic: topic, seed: model.store.wordSeed &+ UInt64(seen.count / 7),
+                                          seenExtras: model.wordProgress.seenExtras))
+        #if DEBUG
+        // UI tests: `-wordCard finish|whoSaid|fact|reflect|send|meaning|pray` opens the feed on that kind of card.
+        if let raw = model.options.wordCard, let kind = FeedCardKind(rawValue: raw),
+           let index = built.firstIndex(where: { $0.kind == kind }) {
+            built.insert(built.remove(at: index), at: 0)
+        }
+        #endif
+        items = built
         position = items.first?.id
         cardBecameVisible(position)
     }
 
+    private func preload(around id: String?) {
+        guard let id, let index = items.firstIndex(where: { $0.id == id }) else { return }
+        let window = BackdropCache.window
+        let lower = max(0, index - window), upper = min(items.count - 1, index + window)
+        guard lower <= upper else { return }
+        BackdropCache.shared.preload(items[lower...upper].map(\.background))
+    }
+
     private func cardBecameVisible(_ id: String?) {
+        visibleSince = Date()
+        preload(around: id)
         guard let id, let item = items.first(where: { $0.id == id }) else { return }
-        guard let verse = item.verse else {
+        if let extra = item.fact?.id ?? item.who?.id ?? item.finish?.id ?? item.reflection?.id {
+            model.wordProgress.markExtraSeen(extra)
+        }
+        guard let verse = item.readableVerse else {
             reader.stop()
             return
         }
         model.store.markVerseSeen(verse.day)
+        if !counted.contains(id) {
+            counted.insert(id)
+            let events = model.wordProgress.recordRead(theme: verse.theme, today: today, goal: model.settings.wordGoal)
+            celebrate(events, after: id)
+        }
         if model.settings.readAloud {
             reader.read(verse.rendered(in: model.settings.translation))
         } else if reader.speakingDay != nil, reader.speakingDay != verse.day {
@@ -168,41 +309,144 @@ struct WordFeedView: View {
         }
     }
 
+    /// How long a verse stayed on screen feeds "For you" (a quick flick past is a mild "less of this").
+    private func cardLeft(_ id: String?) {
+        guard let id, let verse = items.first(where: { $0.id == id })?.readableVerse else { return }
+        model.wordProgress.signal(.dwell(Date().timeIntervalSince(visibleSince)), theme: verse.theme)
+    }
+
+    /// Slots one celebration card in after the current one: the goal first, then a level, then a badge.
+    private func celebrate(_ events: [WordEvent], after id: String? = nil) {
+        let ranked = events.sorted { rank($0) < rank($1) }
+        guard let event = ranked.first,
+              let anchor = id ?? position,
+              let index = items.firstIndex(where: { $0.id == anchor }) else { return }
+        // "First goal" is the goal card itself.
+        if case .badge(.firstGoal) = event, events.count == 1 { return }
+        milestoneCount += 1
+        var card = FeedMixer.milestone(for: event, streak: model.wordProgress.streak(today: today), index: milestoneCount)
+        card.background = (items[index].background + FeedBackgrounds.count / 2) % FeedBackgrounds.count
+        items.insert(card, at: index + 1)
+    }
+
+    private func rank(_ event: WordEvent) -> Int {
+        switch event {
+        case .goalReached: return 0
+        case .levelUp: return 1
+        case .badge: return 2
+        }
+    }
+
+    // MARK: Card actions
+
+    private func actions(for item: FeedItem, savedRefs: Set<String>) -> FeedCardActions {
+        FeedCardActions(
+            save: { toggleSave(item, savedRefs: savedRefs, forceOn: false) },
+            doubleTap: { toggleSave(item, savedRefs: savedRefs, forceOn: true) },
+            share: { share(item) },
+            listen: { listen(item) },
+            pray: { pray(item) },
+            send: { if let verse = item.readableVerse { sendVerse = verse.rendered(in: model.settings.translation) } },
+            boards: {
+                if let verse = item.readableVerse {
+                    Haptics.tap()
+                    boardVerse = verse.rendered(in: model.settings.translation)
+                }
+            },
+            answer: { choice in answer(choice, on: item) },
+            keepGoing: { keepGoing(from: item) })
+    }
+
     private func toggleSave(_ item: FeedItem, savedRefs: Set<String>, forceOn: Bool) {
-        guard let verse = item.verse?.rendered(in: model.settings.translation) else {
+        guard let verse = item.readableVerse?.rendered(in: model.settings.translation) else {
             if forceOn { Haptics.tap() }
             return
         }
         if savedRefs.contains(verse.ref) {
             guard !forceOn else { return }
             for entry in saved where entry.ref == verse.ref { context.delete(entry) }
+            model.wordProgress.removeEverywhere(ref: verse.ref)
             Haptics.tap()
+            withAnimation { savedToast = nil }
         } else {
             context.insert(SavedVerse(verse: verse))
             Haptics.success()
+            model.wordProgress.signal(.heart, theme: verse.theme)
+            celebrate(model.wordProgress.recordSaved(today: today))
+            showSavedToast(verse)
         }
         try? context.save()
+        model.savedVersesChanged()
+    }
+
+    private func ensureSaved(_ verse: Verse) {
+        guard !saved.contains(where: { $0.ref == verse.ref }) else { return }
+        context.insert(SavedVerse(verse: verse))
+        try? context.save()
+        model.wordProgress.signal(.board, theme: verse.theme)
+        _ = model.wordProgress.recordSaved(today: today)
+        model.savedVersesChanged()
+    }
+
+    private func showSavedToast(_ verse: Verse) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { savedToast = verse }
+        let shown = verse.ref
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+            if savedToast?.ref == shown { withAnimation { savedToast = nil } }
+        }
+    }
+
+    private func answer(_ choice: String, on item: FeedItem) {
+        guard answers[item.id] == nil else { return }
+        let right: Bool
+        let quiz: WordProgress.Quiz
+        if let finish = item.finish {
+            right = finish.isRight(choice)
+            quiz = .finish
+        } else if let who = item.who {
+            right = who.isRight(choice)
+            quiz = .who
+        } else {
+            return
+        }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { answers[item.id] = choice }
+        if right { Haptics.success() } else { Haptics.warning() }
+        celebrate(model.wordProgress.recordQuiz(quiz, right: right, today: today), after: item.id)
+    }
+
+    private func keepGoing(from item: FeedItem) {
+        guard let index = items.firstIndex(where: { $0.id == item.id }), index + 1 < items.count else { return }
+        withAnimation(.snappy) { position = items[index + 1].id }
     }
 
     private func share(_ item: FeedItem) {
-        if let verse = item.verse { shareCard = .verse(verse.rendered(in: model.settings.translation)) }
+        if let verse = item.readableVerse {
+            model.wordProgress.signal(.share, theme: verse.theme)
+            shareCard = .verse(verse.rendered(in: model.settings.translation))
+        }
     }
 
     private func listen(_ item: FeedItem) {
-        if let verse = item.verse { reader.toggle(verse.rendered(in: model.settings.translation)) }
+        if let verse = item.readableVerse { reader.toggle(verse.rendered(in: model.settings.translation)) }
     }
 
     private func pray(_ item: FeedItem) {
         reader.stop()
-        if let verse = item.verse {
+        if let verse = item.readableVerse {
+            model.wordProgress.signal(.pray, theme: verse.theme)
             model.startPrayer(style: .verse, source: .manual, verse: verse.rendered(in: model.settings.translation))
         } else if let prompt = item.prompt {
             model.startPrayer(style: .quick, source: .manual, seedPrompt: prompt)
+        } else if let reflection = item.reflection {
+            model.startPrayer(style: .quick, source: .manual, seedPrompt: reflection.question)
+        } else {
+            model.startPrayer(style: .quick, source: .manual)
         }
     }
 }
 
-/// Scroll the Word's reading options: translation, text size, the meaning line and read aloud.
+/// Scroll the Word's reading options: translation, text size, the meaning line, read aloud, ambient sound and
+/// sharing saves with friends.
 struct WordDisplaySheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -254,6 +498,28 @@ struct WordDisplaySheet: View {
                      ? "Uses your iPhone’s voices. For a more natural voice, download an Enhanced English voice in Settings › Accessibility › Spoken Content › Voices."
                      : "Uses your iPhone’s own voices. Nothing leaves your phone.")
             }
+            Section {
+                Toggle("Ambient sound", isOn: model.binding(\.ambientSound))
+                    .accessibilityIdentifier("word.ambient")
+            } footer: {
+                Text("A quiet, original background pad while you scroll. Follows the silent switch.")
+            }
+            Section {
+                Toggle("Friends see verses I save", isOn: Binding(
+                    get: { model.settings.shareSavesWithFriends },
+                    set: { on in
+                        model.updateSettings { $0.shareSavesWithFriends = on }
+                        model.publishFriendProfile()
+                    }))
+                    .disabled(model.username == nil)
+                    .accessibilityIdentifier("word.shareSaves")
+            } header: {
+                Text("Friends")
+            } footer: {
+                Text(model.username == nil
+                     ? "Pick a @username in Friends first. Then friends can see “Grace saved this” on verses you both love."
+                     : "Off by default. When on, your friends see which verses you saved (the reference only, like “Psalm 23:1”), and you see theirs.")
+            }
         }
         .tint(Palette.gold)
         .navigationTitle("Reading")
@@ -267,29 +533,7 @@ struct WordDisplaySheet: View {
     }
 }
 
-/// A verse or a prayer prompt in the feed.
-struct FeedItem: Identifiable, Hashable {
-    let id: String
-    var verse: Verse?
-    var prompt: String?
-    var scene: FeedScene
-
-    /// The verses in feed order, with a prayer prompt after every 5.
-    static func build(ordered verses: [Verse], prompts: [String], promptOffset: Int) -> [FeedItem] {
-        let list = verses.isEmpty ? [Verse.fallback] : verses
-        var items: [FeedItem] = []
-        let usablePrompts = prompts.filter { !$0.contains("{name}") }
-        for (offset, verse) in list.enumerated() {
-            items.append(FeedItem(id: "v\(verse.day)", verse: verse, prompt: nil, scene: FeedScene.for(verse)))
-            if (offset + 1) % 5 == 0, !usablePrompts.isEmpty {
-                let prompt = usablePrompts[(offset / 5 + promptOffset) % usablePrompts.count]
-                items.append(FeedItem(id: "p\(offset)", verse: nil, prompt: prompt, scene: .candle))
-            }
-        }
-        return items
-    }
-}
-
+/// The drawn sky a card falls back to while its photo loads (and the share card uses).
 enum FeedScene: CaseIterable, Hashable {
     case dawn, night, sea, hills, desert, forest, candle
 
@@ -403,249 +647,10 @@ struct SeededRNG {
     }
 }
 
-struct FeedCard: View {
-    let item: FeedItem
-    var translation: BibleTranslation = .web
-    var textScale: Double = 1
-    var showMeaning = true
-    var isSpeaking = false
-    let isSaved: Bool
-    let onSave: () -> Void
-    let onDoubleTap: () -> Void
-    let onShare: () -> Void
-    var onListen: () -> Void = {}
-    let onPray: () -> Void
-    @State private var burst = false
-    /// Swipe left to pray: how far the card has been dragged (≤ 0).
-    @State private var dragX: CGFloat = 0
-    @ScaledMetric(relativeTo: .title) private var verseSize: CGFloat = 30
-    private static let swipeToPray: CGFloat = 90
-
-    var body: some View {
-        ZStack {
-            FeedBackdrop(scene: item.scene)
-            content
-                .padding(.leading, 28)
-                .padding(.trailing, 84)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                .offset(x: dragX * 0.45)
-            rail
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                .padding(.trailing, 14)
-                .padding(.bottom, 36)
-            if item.verse != nil, dragX < -8 { swipeHint }
-            if burst {
-                Image(systemName: "heart.fill")
-                    .font(.system(size: 110))
-                    .foregroundStyle(Palette.rose)
-                    .shadow(color: Palette.rose.opacity(0.6), radius: 24)
-                    .transition(.scale(scale: 0.3).combined(with: .opacity))
-                    .accessibilityHidden(true)
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture(count: 2) {
-            guard item.verse != nil else { return }
-            onDoubleTap()
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.55)) { burst = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
-                withAnimation(.easeOut(duration: 0.3)) { burst = false }
-            }
-        }
-        .modifier(SwipeLeft(enabled: item.verse != nil, onChanged: dragChanged, onEnded: dragEnded))
-        .accessibilityElement(children: .contain)
-    }
-
-    private func dragChanged(_ dx: CGFloat) {
-        guard dx < 0 else { dragX = 0; return }
-        let crossed = dragX > -Self.swipeToPray && dx <= -Self.swipeToPray
-        dragX = max(dx, -160)
-        if crossed { Haptics.selection() }
-    }
-
-    private func dragEnded(_ dx: CGFloat) {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { dragX = 0 }
-        if item.verse != nil, dx <= -Self.swipeToPray { onPray() }
-    }
-
-    private var swipeHint: some View {
-        let ready = dragX <= -Self.swipeToPray
-        return Label(ready ? "Let go to pray" : "Pray this", systemImage: "hands.and.sparkles.fill")
-            .font(.akHeadline)
-            .foregroundStyle(ready ? Palette.midnight : Palette.cream)
-            .padding(.horizontal, 18)
-            .frame(minHeight: 48)
-            .background(Capsule().fill(ready ? AnyShapeStyle(Palette.goldButton) : AnyShapeStyle(.ultraThinMaterial)))
-            .opacity(min(1, Double(-dragX) / Double(Self.swipeToPray)))
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-            .padding(.trailing, 18)
-            .accessibilityHidden(true)
-    }
-
-    private func verseFont(_ text: String) -> Font {
-        let base = text.count > 220 ? verseSize * 0.72 : (text.count > 140 ? verseSize * 0.85 : verseSize)
-        return .system(size: base * textScale, weight: .regular, design: .serif)
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        if let base = item.verse {
-            let verse = base.rendered(in: translation)
-            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 18) {
-                    Chip(text: verse.themeTitle, tint: Palette.warmGold)
-                    Text(verse.displayText)
-                        .font(verseFont(verse.displayText))
-                        .foregroundStyle(Palette.cream)
-                        .lineSpacing(6)
-                        .shadow(color: .black.opacity(0.4), radius: 8, y: 2)
-                        .minimumScaleFactor(0.5)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(verse.ref)
-                        .font(.system(.title3, design: .serif, weight: .semibold))
-                        .foregroundStyle(Palette.warmGold)
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(verse.displayText). \(verse.ref)")
-                .accessibilityValue(verse.themeTitle)
-                .accessibilityAction(named: isSaved ? "Remove from saved" : "Save") { onSave() }
-                .accessibilityAction(named: "Share") { onShare() }
-                .accessibilityAction(named: "Listen") { onListen() }
-                .accessibilityAction(named: "Pray this") { onPray() }
-                if showMeaning, let meaning = verse.meaning {
-                    HStack(alignment: .top, spacing: 10) {
-                        Capsule().fill(Palette.warmGold.opacity(0.7)).frame(width: 3)
-                        Text(meaning)
-                            .font(.system(size: 17 * min(textScale, 1.3), weight: .medium, design: .rounded))
-                            .foregroundStyle(Palette.cream.opacity(0.88))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("What this means: \(meaning)")
-                    .accessibilityIdentifier("word.meaning")
-                }
-                Text("\(verse.translationName) · swipe left to pray it")
-                    .font(.akCaption)
-                    .foregroundStyle(Palette.cream.opacity(0.45))
-                    .accessibilityHidden(true)
-            }
-        } else if let prompt = item.prompt {
-            VStack(alignment: .leading, spacing: 18) {
-                Text("Pause & pray").akOverline(color: Palette.warmGold)
-                Text(prompt)
-                    .font(.system(size: verseSize * 0.95 * textScale, weight: .regular, design: .serif))
-                    .foregroundStyle(Palette.cream)
-                    .lineSpacing(6)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button(action: onPray) {
-                    Label("Pray this now", systemImage: "hands.and.sparkles.fill")
-                        .font(.akHeadline)
-                        .foregroundStyle(Palette.midnight)
-                        .padding(.horizontal, 22)
-                        .frame(minHeight: 50)
-                        .background(Capsule().fill(Palette.goldButton))
-                }
-                .buttonStyle(PressScaleStyle())
-            }
-            .padding(.bottom, 120)
-        }
-    }
-
-    private var rail: some View {
-        VStack(spacing: 22) {
-            if item.verse != nil {
-                railButton(isSaved ? "heart.fill" : "heart", label: isSaved ? "Saved" : "Save",
-                           tint: isSaved ? Palette.rose : Palette.cream, action: onSave)
-                    .accessibilityIdentifier("word.save")
-                railButton(isSpeaking ? "stop.fill" : "speaker.wave.2.fill", label: isSpeaking ? "Stop" : "Listen",
-                           tint: Palette.cream, action: onListen)
-                    .accessibilityIdentifier("word.listen")
-                railButton("square.and.arrow.up", label: "Share", tint: Palette.cream, action: onShare)
-                railButton("hands.and.sparkles.fill", label: "Pray this", tint: Palette.warmGold, action: onPray)
-                    .accessibilityIdentifier("word.pray")
-            }
-        }
-    }
-
-    private func railButton(_ symbol: String, label: String, tint: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 5) {
-                Image(systemName: symbol)
-                    .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(tint)
-                    .frame(width: 52, height: 52)
-                    .background(Circle().fill(.ultraThinMaterial))
-                    .contentTransition(.symbolEffect(.replace))
-                Text(label)
-                    .font(.akCaption.weight(.semibold))
-                    .foregroundStyle(Palette.cream.opacity(0.9))
-                    .shadow(color: .black.opacity(0.5), radius: 3)
-            }
-        }
-        .buttonStyle(PressScaleStyle(scale: 0.9))
-        .accessibilityLabel(label)
-    }
-}
-
-/// Favorites from Scroll the Word.
-struct SavedVersesView: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
-    @Query(sort: \SavedVerse.savedAt, order: .reverse) private var saved: [SavedVerse]
-    @State private var shareCard: ShareCardKind?
-
-    var body: some View {
-        ZStack {
-            AppBackground()
-            if saved.isEmpty {
-                EmptyState(title: "No saved verses yet", message: "Double-tap a verse in Scroll the Word to keep it here.", systemImage: "heart.fill")
-            } else {
-                List {
-                    ForEach(saved) { entry in
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(entry.text).font(.akVerse).foregroundStyle(Theme.textPrimary)
-                            HStack {
-                                Text(entry.ref).font(.system(.subheadline, design: .serif, weight: .semibold)).foregroundStyle(Theme.goldText)
-                                Spacer()
-                                Button { shareCard = .verse(entry.verse) } label: { Image(systemName: "square.and.arrow.up") }
-                                    .buttonStyle(.borderless)
-                                    .accessibilityLabel("Share")
-                                Button {
-                                    dismiss()
-                                    let verse = entry.verse
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                        model.startPrayer(style: .verse, source: .manual, verse: verse)
-                                    }
-                                } label: { Image(systemName: "hands.and.sparkles.fill") }
-                                    .buttonStyle(.borderless)
-                                    .accessibilityLabel("Pray this")
-                            }
-                            .foregroundStyle(Theme.goldText)
-                        }
-                        .padding(.vertical, 6)
-                        .listRowBackground(Theme.surface)
-                    }
-                    .onDelete { offsets in
-                        for index in offsets { context.delete(saved[index]) }
-                        try? context.save()
-                    }
-                }
-                .scrollContentBackground(.hidden)
-            }
-        }
-        .navigationTitle("Saved verses")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-        .sheet(item: $shareCard) { kind in ShareCardSheet(kind: kind).environment(model) }
-    }
-}
-
 /// Swipe left on a verse to pray it, without ever stealing the vertical feed's scroll: only a mostly-sideways pan
 /// counts. iOS 18 uses a UIKit pan that refuses vertical starts (a SwiftUI DragGesture inside a ScrollView can block
 /// scrolling there); iOS 17 uses a simultaneous DragGesture.
-private struct SwipeLeft: ViewModifier {
+struct SwipeLeft: ViewModifier {
     let enabled: Bool
     let onChanged: (CGFloat) -> Void
     let onEnded: (CGFloat) -> Void

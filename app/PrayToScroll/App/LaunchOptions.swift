@@ -24,6 +24,8 @@ struct LaunchOptions: Sendable {
     let noPeople: Bool
     /// `-contacts denied|limited|full` with `-demo`: the demo address book's permission (default: not asked yet).
     let contactsStatus: ContactsAccess?
+    /// `-wordCard finish|whoSaid|fact|reflect|send|meaning|pray` (UI tests): Scroll the Word opens on that kind of card.
+    let wordCard: String?
 
     static let current = LaunchOptions(arguments: ProcessInfo.processInfo.arguments)
 
@@ -65,6 +67,11 @@ struct LaunchOptions: Sendable {
         } else {
             contactsStatus = nil
         }
+        if let index = arguments.firstIndex(of: "-wordCard"), arguments.indices.contains(index + 1) {
+            wordCard = arguments[index + 1]
+        } else {
+            wordCard = nil
+        }
         #else
         isDemo = false
         showOnboarding = false
@@ -77,6 +84,7 @@ struct LaunchOptions: Sendable {
         appearance = nil
         noPeople = false
         contactsStatus = nil
+        wordCard = nil
         #endif
     }
 }

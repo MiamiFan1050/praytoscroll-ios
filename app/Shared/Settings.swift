@@ -189,6 +189,12 @@ struct AppSettings: Codable, Equatable, Sendable {
     var readAloud: Bool = false
     /// Show the one-line "what this means" under each verse.
     var showMeanings: Bool = true
+    /// Scroll the Word's daily goal (verses), the ring in the feed's corner.
+    var wordGoal: Int = 10
+    /// The soft ambient loop under Scroll the Word. Off by default.
+    var ambientSound: Bool = false
+    /// v1.1 friends: friends see "saved this" on verses I save (only the references). Off by default.
+    var shareSavesWithFriends: Bool = false
 
     init() {}
 
@@ -219,6 +225,9 @@ struct AppSettings: Codable, Equatable, Sendable {
         wordTextScale = (try? c.decodeIfPresent(Double.self, forKey: .wordTextScale)) ?? d.wordTextScale
         readAloud = (try? c.decodeIfPresent(Bool.self, forKey: .readAloud)) ?? d.readAloud
         showMeanings = (try? c.decodeIfPresent(Bool.self, forKey: .showMeanings)) ?? d.showMeanings
+        wordGoal = min(200, max(1, (try? c.decodeIfPresent(Int.self, forKey: .wordGoal)) ?? d.wordGoal))
+        ambientSound = (try? c.decodeIfPresent(Bool.self, forKey: .ambientSound)) ?? d.ambientSound
+        shareSavesWithFriends = (try? c.decodeIfPresent(Bool.self, forKey: .shareSavesWithFriends)) ?? d.shareSavesWithFriends
         reminders = (try? c.decodeIfPresent(ReminderSettings.self, forKey: .reminders)) ?? d.reminders
         appearance = (try? c.decodeIfPresent(AppearancePreference.self, forKey: .appearance)) ?? d.appearance
         scrollHoursPerDay = try c.decodeIfPresent(Double.self, forKey: .scrollHoursPerDay) ?? d.scrollHoursPerDay

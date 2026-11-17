@@ -68,10 +68,19 @@ Launch arguments (scheme or UI tests):
 600 px @3x; `icon_1024.png` must be opaque). Every illustration has a SwiftUI fallback (`MascotView`, `ArtImage`),
 so a missing file never breaks a screen. `tools/make_icon.swift` draws a fallback icon in code.
 
+### Scroll the Word backdrops and sound
+
+`PrayToScroll/Resources/Backgrounds/scroll-bg-01…60.heic` are original full-bleed photos made for this app (image
+generation with no people, text, logos or other apps' looks), 1024×1536, HEIC q85, about 150 KB each.
+`scroll-ambient.m4a` is an original 32-second pad synthesized from scratch by `tools/make_ambient.py` (sine voices +
+soft noise, every cycle whole so it loops without a seam); off by default.
+
 ## Content
 
 `PrayToScroll/Resources/{verses,prompts,challenges,copy}.json` are copies of `../content/*.json`. Re-copy them when
-the content files change. `copy.json` placeholders: `{name}` (user's first name, "friend" fallback), `{hours}`,
+the content files change. `scroll.json` (app only) holds Scroll the Word's extra verses (days 1001+, past the daily
+366), Bible facts, "Who said it?", "Finish the verse" and reflection questions; after editing refs or answers, run
+`tools/bible_text.py scroll <engwebp_vpl.txt> <eng-kjv_vpl.txt>` to refill the Bible text. `copy.json` placeholders: `{name}` (user's first name, "friend" fallback), `{hours}`,
 `{days}`, `{streak}`, `{verseRef}`, `{verseText}`; in `prompts.json`, `{name}` is the person being prayed for.
 
 ## Prayer Circles (CloudKit)

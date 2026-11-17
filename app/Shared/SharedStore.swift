@@ -51,6 +51,7 @@ final class SharedStore: @unchecked Sendable {
         #endif
         static let wordSeen = "ak.word.seen"
         static let wordSeed = "ak.word.seed"
+        static let wordProgress = "ak.word.progress"
     }
 
     // MARK: Settings
@@ -129,6 +130,12 @@ final class SharedStore: @unchecked Sendable {
 
     func markVerseSeen(_ day: Int) {
         wordSeen = WordFeedPlanner.markSeen(day, in: wordSeen)
+    }
+
+    /// Scroll the Word progress: verses read, the goal streak, level, badges, boards and "For you" weights.
+    var wordProgressData: Data? {
+        get { defaults.data(forKey: Key.wordProgress) }
+        set { defaults.set(newValue, forKey: Key.wordProgress) }
     }
 
     /// This install's shuffle for Scroll the Word (made once).

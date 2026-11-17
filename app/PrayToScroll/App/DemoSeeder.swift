@@ -69,6 +69,26 @@ enum DemoSeeder {
         let today = DayKey(now, calendar: calendar)
         store.frozenDays = [today.adding(days: -9, calendar: calendar)]
         store.promptBags = [:]
+
+        // Scroll the Word: four goal days in a row before today (today still open, nothing read yet), Level 5.
+        var word = WordProgress()
+        for back in 1...12 {
+            let day = today.adding(days: -back, calendar: calendar).string
+            let read = back <= 4 ? 10 + back : (back == 5 || back.isMultiple(of: 3) ? 4 : 11)
+            word.readByDay[day] = read
+            if read >= WordProgress.defaultGoal { word.goalDays.append(day) }
+        }
+        word.goalDays.sort()
+        word.totalRead = 142
+        word.themesRead = ["peace", "hope", "anxiety", "strength", "love", "rest", "gratitude", "courage", "purpose"]
+        word.finishPlayed = 6
+        word.finishRight = 4
+        word.whoPlayed = 3
+        word.whoRight = 2
+        word.badges = [.firstSave, .firstGoal, .streak3, .read100, .firstBoard]
+        word.affinity = ["peace": 2.4, "hope": 1.6, "anxiety": 1.1, "focus": -0.6]
+        word.ensureBoards()
+        store.wordProgressData = try? JSONEncoder().encode(word)
     }
 
     static func seedData(context: ModelContext, store: SharedStore, withPeople: Bool = true) {
@@ -184,6 +204,14 @@ enum DemoSeeder {
                 let saved = SavedVerse(verse: verses[(todayIndex + offset * 7) % verses.count])
                 saved.savedAt = daysAgo(offset % 30, hour: 22)
                 context.insert(saved)
+            }
+            // Two of them on the "Morning" board.
+            if let data = store.wordProgressData, var word = try? JSONDecoder().decode(WordProgress.self, from: data),
+               let morning = word.boards.first {
+                for offset in [3, 11] {
+                    _ = word.add(ref: verses[(todayIndex + offset * 7) % verses.count].ref, toBoard: morning.id, today: today)
+                }
+                store.wordProgressData = try? JSONEncoder().encode(word)
             }
         }
         if !withPeople {

@@ -5,6 +5,7 @@
     tools/bible_text.py check <engwebp_vpl.txt>    # reports verses.json WEB text that differs from ebible's WEB
     tools/bible_text.py advent <plan.json> <engwebp_vpl.txt> <eng-kjv_vpl.txt>   # writes Resources/advent.json
     tools/bible_text.py devotionals <devos.json> <engwebp_vpl.txt> <eng-kjv_vpl.txt>   # writes Resources/devotionals.json
+    tools/bible_text.py scroll <engwebp_vpl.txt> <eng-kjv_vpl.txt>   # refills the Bible text in Resources/scroll.json
 
 Download (both public domain): https://ebible.org/Scriptures/eng-kjv_vpl.zip and engwebp_vpl.zip.
 KJV note: public domain everywhere except the UK, where the Crown's letters patent cover printed copies.
@@ -61,9 +62,68 @@ def passage(table, ref, kjv=False):
     return " ".join(parts)
 
 
+def _balance(text, open_mark, close_mark, is_close):
+    opens, stray = [], []
+    for i, ch in enumerate(text):
+        if ch == open_mark:
+            opens.append(i)
+        elif ch == close_mark and is_close(text, i):
+            if opens:
+                opens.pop()
+            else:
+                stray.append(i)
+    drop = {i for i in opens if i == 0} | {i for i in stray if i == len(text) - 1}
+    body = "".join(ch for i, ch in enumerate(text) if i not in drop)
+    return open_mark * sum(i not in drop for i in stray) + body + close_mark * sum(i not in drop for i in opens)
+
+
+def balance_quotes(text):
+    """A passage cut out of a longer speech can open a quote it never closes (or close one it never opened).
+    A stray mark at the very start or end goes; any other gets its partner at the other end (as the daily verses do).
+    Single quotes first (a ’ only closes a quote after punctuation; otherwise it's an apostrophe), then double."""
+    text = _balance(text, "‘", "’", lambda t, i: i > 0 and t[i - 1] in ",.?!;:”")
+    return _balance(text, "“", "”", lambda t, i: True)
+
+
+def display_passage(table, ref, kjv=False):
+    """A passage ready for a card: balanced quotes, a capital first letter, and "…" where it stops mid-sentence."""
+    text = balance_quotes(passage(table, ref, kjv).strip())
+    lead = len(text) - len(text.lstrip("“‘"))
+    if text[lead:lead + 1].islower():
+        text = text[:lead] + text[lead].upper() + text[lead + 1:]
+    stripped = text.rstrip("”’")
+    if stripped[-1:] in ",;:":
+        text = stripped[:-1] + "…" + text[len(stripped):]
+    return text
+
+
+def scroll(path, web, kjv):
+    """Scroll the Word extras: verse text (WEB + KJV), "Finish the verse" text, and each fact's verse."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    for verse in data["verses"]:
+        verse["text"] = display_passage(web, verse["ref"])
+        verse["kjv"] = display_passage(kjv, verse["ref"], kjv=True)
+    for item in data["finish"]:
+        item["text"] = display_passage(web, item["ref"])
+        body = item["text"].rstrip("”’.!?…")
+        if not body.lower().endswith(item["answer"].lower()):
+            sys.exit(f'{item["ref"]}: the answer "{item["answer"]}" isn\'t how the verse ends: …{item["text"][-50:]}')
+    for fact in data["facts"]:
+        fact["verseText"] = display_passage(web, fact["ref"])
+    for text in [v["text"] for v in data["verses"]] + [f["text"] for f in data["finish"]]:
+        if "Yahweh" in text:
+            sys.exit('use the "LORD" edition of the WEB (engwebp)')
+    Path(path).write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    print(f'scroll: {len(data["verses"])} verses, {len(data["facts"])} facts, {len(data["whoSaid"])} who said, '
+          f'{len(data["finish"])} finish, {len(data["reflect"])} questions')
+
+
 def main():
     mode, source = sys.argv[1], sys.argv[2]
     verses_path = Path(__file__).resolve().parent.parent / "PrayToScroll/Resources/verses.json"
+    if mode == "scroll":
+        scroll(verses_path.parent / "scroll.json", load(source), load(sys.argv[3]))
+        return
     verses = json.loads(verses_path.read_text(encoding="utf-8"))
     table = load(source)
     if mode == "kjv":

@@ -138,6 +138,7 @@ DEFINE SCHEMA
         streak          INT64,
         lastPrayedDay   STRING,
         openCircles     LIST<STRING>,
+        savedRefs       LIST<STRING>,
         updatedAt       TIMESTAMP,
         GRANT WRITE TO "_creator",
         GRANT CREATE TO "_icloud",

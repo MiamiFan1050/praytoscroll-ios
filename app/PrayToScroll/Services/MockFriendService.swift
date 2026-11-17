@@ -24,10 +24,14 @@ final class MockFriendService: FriendService, @unchecked Sendable {
         let service = MockFriendService()
         let today = DayKey(Date()).string
         let yesterday = DayKey(Date().addingTimeInterval(-86_400)).string
+        // Both friends saved today's verse (the feed's first card), so the demo shows "Grace and Sam saved this".
+        let todayRef = VerseProvider.shared.verse(for: Date()).ref
         let people: [FriendProfile] = [
             FriendProfile(memberID: "f-grace", handle: "grace", displayName: "Grace", emoji: "🌿", streak: 22, lastPrayedDay: today,
-                          openCircles: [.init(code: "G8R4CE", name: "Grace's Prayer Team")]),
-            FriendProfile(memberID: "f-sam", handle: "sam_p", displayName: "Sam", emoji: "⛰️", streak: 9, lastPrayedDay: yesterday),
+                          openCircles: [.init(code: "G8R4CE", name: "Grace's Prayer Team")],
+                          savedRefs: [todayRef, "Psalm 46:10", "Isaiah 41:10", "Matthew 11:28-30"]),
+            FriendProfile(memberID: "f-sam", handle: "sam_p", displayName: "Sam", emoji: "⛰️", streak: 9, lastPrayedDay: yesterday,
+                          savedRefs: [todayRef, "Joshua 1:9"]),
             FriendProfile(memberID: "f-jordan", handle: "jordan_k", displayName: "Jordan", emoji: "🔥", streak: 4, lastPrayedDay: today),
             FriendProfile(memberID: "f-hannah", handle: "hannah_b", displayName: "Hannah", emoji: "🌸", streak: 14, lastPrayedDay: today),
         ]

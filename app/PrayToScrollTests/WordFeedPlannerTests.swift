@@ -67,10 +67,14 @@ final class WordFeedPlannerTests: XCTestCase {
         XCTAssertEqual(store.wordSeed, store.wordSeed, "made once")
     }
 
-    func testAPromptCardFollowsEveryFiveVerses() {
-        let items = FeedItem.build(ordered: Array(verses.prefix(12)), prompts: ["Pray A.", "Pray {name}.", "Pray B."], promptOffset: 0)
-        XCTAssertEqual(items.count, 14)
-        XCTAssertNil(items[5].verse)
+    func testADifferentCardEveryTwoOrThreeVerses() {
+        let items = FeedMixer.build(.init(verses: Array(verses.prefix(12)), content: ScrollContent(),
+                                          prompts: ["Pray A.", "Pray {name}.", "Pray B."], topic: nil, seed: 1))
+        XCTAssertEqual(items.first?.kind, .verse)
+        var run = 0
+        for item in items.dropLast() {
+            if item.kind == .verse { run += 1 } else { XCTAssertTrue((2...3).contains(run), "verses before \(item.id): \(run)"); run = 0 }
+        }
         XCTAssertFalse(items.contains { $0.prompt?.contains("{name}") == true })
         XCTAssertEqual(Set(items.map(\.id)).count, items.count, "ids are unique")
     }
