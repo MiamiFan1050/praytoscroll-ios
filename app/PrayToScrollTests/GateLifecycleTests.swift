@@ -136,7 +136,10 @@ final class GateLifecycleTests: XCTestCase {
         XCTAssertEqual(store.unlockedUntil, shorter)
         let rest = try XCTUnwrap(model.changeLastUnlock(to: .restOfToday))
         XCTAssertEqual(Calendar.current.component(.hour, from: rest), model.settings.dailyKeyResetHour)
-        XCTAssertEqual(reason(decide("instagram", store, at: base.at.addingTimeInterval(3600))), .dailyKey)
+        // Inside the Rest-of-today window, wherever the clock is: an hour on could already be past the reset hour
+        // when the test runs in the hour before it (03:55 failed with a 4 a.m. reset).
+        let inside = base.at.addingTimeInterval(min(3600, rest.timeIntervalSince(base.at) / 2))
+        XCTAssertEqual(reason(decide("instagram", store, at: inside)), .dailyKey)
         _ = model.changeLastUnlock(to: .minutes(15))
         XCTAssertNil(store.dailyKeyUntil, "switching back drops Rest of today")
         XCTAssertEqual(model.unlockChoice, .minutes(30), "the default doesn't change")
