@@ -164,7 +164,8 @@ struct OnboardingView: View {
             let typed = UsernameRules.normalize(handle)
             return handleWorking || (!typed.isEmpty && (UsernameRules.problem(with: typed) != nil || friendsAvailability != .available))
         }
-        return step == .chooseApps && model.settings.gatedAppIDs.isEmpty
+        // Only the Shortcuts list needs a pick first; under Screen Time this button opens Apple's picker.
+        return step == .chooseApps && useShortcuts && model.settings.gatedAppIDs.isEmpty
     }
 
     private var secondaryTitle: String? {

@@ -19,6 +19,16 @@ extension XCTestCase {
         return nil
     }
 
+    /// A SwiftUI Toggle in a List/Form reports the whole row; a tap on its middle lands on the label and does nothing
+    /// (iOS 26). Tap the switch end, then the inner switch, until it has the value we want.
+    func setSwitch(_ toggle: XCUIElement, on: Bool, file: StaticString = #filePath, line: UInt = #line) {
+        let want = on ? "1" : "0"
+        guard (toggle.value as? String) != want else { return }
+        toggle.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        if (toggle.value as? String) != want, toggle.switches.firstMatch.exists { toggle.switches.firstMatch.tap() }
+        XCTAssertEqual(toggle.value as? String, want, "the switch is \(on ? "on" : "off")", file: file, line: line)
+    }
+
     func waitUntil(_ timeout: TimeInterval, _ condition: () -> Bool) -> Bool {
         let deadline = Date().addingTimeInterval(timeout)
         repeat {

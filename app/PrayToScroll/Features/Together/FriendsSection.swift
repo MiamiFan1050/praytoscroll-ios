@@ -292,7 +292,8 @@ struct AddFriendSheet: View {
     @State private var result: FriendProfile?
     @State private var error: String?
     @State private var working = false
-    @State private var sent = false
+    @State private var requested: Set<String> = []   // sent from this sheet (the snapshot predates them)
+    @State private var accepted: Set<String> = []
     @State private var reporting = false
 
     var body: some View {
@@ -345,7 +346,11 @@ struct AddFriendSheet: View {
             }
             .navigationTitle("Add a friend")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }.accessibilityIdentifier("friends.search.done")
+                }
+            }
             .sheet(isPresented: $reporting) {
                 if let result {
                     ReportUserSheet(handle: result.handle) { reason in
@@ -369,9 +374,9 @@ struct AddFriendSheet: View {
     private func statusButton(_ profile: FriendProfile) -> some View {
         if profile.handle == model.username {
             Text("That's you!").foregroundStyle(Theme.textSecondary)
-        } else if snapshot.friends.contains(where: { $0.memberID == profile.memberID }) {
+        } else if accepted.contains(profile.memberID) || snapshot.friends.contains(where: { $0.memberID == profile.memberID }) {
             Label("Friends", systemImage: "checkmark.circle.fill").foregroundStyle(Theme.sageText)
-        } else if sent || snapshot.outgoing.contains(where: { $0.toID == profile.memberID }) {
+        } else if requested.contains(profile.memberID) || snapshot.outgoing.contains(where: { $0.toID == profile.memberID }) {
             Label("Requested", systemImage: "clock").foregroundStyle(Theme.textSecondary)
                 .accessibilityIdentifier("friends.search.requested")
         } else if model.username == nil {
@@ -386,10 +391,10 @@ struct AddFriendSheet: View {
     private func find() {
         let handle = UsernameRules.normalize(text)
         guard handle.count >= UsernameRules.minLength else { return }
+        if result?.handle == handle { return }   // already showing them (e.g. the return key after Find)
         working = true
         error = nil
         result = nil
-        sent = false
         Task {
             do {
                 result = try await model.friends.lookup(handle: handle)
@@ -403,8 +408,13 @@ struct AddFriendSheet: View {
     private func send(_ profile: FriendProfile, accepting request: FriendRequest?) {
         Task {
             do {
-                if let request { try await model.friends.accept(request) } else { try await model.friends.sendRequest(to: profile) }
-                sent = true
+                if let request {
+                    try await model.friends.accept(request)
+                    accepted.insert(profile.memberID)
+                } else {
+                    try await model.friends.sendRequest(to: profile)
+                    requested.insert(profile.memberID)
+                }
                 Haptics.success()
             } catch {
                 self.error = (error as? FriendError)?.errorDescription ?? error.localizedDescription

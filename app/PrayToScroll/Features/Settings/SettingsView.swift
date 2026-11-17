@@ -72,6 +72,17 @@ struct SettingsView: View {
                     .textInputAutocapitalization(.words)
                     .textContentType(.givenName)
             }
+            NavigationLink {
+                UsernameView()
+            } label: {
+                HStack {
+                    settingsLabel("Username", "at")
+                    Spacer()
+                    Text(model.username.map { "@" + $0 } ?? "None")
+                        .font(.akFootnote).foregroundStyle(Theme.textSecondary)
+                }
+            }
+            .accessibilityIdentifier("settings.username")
             Picker(selection: model.binding(\.appearance)) {
                 ForEach(AppearancePreference.allCases) { Text($0.title).tag($0) }
             } label: { settingsLabel("Appearance", "moon.stars.fill") }
@@ -257,17 +268,6 @@ struct SettingsView: View {
 
     private var circlesSection: some View {
         Section {
-            NavigationLink {
-                UsernameView()
-            } label: {
-                HStack {
-                    settingsLabel("Username", "at")
-                    Spacer()
-                    Text(model.username.map { "@" + $0 } ?? "None")
-                        .font(.akFootnote).foregroundStyle(Theme.textSecondary)
-                }
-            }
-            .accessibilityIdentifier("settings.username")
             Picker(selection: model.binding(\.circleDisplayEmoji)) {
                 ForEach(["🕊️", "🌻", "⛰️", "🌿", "🔥", "🌙", "🌷", "⭐️", "🐑", "📖", "☀️", "🌊"], id: \.self) { Text($0).tag($0) }
             } label: { settingsLabel("Your circle emoji", "face.smiling.fill") }

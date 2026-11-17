@@ -102,7 +102,8 @@ final class WordTests: XCTestCase {
         app.buttons["King James Version"].firstMatch.tap()
         let meanings = app.switches["word.meanings"]
         XCTAssertTrue(meanings.exists)
-        meanings.tap()
+        for _ in 0..<3 where !meanings.isHittable { meanings.swipeUp() }
+        setSwitch(meanings, on: false)
         app.buttons["Done"].tap()
 
         let after = visibleCard(app)?.label ?? ""

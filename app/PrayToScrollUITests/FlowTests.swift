@@ -301,9 +301,9 @@ final class FlowTests: XCTestCase {
     /// (lowercased), and Settings shows it.
     func testPickAUsernameInSettings() {
         let app = launch(["-route", "settings", "-noUsername"])
-        let row = app.buttons["settings.username"]
+        let row = app.buttons["settings.username"]   // under "You", at the top of Settings
         XCTAssertTrue(row.waitForExistence(timeout: 10))
-        reveal(row, in: app, swipes: 10)
+        reveal(row, in: app)
         XCTAssertTrue(row.label.contains("None"), row.label)
         row.tap()
 
@@ -355,7 +355,11 @@ final class FlowTests: XCTestCase {
         send.tap()
         XCTAssertTrue(app.descendants(matching: .any)["friends.search.requested"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["friends.search.block"].exists, "report + block on every username")
-        app.buttons["Done"].firstMatch.tap()
+        // Return re-runs nothing and "Requested" stays (it used to flip back to "Send friend request").
+        field.tap()
+        field.typeText("\n")
+        XCTAssertTrue(app.descendants(matching: .any)["friends.search.requested"].waitForExistence(timeout: 3))
+        app.buttons["friends.search.done"].tap()   // not "Done": the keyboard's return key is called that too
 
         let cancel = app.buttons["friends.cancel.hannah_b"]
         XCTAssertTrue(cancel.waitForExistence(timeout: 5), "the outgoing request shows with Cancel")

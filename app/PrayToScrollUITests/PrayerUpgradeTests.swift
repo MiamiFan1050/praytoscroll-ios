@@ -87,7 +87,9 @@ final class PrayerUpgradeTests: XCTestCase {
         // Report is on every request (App Review 1.2).
         request.press(forDuration: 1.0)
         XCTAssertTrue(app.buttons["Report"].waitForExistence(timeout: 5))
-        app.tap()   // dismiss the menu
+        // Dismiss the menu with a tap at the top: the middle of the screen can land on "Pray for this now".
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.06)).tap()
+        XCTAssertTrue(waitUntil(3) { !app.buttons["Report"].exists }, "the menu closed")
 
         // Ask: a link is refused, a plain line posts.
         app.buttons["Ask"].firstMatch.tap()

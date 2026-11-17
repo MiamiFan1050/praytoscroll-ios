@@ -290,13 +290,18 @@ struct SectionHeader: View {
                 .foregroundStyle(Theme.textPrimary)
             Spacer()
             if let actionTitle, let action {
-                Button(actionTitle) {
+                Button {
                     Haptics.tap()
                     action()
+                } label: {
+                    // The word alone was a 27×18 pt target; pad it to Apple's 44 pt minimum.
+                    Text(actionTitle)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .padding(.leading, 12)
+                        .contentShape(Rectangle())
                 }
                 .font(.akSubheadlineSemibold)
                 .foregroundStyle(Theme.goldText)
-                .frame(minHeight: 44)
             }
         }
         .accessibilityAddTraits(.isHeader)

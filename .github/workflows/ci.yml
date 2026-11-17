@@ -3,6 +3,13 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      only_tests:
+        description: >-
+          Cheap re-run: space-separated UI tests (Class or Class/testMethod in PrayToScrollUITests). Runs just those;
+          skips unit tests, screenshots, the release check, video and crawl. Empty = the full CI.
+        required: false
+        default: ""
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -35,6 +42,7 @@ jobs:
           xcrun simctl boot "$UDID" || true
 
       - name: Build + unit tests
+        if: ${{ !inputs.only_tests }}
         run: |
           set -o pipefail
           cd app
@@ -46,14 +54,24 @@ jobs:
 
       - name: UI tests + screenshots
         if: always()
+        env:
+          ONLY_TESTS: ${{ inputs.only_tests }}
         run: |
           set -o pipefail
           cd app
           xcrun simctl status_bar "$SIM" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+          SELECT=(-skip-testing:PrayToScrollUITests/CrawlTests -skip-testing:PrayToScrollUITests/TapThroughTests)
+          if [ -n "$ONLY_TESTS" ]; then
+            SELECT=()
+            for t in $ONLY_TESTS; do
+              [[ "$t" =~ ^[A-Za-z0-9_]+(/[A-Za-z0-9_]+)?$ ]] || { echo "bad test name: $t"; exit 1; }
+              SELECT+=("-only-testing:PrayToScrollUITests/$t")
+            done
+          fi
           xcodebuild -project PrayToScroll.xcodeproj -scheme PrayToScrollScreenshots \
             -destination "id=$SIM" -derivedDataPath ../build \
             -resultBundlePath ../out/ui.xcresult \
-            -skip-testing:PrayToScrollUITests/CrawlTests -skip-testing:PrayToScrollUITests/TapThroughTests \
+            "${SELECT[@]}" \
             CODE_SIGNING_ALLOWED=NO test 2>&1 | tee ../out/ui.log | grep -E "error:|Test Case .*(passed|failed)|Executed|\*\* (BUILD|TEST)" || true
           grep -q "\*\* TEST SUCCEEDED \*\*" ../out/ui.log
 
@@ -67,7 +85,7 @@ jobs:
           ls -la out/screenshots | head -60
 
       - name: Release-config compile check (device, unsigned)
-        if: always()
+        if: ${{ always() && !inputs.only_tests }}
         run: |
           set -o pipefail
           cd app
@@ -102,6 +120,7 @@ jobs:
 
   # The 60-90 s walk-through video, on its own runner so it always uploads.
   video:
+    if: ${{ !inputs.only_tests }}
     runs-on: macos-15
     timeout-minutes: 30
     steps:
@@ -163,6 +182,7 @@ jobs:
 
   # The crawler in two halves on parallel runners (each screen has a tap + time budget).
   crawl:
+    if: ${{ !inputs.only_tests }}
     runs-on: macos-15
     timeout-minutes: 35
     strategy:
@@ -216,7 +236,7 @@ jobs:
 
   crawl-report:
     needs: crawl
-    if: always()
+    if: ${{ always() && !inputs.only_tests }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
