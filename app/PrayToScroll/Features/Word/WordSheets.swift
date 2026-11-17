@@ -186,9 +186,31 @@ struct SaveToBoardSheet: View {
     @State private var newName = ""
     @State private var newEmoji = "✨"
     @State private var creating = false
+    @FocusState private var nameFocused: Bool
     private static let emojis = ["✨", "🙏", "🕊️", "🌿", "🔥", "💛", "⛰️", "🌊", "🌙", "📖"]
 
     var body: some View {
+        ScrollViewReader { proxy in
+            form
+                .onChange(of: creating) { _, now in
+                    guard now else { return }
+                    // The name field opens below the boards: bring it on screen and put the cursor in it.
+                    DispatchQueue.main.async {
+                        withAnimation { proxy.scrollTo(Self.nameRow, anchor: .center) }
+                        nameFocused = true
+                    }
+                }
+        }
+        .tint(Palette.gold)
+        .navigationTitle("Save to a board")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) } }
+        .onAppear { model.wordProgress.ensureBoards() }
+    }
+
+    private static let nameRow = "word.board.nameRow"
+
+    private var form: some View {
         Form {
             Section {
                 Text(verse.ref)
@@ -232,6 +254,8 @@ struct SaveToBoardSheet: View {
                         }
                     }
                     TextField("Board name", text: $newName)
+                        .focused($nameFocused)
+                        .id(Self.nameRow)
                         .textInputAutocapitalization(.sentences)
                         .submitLabel(.done)
                         .onSubmit(create)
@@ -249,11 +273,6 @@ struct SaveToBoardSheet: View {
                 }
             }
         }
-        .tint(Palette.gold)
-        .navigationTitle("Save to a board")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.fontWeight(.semibold) } }
-        .onAppear { model.wordProgress.ensureBoards() }
     }
 
     private func toggle(_ board: WordBoard, on: Bool) {
@@ -273,6 +292,7 @@ struct SaveToBoardSheet: View {
         _ = model.wordProgress.add(ref: verse.ref, toBoard: board.id, today: DayKey.today())
         Haptics.success()
         newName = ""
+        nameFocused = false
         creating = false
     }
 }

@@ -91,7 +91,7 @@ struct WordFeedView: View {
         .sheet(item: $boardVerse) { verse in
             NavigationStack { SaveToBoardSheet(verse: verse) { ensureSaved(verse) } }
                 .environment(model)
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])   // room for the boards and a new board's name without scrolling
         }
         .sheet(item: $sendVerse) { verse in
             SendVerseSheet(verse: verse) {

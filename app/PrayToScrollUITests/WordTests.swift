@@ -122,13 +122,13 @@ final class WordTests: XCTestCase {
         app.buttons["word.board.new"].tap()
         let name = app.textFields["word.board.newName"]
         XCTAssertTrue(name.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["word.board.create"].exists, "a Create button next to the name")
         name.tap()
-        name.typeText("Hard Mondays")
-        app.buttons["word.board.create"].tap()
+        name.typeText("Hard Mondays\n")   // Return creates it (the keyboard covers the button on smaller phones)
         let mine = app.buttons["word.board.Hard Mondays"]
         XCTAssertTrue(mine.waitForExistence(timeout: 4), "the new board is listed")
         XCTAssertEqual(mine.value as? String, "Added")
-        app.buttons["Done"].tap()
+        app.navigationBars["Save to a board"].buttons["Done"].tap()
 
         app.buttons["word.saved"].tap()
         XCTAssertTrue(app.navigationBars["Saved verses"].waitForExistence(timeout: 5))
