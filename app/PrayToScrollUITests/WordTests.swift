@@ -108,7 +108,7 @@ final class WordTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["word.feed"].waitForExistence(timeout: 10))
         let friends = app.descendants(matching: .any)["word.friendsSaved"].firstMatch
         XCTAssertTrue(friends.waitForExistence(timeout: 10), "the demo friends saved today's verse")
-        XCTAssertEqual(friends.label, "Grace and Sam saved this")
+        XCTAssertEqual(friends.label, "Naomi and Sam saved this")
 
         firstHittable(app.buttons.matching(identifier: "word.save"))?.tap()
         let addToBoard = app.buttons["word.toast.board"]

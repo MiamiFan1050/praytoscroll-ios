@@ -162,6 +162,6 @@ struct PrayToScrollShortcuts: AppShortcutsProvider {
         AppShortcut(intent: PrayFirstIntent(),
                     phrases: ["Pray first with \(.applicationName)"],
                     shortTitle: "Pray First",
-                    systemImageName: "key.fill")
+                    systemImageName: "scroll.fill")
     }
 }

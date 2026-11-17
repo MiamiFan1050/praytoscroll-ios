@@ -66,7 +66,7 @@ struct ArtImage<Fallback: View>: View {
     }
 }
 
-/// Placeholder lamb: fluffy wool, closed eyes, little hooves together, a gold key on a chain.
+/// Placeholder lamb: fluffy wool, closed eyes, little hooves together, a little sealed scroll on a chain.
 private struct DrawnLamb: View {
     var pose: MascotView.Pose
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
@@ -107,7 +107,7 @@ private struct DrawnLamb: View {
                         .stroke(Color(hex: 0x6B4A3A), style: StrokeStyle(lineWidth: s * 0.012, lineCap: .round))
                         .frame(width: s * 0.06, height: s * 0.025)
                         .offset(y: s * 0.0)
-                    // gold chain + key
+                    // gold chain + scroll
                     Capsule()
                         .stroke(Palette.goldGradient, lineWidth: s * 0.012)
                         .frame(width: s * 0.22, height: s * 0.08)

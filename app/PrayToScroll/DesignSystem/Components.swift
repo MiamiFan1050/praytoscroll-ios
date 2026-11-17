@@ -389,12 +389,17 @@ struct EmptyState: View {
     let title: String
     let message: String
     var systemImage: String = "sparkles"
+    /// Art for this empty state in the asset catalog (art/v3 "Empty-…"); otherwise the sleeping scroll.
+    var artName: String?
     var actionTitle: String?
     var action: (() -> Void)?
 
     var body: some View {
         VStack(spacing: 16) {
-            if MascotView.hasArt {
+            if let artName, ArtAsset.image(artName) != nil {
+                ArtImage(name: artName) { Color.clear }
+                    .frame(width: 170, height: 170)
+            } else if MascotView.hasArt {
                 MascotView(pose: .sleeping, size: 170)
             } else {
                 DoorwayIllustration(symbol: systemImage)

@@ -216,11 +216,15 @@ struct FriendsSection: View {
             }
             if snapshot.friends.isEmpty {
                 Divider().overlay(Theme.stroke)
-                Text("No friends yet. Share your username, or add someone by theirs.")
-                    .font(.akFootnote)
-                    .foregroundStyle(Theme.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 12)
+                HStack(spacing: 12) {
+                    ArtImage(name: "Empty-friends") { EmptyView() }
+                        .frame(width: 72, height: 72)
+                    Text("No friends yet. Share your username, or add someone by theirs.")
+                        .font(.akFootnote)
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.vertical, 8)
             }
         }
         .akCard(padding: 14)

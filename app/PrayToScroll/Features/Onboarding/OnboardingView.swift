@@ -455,10 +455,7 @@ struct OnboardingView: View {
 
     private var mirrorPage: some View {
         scrollPage {
-            if MascotView.hasArt {
-                MascotView(pose: .phone, size: 150)
-                    .frame(maxWidth: .infinity)
-            }
+            hero("Onboarding-3", size: 170, fallback: .phone)
             VStack(spacing: 6) {
                 Text("\(mirrorDays)")
                     .font(.system(size: 120, weight: .bold, design: .serif))
@@ -481,6 +478,19 @@ struct OnboardingView: View {
         }
     }
 
+    /// A page's illustration (art/v3 onboarding heroes), centred. Without the art: the mascot pose, or nothing.
+    @ViewBuilder
+    private func hero(_ name: String, size: CGFloat, fallback: MascotView.Pose?) -> some View {
+        if ArtAsset.image(name) != nil {
+            ArtImage(name: name) { EmptyView() }
+                .frame(width: size, height: size)
+                .frame(maxWidth: .infinity)
+        } else if let fallback, MascotView.hasArt {
+            MascotView(pose: fallback, size: size * 0.72)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
     private func mirrorStat(value: String, label: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(value)
@@ -493,16 +503,13 @@ struct OnboardingView: View {
 
     private var promisePage: some View {
         scrollPage {
-            if MascotView.hasArt {
-                MascotView(pose: .phone, size: 130)
-                    .frame(maxWidth: .infinity)
-            }
+            hero("Onboarding-1", size: 210, fallback: .phone)
             header(text("promise.headline", "Here's the deal."),
                    text("promise.subline", "When you open a gated app, you pray first. Then you hold Amen, and the app is yours."))
             VStack(spacing: 12) {
                 promiseRow(1, "iphone.gen3", "Open Instagram, TikTok, anything you choose", "Your app pauses for a moment.")
                 promiseRow(2, "hands.and.sparkles.fill", "Pray for 30 seconds or a few minutes", "A prompt, a verse, or a friend.")
-                promiseRow(3, "key.fill", "Press and hold Amen", "Your app opens, and stays open for your window.")
+                promiseRow(3, "hand.tap.fill", "Press and hold Amen", "Your app opens, and stays open for your window.")
             }
             Label("Free. No ads. No account. No tracking.", systemImage: "lock.shield.fill")
                 .font(.akFootnote.weight(.semibold))
@@ -558,6 +565,7 @@ struct OnboardingView: View {
 
     private var chooseAppsPage: some View {
         scrollPage {
+            hero("Onboarding-2", size: 180, fallback: nil)
             #if STRICT_LOCK
             header(text("chooseApps.headline", "Which apps pull you in?"),
                    useShortcuts ? text("chooseApps.subline", "Pick the ones you open without thinking.")
@@ -824,6 +832,7 @@ struct OnboardingView: View {
     /// Optional: a @username so friends can add you. Skippable; Settings → Username any time.
     private var usernamePage: some View {
         scrollPage {
+            hero("Onboarding-4", size: 190, fallback: nil)
             header("Pick a @username", "Optional. Friends add you by it and see your streak, never what you pray. Nobody can find you until you pick one.")
             UsernameField(text: $handle, dark: true)
                 .padding(.horizontal, 18)
@@ -866,7 +875,7 @@ struct OnboardingView: View {
 
     private var gateSetupPage: some View {
         scrollPage {
-            ArtImage(name: "PadlockGold") { DoorwayIllustration(symbol: "key.fill") }
+            ArtImage(name: "SealScroll") { DoorwayIllustration(symbol: "scroll.fill") }
                 .frame(width: 150, height: 150)
                 .shadow(color: Palette.gold.opacity(0.4), radius: 28)
                 .frame(maxWidth: .infinity)
@@ -913,7 +922,7 @@ struct OnboardingView: View {
     }
 }
 
-/// A gently pulsing key-in-ring that previews the Amen button.
+/// A gently pulsing scroll-in-ring that previews the Amen button.
 private struct HoldPreview: View {
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     private var reduceMotion: Bool { systemReduceMotion || MotionPolicy.off }

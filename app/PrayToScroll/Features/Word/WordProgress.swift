@@ -68,6 +68,9 @@ enum WordBadge: String, Codable, CaseIterable, Identifiable, Sendable {
         case .firstSend: return "paperplane.fill"
         }
     }
+
+    /// The badge's art in the asset catalog (art/v3); `symbol` is the fallback.
+    var artName: String { "Badge-\(rawValue)" }
 }
 
 /// Levels grow with verses read: a seed to a harvest, then on.
@@ -87,6 +90,10 @@ struct WordLevel: Equatable, Sendable {
         return WordLevel(number: index + 1, name: names[index], floor: floors[index],
                          next: index + 1 < floors.count ? floors[index + 1] : nil)
     }
+
+    /// The level's art in the asset catalog (art/v3): "Level-01" … "Level-15".
+    static func artName(_ number: Int) -> String { "Level-" + (number < 10 ? "0" : "") + "\(number)" }
+    var artName: String { Self.artName(number) }
 
     func progress(read: Int) -> Double {
         guard let next else { return 1 }

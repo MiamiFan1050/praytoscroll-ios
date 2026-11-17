@@ -42,7 +42,8 @@ struct SavedVersesView: View {
     @ViewBuilder
     private var allList: some View {
         if saved.isEmpty {
-            EmptyState(title: "No saved verses yet", message: "Double-tap a verse in Scroll the Word to keep it here.", systemImage: "heart.fill")
+            EmptyState(title: "No saved verses yet", message: "Double-tap a verse in Scroll the Word to keep it here.", systemImage: "heart.fill",
+                       artName: "Empty-saved")
                 .frame(maxHeight: .infinity)
         } else {
             List {
@@ -153,7 +154,7 @@ private struct BoardDetailView: View {
             AppBackground()
             if entries.isEmpty {
                 EmptyState(title: "Nothing here yet", message: "Long-press the heart on a verse to add it to \(board?.name ?? "this board").",
-                           systemImage: "rectangle.stack.fill")
+                           systemImage: "rectangle.stack.fill", artName: "Empty-saved")
             } else {
                 List {
                     ForEach(entries) { entry in
@@ -363,35 +364,34 @@ struct WordProgressSheet: View {
                     statTile("\(progress.goalDays.count)", label: "goal days", symbol: "checkmark.seal.fill", id: "word.progress.days")
                 }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("Level \(level.number) · \(level.name)")
-                            .font(.system(.title3, design: .serif, weight: .bold))
-                            .foregroundStyle(Palette.cream)
-                        Spacer()
-                        if let next = level.next {
-                            Text("\(max(0, next - progress.totalRead)) to \(WordLevel.for(read: next).name)")
-                                .font(.akFootnote).foregroundStyle(Palette.cream.opacity(0.7))
+                HStack(spacing: 14) {
+                    WordLevelArt(number: level.number, size: 64)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Text("Level \(level.number) · \(level.name)")
+                                .font(.system(.title3, design: .serif, weight: .bold))
+                                .foregroundStyle(Palette.cream)
+                            Spacer()
+                            if let next = level.next {
+                                Text("\(max(0, next - progress.totalRead)) to \(WordLevel.for(read: next).name)")
+                                    .font(.akFootnote).foregroundStyle(Palette.cream.opacity(0.7))
+                            }
                         }
+                        ProgressView(value: level.progress(read: progress.totalRead))
+                            .tint(Palette.gold)
+                            .accessibilityLabel("Level progress")
                     }
-                    ProgressView(value: level.progress(read: progress.totalRead))
-                        .tint(Palette.gold)
-                        .accessibilityLabel("Level progress")
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("word.progress.level")
 
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Badges").akOverline(color: Palette.warmGold)
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 12) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 12)], spacing: 14) {
                         ForEach(WordBadge.allCases, id: \.self) { badge in
                             let earned = progress.badges.contains(badge)
                             VStack(spacing: 6) {
-                                Image(systemName: badge.symbol)
-                                    .font(.system(size: 22, weight: .semibold))
-                                    .foregroundStyle(earned ? AnyShapeStyle(Palette.goldGradient) : AnyShapeStyle(Palette.cream.opacity(0.3)))
-                                    .frame(width: 48, height: 48)
-                                    .background(Circle().fill(Color.white.opacity(earned ? 0.12 : 0.05)))
+                                WordBadgeArt(badge: badge, earned: earned, size: 68)
                                 Text(badge.title)
                                     .font(.akCaption.weight(.semibold))
                                     .foregroundStyle(Palette.cream.opacity(earned ? 1 : 0.5))

@@ -75,6 +75,13 @@ jobs:
             CODE_SIGNING_ALLOWED=NO test 2>&1 | tee ../out/ui.log | grep -E "error:|Test Case .*(passed|failed)|Executed|\*\* (BUILD|TEST)" || true
           grep -q "\*\* TEST SUCCEEDED \*\*" ../out/ui.log
 
+      - name: App size (asset catalog)
+        if: always()
+        run: |
+          APPDIR=$(find build/Build/Products -maxdepth 2 -name "PrayToScroll.app" -type d | head -1)
+          [ -n "$APPDIR" ] || exit 0
+          du -sh "$APPDIR" "$APPDIR/Assets.car" | tee out/app-size.log
+
       - name: Export screenshots from the result bundle
         if: always()
         run: |
@@ -99,6 +106,7 @@ jobs:
           # No dormant code in the Release binary (guideline 2.5.19): no demo/mock/StoreKit types, no StoreKit link.
           APPDIR=$(find ../build-release/Build/Products -maxdepth 2 -name "*.app" -type d | head -1)
           BIN="$APPDIR/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APPDIR/Info.plist")"
+          du -sh "$APPDIR" "$APPDIR/Assets.car" | tee ../out/release-size.log
           strings -a "$BIN" > ../out/release-strings.txt
           grep -q CloudKitCircleService ../out/release-strings.txt   # control: the scan does see Swift type names
           { grep -E "DemoSeeder|MockCircleService|DemoLock|DemoContacts|DemoMessageComposer|ProStore|com\.amenkeyapp\.ios\.demo" ../out/release-strings.txt || true; } | sort -u > ../out/release-dormant.txt

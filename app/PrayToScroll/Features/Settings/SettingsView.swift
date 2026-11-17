@@ -138,7 +138,7 @@ struct SettingsView: View {
 
     private var gateSection: some View {
         Section {
-            Toggle(isOn: model.binding(\.gateEnabled)) { settingsLabel("Prayer Gate", "key.fill") }
+            Toggle(isOn: model.binding(\.gateEnabled)) { settingsLabel("Prayer Gate", "scroll.fill") }
                 .tint(Palette.gold)
             #if STRICT_LOCK
             NavigationLink {

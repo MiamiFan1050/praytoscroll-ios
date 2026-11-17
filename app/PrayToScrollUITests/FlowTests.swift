@@ -321,12 +321,12 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["username.problem"].waitForExistence(timeout: 3), "reserved")
         XCTAssertFalse(save.isEnabled)
 
-        clearAndType(field, "Grace")
-        XCTAssertEqual(field.value as? String, "grace", "lowercased as you type")
+        clearAndType(field, "Naomi")
+        XCTAssertEqual(field.value as? String, "naomi", "lowercased as you type")
         XCTAssertTrue(waitUntil(5) { save.isEnabled })
         save.tap()
         let error = app.descendants(matching: .any)["username.error"]
-        XCTAssertTrue(error.waitForExistence(timeout: 5), "someone already has @grace")
+        XCTAssertTrue(error.waitForExistence(timeout: 5), "someone already has @naomi")
         XCTAssertTrue(error.label.contains("taken"), error.label)
 
         clearAndType(field, "Faith_Walker")
@@ -381,15 +381,15 @@ final class FlowTests: XCTestCase {
         XCTAssertFalse(app.buttons["friends.accept.jordan_k"].exists)
     }
 
-    /// "@grace prayed for you 🙏" shows in the app; "Pray for" a friend runs a prayer, and after the Amen it reads Prayed.
+    /// "@naomi prayed for you 🙏" shows in the app; "Pray for" a friend runs a prayer, and after the Amen it reads Prayed.
     func testPrayedForItemAndPrayingForAFriend() {
         let app = launch(["-route", "friends"])
-        let item = app.descendants(matching: .any)["friends.prayedFor.grace"].firstMatch
+        let item = app.descendants(matching: .any)["friends.prayedFor.naomi"].firstMatch
         XCTAssertTrue(item.waitForExistence(timeout: 10))
-        XCTAssertTrue(item.label.contains("@grace prayed for you"), item.label)
+        XCTAssertTrue(item.label.contains("@naomi prayed for you"), item.label)
         XCTAssertTrue(app.descendants(matching: .any)["friends.row.me"].firstMatch.exists, "my streak sits with theirs")
 
-        let prayFor = app.buttons["friends.prayFor.grace"]
+        let prayFor = app.buttons["friends.prayFor.naomi"]
         reveal(prayFor, in: app)
         XCTAssertTrue(prayFor.isEnabled)
         prayFor.tap()

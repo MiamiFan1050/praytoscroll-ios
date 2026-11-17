@@ -19,7 +19,7 @@ enum DemoSeeder {
         let calendar = Calendar.current
         let now = Date()
         var settings = AppSettings()
-        settings.firstName = "Mark"
+        settings.firstName = "Grace"
         settings.unlockStyle = .guided
         settings.guidedSeconds = 120
         settings.unlockMode = .window
@@ -109,12 +109,12 @@ enum DemoSeeder {
         let dad = Person(name: "Dad", relationship: "Family", emoji: "👨🏻‍🦳", colorIndex: 0)
         let emma = Person(name: "Emma", relationship: "Sister", emoji: "🌷", colorIndex: 4)
         let james = Person(name: "James Carter", relationship: "Small group", emoji: "", colorIndex: 3)
-        let grace = Person(name: "Grace Lee", relationship: "Coworker", emoji: "", colorIndex: 1)
+        let olivia = Person(name: "Olivia Lee", relationship: "Coworker", emoji: "", colorIndex: 1)
         let pastor = Person(name: "Pastor Dan", relationship: "Church", emoji: "⛪️", colorIndex: 5)
         let luke = Person(name: "Luke Romero", relationship: "Neighbor", emoji: "", colorIndex: 0)
         sarah.phone = "(555) 010-0104"
         dad.phone = "(555) 010-0100"
-        let people = [sarah, dad, emma, james, grace, pastor, luke]
+        let people = [sarah, dad, emma, james, olivia, pastor, luke]
         let lastPrayed: [Int] = [11, 1, 2, 4, 6, 8, 3]
         let counts: [Int] = [9, 23, 17, 8, 6, 5, 4]
         for (index, person) in people.enumerated() {
@@ -143,7 +143,7 @@ enum DemoSeeder {
         request("A healthy pregnancy and an easy delivery", emma, created: 40)
         request("Finding an apartment near the hospital", emma, created: 52, answered: 33, note: "Signed the lease, two blocks away!")
         request("Peace about the move to Denver", james, created: 12)
-        request("Her son's first week at a new school", grace, created: 20, answered: 13, note: "He made two friends on day one.")
+        request("Her son's first week at a new school", olivia, created: 20, answered: 13, note: "He made two friends on day one.")
         request("Strength for the Christmas season", pastor, created: 5)
         request("Getting back on his feet after the layoff", luke, created: 18)
         request("A job that fits", luke, created: 44, answered: 26, note: "Starts at the hardware store Monday.")

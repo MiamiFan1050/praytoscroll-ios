@@ -48,7 +48,7 @@ struct LockSetupView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ArtImage(name: "PadlockGold") { DoorwayIllustration(symbol: "lock.fill") }
+            ArtImage(name: "SealScroll") { DoorwayIllustration(symbol: "lock.fill") }
                 .frame(width: 120, height: 120)
                 .shadow(color: Palette.gold.opacity(0.35), radius: 24)
                 .frame(maxWidth: .infinity)

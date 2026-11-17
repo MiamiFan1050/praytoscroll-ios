@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The signature moment. Press and hold for 1.2 s: the ring fills with gold, the key turns in its lock,
-/// the haptics rise, and on release of the last moment the door opens.
+/// The signature moment. Press and hold for 1.2 s: the ring fills with gold, the scroll unrolls,
+/// the haptics rise, and on the last moment the prayer is sealed.
 struct HoldToConfirmButton: View {
     var duration: Double = 1.2
     var size: CGFloat = 148
@@ -28,7 +28,7 @@ struct HoldToConfirmButton: View {
                     .frame(width: size * 1.9, height: size * 1.9)
                     .opacity(isEnabled ? 1 : 0.3)
 
-                // Rays that unfold around the key.
+                // Rays that unfold around the scroll.
                 ForEach(0..<16, id: \.self) { i in
                     Capsule()
                         .fill(Palette.warmGold.opacity(0.55))
@@ -58,7 +58,7 @@ struct HoldToConfirmButton: View {
                     .frame(width: size, height: size)
                     .shadow(color: Palette.gold.opacity(0.8), radius: 8)
 
-                // The keyhole disc.
+                // The disc behind the scroll.
                 Circle()
                     .fill(LinearGradient(colors: [Color(hex: 0x22345A), Palette.ink, Palette.midnightDeep],
                                          startPoint: .top, endPoint: .bottom))
@@ -68,9 +68,10 @@ struct HoldToConfirmButton: View {
                     .frame(width: size - 22, height: size - 22)
                     .shadow(color: .black.opacity(0.45), radius: 12, y: 6)
 
-                PrayToScrollMark(glow: progress > 0.05 || completed)
+                // Half rolled at rest; holding unrolls it.
+                PrayToScrollMark(glow: progress > 0.05 || completed,
+                                 open: reduceMotion || completed ? 1 : 0.6 + 0.4 * progress)
                     .frame(height: size * 0.5)
-                    .rotation3DEffect(.degrees(reduceMotion ? 0 : progress * 72), axis: (x: 0, y: 1, z: 0), perspective: 0.6)
                     .scaleEffect(completed ? 1.08 : 1 - 0.04 * (isHolding ? 1 : 0))
                     .opacity(isEnabled ? 1 : 0.45)
             }

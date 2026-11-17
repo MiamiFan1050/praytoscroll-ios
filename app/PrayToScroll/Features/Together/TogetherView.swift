@@ -438,6 +438,8 @@ struct CircleDetailView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 6)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("circle.podium")
         }
     }
 

@@ -18,7 +18,10 @@ struct CircleRequestsSection: View {
             if requests.isEmpty {
                 Button(action: onAsk) {
                     HStack(spacing: 12) {
-                        IconBadge(systemImage: "hands.and.sparkles.fill", tint: Theme.goldIcon, size: 42)
+                        ArtImage(name: "Empty-requests") {
+                            IconBadge(systemImage: "hands.and.sparkles.fill", tint: Theme.goldIcon, size: 42)
+                        }
+                        .frame(width: 64, height: 64)
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Ask your circle to pray").font(.akHeadline).foregroundStyle(Theme.textPrimary)
                             Text("Pick a topic and add a short line. It stays up for a week.")

@@ -59,14 +59,17 @@ Launch arguments (scheme or UI tests):
   still exist to find; @grace is taken).
 - `-appearance light|dark`.
 
-`ScreenshotTests` saves `01-home` … `10-someone` as XCTest attachments (lifetime `.keepAlways`) and, when
+`ScreenshotTests` saves `01-home` … `11-finish` as XCTest attachments (lifetime `.keepAlways`) and, when
 `TEST_RUNNER_SCREENSHOT_DIR` is set, as PNGs in that folder.
 
 ## Art
 
-`tools/import_art.sh` copies `../art/*.png` into `PrayToScroll/Resources/Assets.xcassets` (mascots downscaled to
-600 px @3x; `icon_1024.png` must be opaque). Every illustration has a SwiftUI fallback (`MascotView`, `ArtImage`),
-so a missing file never breaks a screen. `tools/make_icon.swift` draws a fallback icon in code.
+`tools/import_art.sh` copies `../art/*.png` and `../art/v3/*.png` (badges, levels, onboarding heroes, empty states;
+see `art/v3/MANIFEST.md`) into `PrayToScroll/Resources/Assets.xcassets` as @3x PNGs at the size each is shown, and
+compresses them with `pngquant` when it's installed. `icon_1024.png` must be opaque. Every illustration has a SwiftUI
+fallback (`MascotView`, `ArtImage`), so a missing file never breaks a screen. Without an icon file, `tools/make_icon.swift`
+flattens the praying scroll onto the midnight background. The brand mark (`PrayToScrollMark`, a sealed scroll) is drawn
+in code in `Shared/BrandShapes.swift`, so the widget and share cards use it too.
 
 ### Scroll the Word backdrops and sound
 

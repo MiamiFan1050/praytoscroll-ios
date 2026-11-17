@@ -24,11 +24,12 @@ final class MockFriendService: FriendService, @unchecked Sendable {
         let service = MockFriendService()
         let today = DayKey(Date()).string
         let yesterday = DayKey(Date().addingTimeInterval(-86_400)).string
-        // Both friends saved today's verse (the feed's first card), so the demo shows "Grace and Sam saved this".
+        // The demo person is Grace (@gracepray), never a real name. Both friends saved today's verse (the feed's first
+        // card), so the demo shows "Naomi and Sam saved this".
         let todayRef = VerseProvider.shared.verse(for: Date()).ref
         let people: [FriendProfile] = [
-            FriendProfile(memberID: "f-grace", handle: "grace", displayName: "Grace", emoji: "🌿", streak: 22, lastPrayedDay: today,
-                          openCircles: [.init(code: "G8R4CE", name: "Grace's Prayer Team")],
+            FriendProfile(memberID: "f-naomi", handle: "naomi", displayName: "Naomi", emoji: "🌿", streak: 22, lastPrayedDay: today,
+                          openCircles: [.init(code: "N8M4HQ", name: "Naomi's Prayer Team")],
                           savedRefs: [todayRef, "Psalm 46:10", "Isaiah 41:10", "Matthew 11:28-30"]),
             FriendProfile(memberID: "f-sam", handle: "sam_p", displayName: "Sam", emoji: "⛰️", streak: 9, lastPrayedDay: yesterday,
                           savedRefs: [todayRef, "Joshua 1:9"]),
@@ -41,15 +42,15 @@ final class MockFriendService: FriendService, @unchecked Sendable {
             _ = service.ledger.claim(person.handle, for: person.memberID, now: created)
         }
         if withUsername {
-            _ = service.ledger.claim("markprays", for: "me", now: created)
-            service.myName = "markprays"
-            service.profiles["me"] = FriendProfile(memberID: "me", handle: "markprays", displayName: "Mark", emoji: "🕊️",
+            _ = service.ledger.claim("gracepray", for: "me", now: created)
+            service.myName = "gracepray"
+            service.profiles["me"] = FriendProfile(memberID: "me", handle: "gracepray", displayName: "Grace", emoji: "🕊️",
                                                    streak: 13, lastPrayedDay: today)
         }
-        service.links = ["me>f-grace", "f-grace>me", "me>f-sam", "f-sam>me"]
-        service.requests["freq-f-jordan-me"] = FriendRequest(fromID: "f-jordan", toID: "me", fromHandle: "jordan_k", toHandle: "markprays",
+        service.links = ["me>f-naomi", "f-naomi>me", "me>f-sam", "f-sam>me"]
+        service.requests["freq-f-jordan-me"] = FriendRequest(fromID: "f-jordan", toID: "me", fromHandle: "jordan_k", toHandle: "gracepray",
                                                              createdAt: Date().addingTimeInterval(-3_600))
-        service.prayed = [PrayedForItem(id: "pf-grace", fromID: "f-grace", fromHandle: "grace", createdAt: Date().addingTimeInterval(-2 * 3_600))]
+        service.prayed = [PrayedForItem(id: "pf-naomi", fromID: "f-naomi", fromHandle: "naomi", createdAt: Date().addingTimeInterval(-2 * 3_600))]
         return service
     }
 

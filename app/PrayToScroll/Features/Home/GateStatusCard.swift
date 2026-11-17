@@ -98,7 +98,7 @@ struct GateStatusCard: View {
             row(symbol: "lock.slash.fill", tint: Theme.textTertiary, title: "Prayer Gate is off",
                 detail: "Turn it on in Settings whenever you're ready.", actionTitle: "Settings") { model.showSettings = true }
         } else if apps.isEmpty || (model.protectedCount == 0 && model.setupMarked.isEmpty) {
-            row(symbol: "key.fill", tint: Theme.goldIcon, title: "Set up your Prayer Gate",
+            row(symbol: "scroll.fill", tint: Theme.goldIcon, title: "Set up your Prayer Gate",
                 detail: "One automation, about a minute. Your apps will wait for your Amen.", actionTitle: "Set up") { model.showGateSetup = true }
         } else if model.isPaused(now: now), let until = model.pausedUntil {
             row(symbol: "pause.circle.fill", tint: Theme.goldIcon,
@@ -180,7 +180,7 @@ struct GateStatusCard: View {
             Button { model.pauseGate(days: 1) } label: { Label("Pause for 1 day", systemImage: "pause") }
             Button { model.pauseGate(days: 3) } label: { Label("Pause for 3 days", systemImage: "pause") }
             Button { model.pauseGate(days: 7) } label: { Label("Pause for 1 week", systemImage: "pause") }
-            Button { model.showGateSetup = true } label: { Label("Gate setup", systemImage: "key") }
+            Button { model.showGateSetup = true } label: { Label("Gate setup", systemImage: "scroll") }
         }
     }
 

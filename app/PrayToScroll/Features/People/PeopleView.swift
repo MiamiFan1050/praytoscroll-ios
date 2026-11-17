@@ -77,7 +77,7 @@ struct PeopleView: View {
             EmptyState(title: model.content.copy.string("emptyStates.people.title", default: "Who's on your heart?"),
                        message: model.content.copy.string("emptyStates.people.message", default: "Add the people you want to pray for.")
                            .replacingOccurrences(of: "Pray to Scroll", with: AppConstants.appName),
-                       systemImage: "person.2.fill",
+                       systemImage: "person.2.fill", artName: "Empty-requests",
                        actionTitle: model.content.copy.string("emptyStates.people.action", default: "Add someone")) { showAdd = true }
                 .padding(.top, 30)
         } else {

@@ -467,6 +467,43 @@ struct HeartBurst: View {
     }
 }
 
+/// A badge's art (art/v3). Not earned yet: grayscale and faint. Without the art, the badge's SF Symbol in a disc.
+struct WordBadgeArt: View {
+    let badge: WordBadge
+    var earned = true
+    var size: CGFloat = 68
+
+    var body: some View {
+        ArtImage(name: badge.artName) {
+            Image(systemName: badge.symbol)
+                .font(.system(size: size * 0.4, weight: .semibold))
+                .foregroundStyle(Palette.goldGradient)
+                .frame(width: size * 0.8, height: size * 0.8)
+                .background(Circle().fill(Color.white.opacity(0.12)))
+        }
+        .frame(width: size, height: size)
+        .saturation(earned ? 1 : 0)
+        .opacity(earned ? 1 : 0.35)
+        .accessibilityHidden(true)
+    }
+}
+
+/// A level's art (art/v3): the stage in a cream-stone niche. Without the art, a leaf.
+struct WordLevelArt: View {
+    let number: Int
+    var size: CGFloat = 64
+
+    var body: some View {
+        ArtImage(name: WordLevel.artName(number)) {
+            Image(systemName: "leaf.fill")
+                .font(.system(size: size * 0.45, weight: .semibold))
+                .foregroundStyle(Palette.goldGradient)
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
+    }
+}
+
 /// Goal met, a new level or a badge. The goal card is the healthy stopping point: pray, or keep going, no pressure.
 struct MilestoneCardContent: View {
     let milestone: FeedMilestone
@@ -477,10 +514,8 @@ struct MilestoneCardContent: View {
 
     var body: some View {
         VStack(alignment: .center, spacing: 18) {
-            Image(systemName: symbol)
-                .font(.system(size: 64, weight: .semibold))
-                .foregroundStyle(Palette.goldGradient)
-                .shadow(color: Palette.gold.opacity(glow ? 0.8 : 0.3), radius: glow ? 30 : 12)
+            hero
+                .shadow(color: Palette.gold.opacity(glow ? 0.6 : 0.2), radius: glow ? 30 : 12)
                 .scaleEffect(glow ? 1.06 : 0.96)
                 .onAppear {
                     if isCurrent { Haptics.success() }
@@ -525,11 +560,12 @@ struct MilestoneCardContent: View {
         .frame(maxWidth: .infinity)
     }
 
-    private var symbol: String {
+    /// The goal card shows the "Goal met" badge; a level shows its stage; a badge shows itself.
+    @ViewBuilder private var hero: some View {
         switch milestone {
-        case .goalDone: return "checkmark.seal.fill"
-        case .levelUp: return "leaf.fill"
-        case .badge(let badge): return badge.symbol
+        case .goalDone: WordBadgeArt(badge: .firstGoal, size: 140)
+        case .levelUp(let number, _): WordLevelArt(number: number, size: 150)
+        case .badge(let badge): WordBadgeArt(badge: badge, size: 140)
         }
     }
 

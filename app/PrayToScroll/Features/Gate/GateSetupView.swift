@@ -54,7 +54,7 @@ struct GateSetupView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ArtImage(name: "PadlockGold") { DoorwayIllustration(symbol: "key.fill") }
+            ArtImage(name: "SealScroll") { DoorwayIllustration(symbol: "scroll.fill") }
                 .frame(width: 130, height: 130)
                 .shadow(color: Palette.gold.opacity(0.35), radius: 24)
                 .frame(maxWidth: .infinity)

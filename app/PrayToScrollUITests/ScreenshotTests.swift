@@ -1,6 +1,6 @@
 import XCTest
 
-/// App Store screenshots from the seeded `-demo` launch. Each screen is attached to the test result as
+/// App Store screenshots from the seeded `-demo` launch (the demo person is Grace, @gracepray). Each screen is attached to the test result as
 /// "NN-name" (lifetime .keepAlways) and, when SCREENSHOT_DIR is set (pass TEST_RUNNER_SCREENSHOT_DIR to
 /// xcodebuild), also written there as a PNG. Run: tools/screenshots.sh
 final class ScreenshotTests: XCTestCase {
@@ -83,6 +83,18 @@ final class ScreenshotTests: XCTestCase {
     func test07CircleLeaderboard() {
         let app = launch(route: "circle")
         waitFor(app.descendants(matching: .any)["circle.title"])
+        // Prayer requests sit above the board: scroll until the whole podium is clear of the tab bar.
+        let podium = app.descendants(matching: .any)["circle.podium"]
+        waitFor(podium)
+        let tabBar = app.tabBars.firstMatch
+        let bottom = (tabBar.exists ? tabBar.frame.minY : app.frame.maxY - 120) - 16
+        let window = app.windows.firstMatch
+        for _ in 0..<6 where podium.frame.maxY > bottom {
+            window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+                .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)))
+            RunLoop.current.run(until: Date().addingTimeInterval(0.8))
+        }
+        XCTAssertLessThanOrEqual(podium.frame.maxY, bottom, "the podium sits above the tab bar")
         snap("07-circle", settle: 1.8)
     }
 
@@ -110,6 +122,27 @@ final class ScreenshotTests: XCTestCase {
         let app = launch(route: "someone")
         waitFor(app.descendants(matching: .any)["session.prompt"])
         snap("10-someone", settle: 2)
+    }
+
+    /// A Finish the verse card after a pick: the right ending marked and the whole verse shown.
+    func test11FinishTheVerse() {
+        let app = launch(route: "word", extra: ["-wordCard", "finish"])
+        waitFor(app.descendants(matching: .any)["word.finish"])
+        let choice = { (app: XCUIApplication, index: Int) in app.buttons["word.finish.choice.\(index)"] }
+        let labels = (0..<3).map { choice(app, $0).label }
+        choice(app, 0).tap()
+        waitFor(app.descendants(matching: .any)["word.finish.result"])
+        let right = (0..<3).first { (choice(app, $0).value as? String) == "Right answer" }
+        if let right, right != 0 {
+            // Show the right ending being picked: the demo opens on the same card each launch, so pick it there.
+            app.terminate()
+            let again = launch(route: "word", extra: ["-wordCard", "finish"])
+            waitFor(again.descendants(matching: .any)["word.finish"])
+            let target = (0..<3).first { choice(again, $0).label == labels[right] } ?? right
+            choice(again, target).tap()
+            waitFor(again.descendants(matching: .any)["word.finish.result"])
+        }
+        snap("11-finish", settle: 1.5)
     }
 
     /// Not a store shot: the home-screen icon + "Pray to Scroll" label, to check it isn't truncated.
