@@ -58,6 +58,8 @@
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSContactsUsageDescription</key>
+	<string>Find the people you pray for by name, and text them that you prayed. Your contacts never leave your iPhone.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save your prayer cards and milestone badges to Photos.</string>
 	<key>UIApplicationSceneManifest</key>

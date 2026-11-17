@@ -7,6 +7,8 @@ struct HomeView: View {
     @Query private var people: [Person]
     @State private var shareCard: ShareCardKind?
     @State private var showEmergency = false
+    @State private var showAddSomeone = false
+    @State private var prayAfterAdding: UUID?
     @State private var circleSummary: CircleSummary?
 
     /// v1.0 users on the Shortcuts gate: offer the real lock once (closable).
@@ -70,6 +72,16 @@ struct HomeView: View {
         .toolbar(.hidden, for: .navigationBar)
         .sheet(item: $shareCard) { kind in
             ShareCardSheet(kind: kind).environment(model)
+        }
+        .sheet(isPresented: $showAddSomeone, onDismiss: {
+            // Start the prayer once the sheet is gone (a full-screen session can't open over it).
+            if let id = prayAfterAdding {
+                prayAfterAdding = nil
+                model.startPrayer(style: .forSomeone, source: .manual, personID: id)
+            }
+        }) {
+            AddSomeoneSheet { person in prayAfterAdding = person.id }
+                .environment(model)
         }
         .sheet(isPresented: $showEmergency) {
             EmergencyPassSheet(app: nil)   // the pass opens every gated app, so don't name (and launch) just the first
@@ -220,7 +232,7 @@ struct HomeView: View {
                 quickChip("Tempted? Pray now", "shield.lefthalf.filled", tint: Theme.roseText) {
                     model.startPrayer(style: .quick, source: .manual, mood: .tempted)
                 }
-                quickChip("Pray for someone", "person.2.fill", tint: Theme.goldText) {
+                quickChip("Pray for someone", "person.2.fill", tint: Theme.goldText, id: "home.quick.someone") {
                     model.startPrayer(style: .forSomeone, source: .manual)
                 }
                 quickChip("Pray today's verse", "book.pages.fill", tint: Theme.sageText) {
@@ -242,10 +254,9 @@ struct HomeView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
                     ForEach(PrayerTopic.allCases) { topic in
-                        quickChip(topic.title, topic.symbol, tint: Theme.goldText) {
+                        quickChip(topic.title, topic.symbol, tint: Theme.goldText, id: "home.topic.\(topic.rawValue)") {
                             model.startPrayer(style: .quick, source: .manual, topic: topic)
                         }
-                        .accessibilityIdentifier("home.topic.\(topic.rawValue)")
                     }
                 }
                 .padding(.horizontal, Spacing.page)
@@ -254,7 +265,8 @@ struct HomeView: View {
         }
     }
 
-    private func quickChip(_ title: String, _ symbol: String, tint: Color, action: @escaping () -> Void) -> some View {
+    private func quickChip(_ title: String, _ symbol: String, tint: Color, id: String? = nil,
+                           action: @escaping () -> Void) -> some View {
         Button {
             Haptics.tap()
             action()
@@ -269,6 +281,7 @@ struct HomeView: View {
             .overlay(Capsule().strokeBorder(Theme.stroke, lineWidth: 1))
         }
         .buttonStyle(PressScaleStyle())
+        .accessibilityIdentifier(id ?? "home.quick.\(symbol)")
     }
 
     // MARK: Verse
@@ -374,7 +387,7 @@ struct HomeView: View {
                     .accessibilityElement(children: .combine)
                 }
             } else {
-                Button { model.selectedTab = .people } label: {
+                Button { showAddSomeone = true } label: {
                     HStack(spacing: 12) {
                         IconBadge(systemImage: "person.badge.plus")
                         VStack(alignment: .leading, spacing: 2) {

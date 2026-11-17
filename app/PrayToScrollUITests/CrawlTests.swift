@@ -68,7 +68,7 @@ final class CrawlTests: XCTestCase {
         crawl(Target(number: 17, name: "choose-person", args: route("choose"), marker: "chooser.suggested", cover: .marker))
     }
     func test18AddPerson() {
-        crawl(Target(number: 18, name: "add-person", tab: "People", path: ["people.add"], marker: "editor.name", cover: .navBar("Add someone")))
+        crawl(Target(number: 18, name: "add-person", tab: "People", path: ["people.add"], marker: "add.search", cover: .navBar("Add someone")))
     }
     func test19PersonDetail() {
         crawl(Target(number: 19, name: "person-detail", tab: "People", path: ["contains:Dad"], marker: "person.pray"))
@@ -484,7 +484,7 @@ final class CrawlTests: XCTestCase {
     private func describeTopScreen() -> String {
         let bars = app.navigationBars.allElementsBoundByIndex.filter { $0.isHittable }.map(\.identifier).filter { !$0.isEmpty }
         if let title = bars.last { return "“\(title)”" }
-        for id in ["amenButton", "celebration.title", "emergency.use", "chooser.suggested", "editor.name", "circle.name",
+        for id in ["amenButton", "celebration.title", "emergency.use", "chooser.suggested", "add.search", "editor.name", "circle.name",
                    "verified.title", "guide.next", "letknow.title"] where app.descendants(matching: .any)[id].exists {
             return "[\(id)]"
         }

@@ -102,7 +102,7 @@ jobs:
           BIN="$APPDIR/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APPDIR/Info.plist")"
           strings -a "$BIN" > ../out/release-strings.txt
           grep -q CloudKitCircleService ../out/release-strings.txt   # control: the scan does see Swift type names
-          { grep -E "DemoSeeder|MockCircleService|DemoLock|ProStore|com\.amenkeyapp\.ios\.demo" ../out/release-strings.txt || true; } | sort -u > ../out/release-dormant.txt
+          { grep -E "DemoSeeder|MockCircleService|DemoLock|DemoContacts|DemoMessageComposer|ProStore|com\.amenkeyapp\.ios\.demo" ../out/release-strings.txt || true; } | sort -u > ../out/release-dormant.txt
           { otool -L "$BIN" | grep -i storekit || true; } >> ../out/release-dormant.txt
           cat ../out/release-dormant.txt
           [ ! -s ../out/release-dormant.txt ]

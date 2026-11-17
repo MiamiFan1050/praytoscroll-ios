@@ -19,12 +19,12 @@ Everything else stays on the device and is **not** "collected" (see the table at
 
 | Category | Data type | Tick? | What it is in Pray to Scroll |
 |---|---|---|---|
-| Contact Info | Name, Email Address, Phone Number, Physical Address, Other User Contact Info | No | The first name used for the greeting stays on the device. No email or phone is ever collected. |
+| Contact Info | Name, Email Address, Phone Number, Physical Address, Other User Contact Info | No | The first name used for the greeting stays on the device. The user's own email or phone is never asked for. A phone number saved for someone on the prayer list (for "Let them know" texts) stays on the device. |
 | Health & Fitness | Health, Fitness | No | |
 | Financial Info | Payment Info, Credit Info, Other Financial Info | No | No purchases in v1. |
 | Location | Precise, Coarse | No | |
 | Sensitive Info | Sensitive Info | No (see note) | |
-| Contacts | Contacts | No | Apple's contact picker. Only the picked name is used, stored on the device. |
+| Contacts | Contacts | No | 1.0.1: with the user's permission (optional), "Add someone" searches the address book by name on the device. Contacts are read into memory only while that screen is open and are never uploaded, synced or stored in bulk; only the person picked is saved (name + one phone number) in the on-device prayer list. Without permission (or with iOS 18 limited access) Apple's picker / the shared subset is used. Apple's definition of "collect" is transmitting off the device, so this stays **No**: no label change. |
 | User Content | Emails or Text Messages, Photos or Videos, Audio Data, Gameplay Content, Customer Support, Other User Content | No | The journal and prayer list stay on the device. Messages are sent from Apple's Messages sheet. The support form is on the website, outside the app. |
 | Browsing History | Browsing History | No | |
 | Search History | Search History | No | Journal search runs on the device. |
@@ -73,12 +73,14 @@ prayer requests): no new data type. There are no messages between friends.
 | Gate state: gated apps, unlock window, unlock end time, last-fired dates, emergency pass | App Group UserDefaults (`group.com.amenkeyapp.ios`), shared with the widget and Shortcuts actions |
 | Prayer list: people, relationships, requests, answered prayers | SwiftData on the device |
 | Journal, sessions, streak history, challenges, settings, first name | SwiftData / App Group on the device |
-| The picked contact's name | SwiftData on the device |
+| People added from Contacts: name + one phone number for texting | SwiftData on the device (the address book itself is never copied) |
 | Scroll the Word: verses read or swiped | Bundled World English Bible; nothing is fetched or sent |
 | Reminders | Local notifications only, no push server |
 | Device backups | Apple's iCloud or computer backups, under Apple's policy. We can't access them. |
 
 **Identifiers:** the CloudKit container and App Group keep the registered `com.amenkeyapp.ios` IDs after the rename. If they change, update them here and in site/privacy.html.
+
+**Contacts permission (1.0.1):** `NSContactsUsageDescription` = "Find the people you pray for by name, and text them that you prayed. Your contacts never leave your iPhone." Asked the first time someone opens Add someone / Pray for someone with an empty list; declining leaves the picker and typed names. "Let them know" opens Apple's Messages sheet with the number and text filled in; the user taps Send, nothing is sent automatically.
 
 **Tracking / ATT:** Pray to Scroll doesn't track, so there's no App Tracking Transparency prompt and no
 `NSUserTrackingUsageDescription`.

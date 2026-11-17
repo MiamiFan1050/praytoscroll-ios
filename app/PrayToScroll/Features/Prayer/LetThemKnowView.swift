@@ -2,11 +2,16 @@ import MessageUI
 import SwiftUI
 
 /// "Let Sarah know?" The text that turns a private prayer into a moment of grace (and PrayToScroll's best growth loop).
+/// One button opens Messages with their number and the text filled in; they only tap Send.
 struct LetThemKnowView: View {
     @Bindable var flow: PrayerFlow
     @State private var message: String = ""
     @State private var showComposer = false
     @State private var showShare = false
+    @State private var showPicker = false
+    #if DEBUG
+    @State private var showDemoComposer = false
+    #endif
     @FocusState private var editing: Bool
 
     var body: some View {
@@ -35,7 +40,9 @@ struct LetThemKnowView: View {
                         .foregroundStyle(Palette.cream)
                         .multilineTextAlignment(.center)
                         .accessibilityIdentifier("letknow.title")
-                    Text("You just prayed for them. A short text can carry a lot of grace.")
+                    Text(flow.personPhone == nil
+                         ? "You just prayed for them. A short text can carry a lot of grace."
+                         : "You just prayed for them. One tap opens the text, ready to send.")
                         .font(.akCallout)
                         .foregroundStyle(Palette.cream.opacity(0.7))
                         .multilineTextAlignment(.center)
@@ -66,15 +73,24 @@ struct LetThemKnowView: View {
                 .padding(.horizontal, 8)
 
                 VStack(spacing: 12) {
-                    PrimaryButton("Send a text", systemImage: "message.fill") {
-                        editing = false
-                        if MFMessageComposeViewController.canSendText() {
-                            showComposer = true
-                        } else {
-                            showShare = true
+                    PrimaryButton("Let \(flow.personFirstName) know", systemImage: "message.fill", action: send)
+                        .accessibilityIdentifier("letknow.send")
+                    if let phone = flow.personPhone {
+                        Text("To \(phone)")
+                            .font(.akFootnote)
+                            .foregroundStyle(Palette.cream.opacity(0.55))
+                            .accessibilityIdentifier("letknow.to")
+                    } else {
+                        Button {
+                            showPicker = true
+                        } label: {
+                            Label("Pick their number from Contacts", systemImage: "person.crop.circle.badge.plus")
                         }
+                        .font(.akSubheadlineSemibold)
+                        .foregroundStyle(Palette.warmGold)
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("letknow.pickNumber")
                     }
-                    .accessibilityIdentifier("letknow.send")
                     Button("Not now") {
                         Haptics.tap()
                         flow.finishLetThemKnow()
@@ -92,11 +108,16 @@ struct LetThemKnowView: View {
         .scrollDismissesKeyboard(.interactively)
         .onAppear {
             if message.isEmpty {
-                message = "I just prayed for you 🙏 \(AppLinks.shareURL.absoluteString)"
+                message = flow.letThemKnowMessage
             }
         }
+        .background(
+            ContactPickerPresenter(isPresented: $showPicker) { picked in
+                flow.setPhone(picked?.phone)
+            }
+        )
         .sheet(isPresented: $showComposer) {
-            MessageComposer(body: message) { sent in
+            MessageComposer(body: message, recipients: flow.personPhone.map { [$0] } ?? []) { sent in
                 showComposer = false
                 if sent { Haptics.success() }
                 flow.finishLetThemKnow()
@@ -107,8 +128,68 @@ struct LetThemKnowView: View {
             ShareSheet(items: [message])
                 .presentationDetents([.medium, .large])
         }
+        #if DEBUG
+        .sheet(isPresented: $showDemoComposer) {
+            DemoMessageComposer(recipients: flow.personPhone.map { [$0] } ?? [], text: message) { sent in
+                showDemoComposer = false
+                if sent { Haptics.success() }
+                flow.finishLetThemKnow()
+            }
+        }
+        #endif
+    }
+
+    /// Messages with their number and the text filled in. Without Messages (an iPad, a Mac, the simulator):
+    /// the share sheet, which also has Copy.
+    private func send() {
+        editing = false
+        #if DEBUG
+        if LaunchOptions.current.isDemo {
+            showDemoComposer = true
+            return
+        }
+        #endif
+        if MFMessageComposeViewController.canSendText() {
+            showComposer = true
+        } else {
+            showShare = true
+        }
     }
 }
+
+#if DEBUG
+/// Debug builds only: stands in for Apple's Messages sheet in demo runs (the simulator can't send texts), so UI tests
+/// can check the composer was asked for with the right number and text. Not in the Release binary.
+struct DemoMessageComposer: View {
+    let recipients: [String]
+    let text: String
+    let onFinish: (Bool) -> Void
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("To: \(recipients.joined(separator: ", "))")
+                    .font(.akHeadline)
+                    .accessibilityIdentifier("demo.composer.to")
+                Text(text)
+                    .font(.akBody)
+                    .accessibilityIdentifier("demo.composer.body")
+                Spacer()
+            }
+            .padding(24)
+            .navigationTitle("New Message")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { onFinish(false) } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Send") { onFinish(true) }.accessibilityIdentifier("demo.composer.send")
+                }
+            }
+        }
+        .accessibilityIdentifier("demo.composer")
+    }
+}
+#endif
 
 /// A speech-bubble shape with a tail on the bottom right.
 struct BubbleShape: Shape {

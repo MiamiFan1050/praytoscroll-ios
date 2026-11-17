@@ -7,7 +7,8 @@ struct PeopleView: View {
     @Environment(\.modelContext) private var context
     @Query private var people: [Person]
     @Query(filter: #Predicate<PrayerRequest> { $0.isAnswered }) private var answered: [PrayerRequest]
-    @State private var showEditor = false
+    @State private var showAdd = false
+    @State private var prayAfterAdding: UUID?
     @State private var search = ""
 
     var body: some View {
@@ -37,15 +38,21 @@ struct PeopleView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button { showEditor = true } label: { Image(systemName: "plus.circle.fill").font(.title3) }
+                Button { showAdd = true } label: { Image(systemName: "plus.circle.fill").font(.title3) }
                     .tint(Theme.goldIcon)
                     .accessibilityLabel("Add someone")
                     .accessibilityIdentifier("people.add")
             }
         }
         .searchable(text: $search, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search people and requests")
-        .sheet(isPresented: $showEditor) {
-            PersonEditorSheet(person: nil).environment(model)
+        .sheet(isPresented: $showAdd, onDismiss: {
+            if let id = prayAfterAdding {
+                prayAfterAdding = nil
+                model.startPrayer(style: .forSomeone, source: .manual, personID: id)
+            }
+        }) {
+            AddSomeoneSheet { person in prayAfterAdding = person.id }
+                .environment(model)
         }
         .navigationDestination(for: UUID.self) { id in
             PersonDetailView(personID: id)
@@ -71,7 +78,7 @@ struct PeopleView: View {
                        message: model.content.copy.string("emptyStates.people.message", default: "Add the people you want to pray for.")
                            .replacingOccurrences(of: "Pray to Scroll", with: AppConstants.appName),
                        systemImage: "person.2.fill",
-                       actionTitle: model.content.copy.string("emptyStates.people.action", default: "Add someone")) { showEditor = true }
+                       actionTitle: model.content.copy.string("emptyStates.people.action", default: "Add someone")) { showAdd = true }
                 .padding(.top, 30)
         } else {
             if let next = filtered.first, search.isEmpty {
@@ -496,6 +503,7 @@ struct PersonEditorSheet: View {
     @State private var relationship = ""
     @State private var emoji = ""
     @State private var firstRequest = ""
+    @State private var phone = ""
     @State private var showContacts = false
 
     private let relationships = ["Family", "Friend", "Church", "Small group", "Coworker", "Neighbor"]
@@ -515,11 +523,16 @@ struct PersonEditorSheet: View {
                         .textInputAutocapitalization(.words)
                         .font(.akHeadline)
                         .accessibilityIdentifier("editor.name")
-                    if person == nil {
-                        Button { showContacts = true } label: {
-                            Label("Choose from Contacts", systemImage: "person.crop.circle.badge.plus")
-                        }
+                    TextField("Phone, for texting them (optional)", text: $phone)
+                        .keyboardType(.phonePad)
+                        .textContentType(.telephoneNumber)
+                        .accessibilityIdentifier("editor.phone")
+                    Button { showContacts = true } label: {
+                        Label(person == nil ? "Choose from Contacts" : "Get their number from Contacts",
+                              systemImage: "person.crop.circle.badge.plus")
                     }
+                } footer: {
+                    Text("Names and numbers stay on this iPhone.")
                 }
                 Section("Relationship") {
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -579,7 +592,9 @@ struct PersonEditorSheet: View {
             }
             .background(
                 ContactPickerPresenter(isPresented: $showContacts) { picked in
-                    if let picked { name = picked }
+                    guard let picked else { return }
+                    if person == nil || name.trimmingCharacters(in: .whitespaces).isEmpty { name = picked.name }
+                    if let number = picked.phone { phone = number }
                 }
             )
             .onAppear {
@@ -587,6 +602,7 @@ struct PersonEditorSheet: View {
                     name = person.name
                     relationship = person.relationship
                     emoji = person.emoji
+                    phone = person.phone ?? ""
                 }
             }
         }
@@ -595,12 +611,15 @@ struct PersonEditorSheet: View {
     private func save() {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        let number = phone.trimmingCharacters(in: .whitespacesAndNewlines)
         if let person {
             person.name = trimmed
             person.relationship = relationship
             person.emoji = emoji
+            person.phone = number.isEmpty ? nil : number
         } else {
-            let created = model.addPerson(name: trimmed, relationship: relationship, emoji: emoji)
+            let created = model.addPerson(name: trimmed, relationship: relationship, emoji: emoji,
+                                          phone: number.isEmpty ? nil : number)
             let request = firstRequest.trimmingCharacters(in: .whitespacesAndNewlines)
             if !request.isEmpty {
                 let r = PrayerRequest(text: request, person: created)

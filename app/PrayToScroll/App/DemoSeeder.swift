@@ -66,7 +66,7 @@ enum DemoSeeder {
         store.promptBags = [:]
     }
 
-    static func seedData(context: ModelContext, store: SharedStore) {
+    static func seedData(context: ModelContext, store: SharedStore, withPeople: Bool = true) {
         let calendar = Calendar.current
         let now = Date()
         let today = DayKey(now, calendar: calendar)
@@ -87,6 +87,8 @@ enum DemoSeeder {
         let grace = Person(name: "Grace Lee", relationship: "Coworker", emoji: "", colorIndex: 1)
         let pastor = Person(name: "Pastor Dan", relationship: "Church", emoji: "⛪️", colorIndex: 5)
         let luke = Person(name: "Luke Romero", relationship: "Neighbor", emoji: "", colorIndex: 0)
+        sarah.phone = "(555) 010-0104"
+        dad.phone = "(555) 010-0100"
         let people = [sarah, dad, emma, james, grace, pastor, luke]
         let lastPrayed: [Int] = [11, 1, 2, 4, 6, 8, 3]
         let counts: [Int] = [9, 23, 17, 8, 6, 5, 4]
@@ -178,6 +180,9 @@ enum DemoSeeder {
                 saved.savedAt = daysAgo(offset % 30, hour: 22)
                 context.insert(saved)
             }
+        }
+        if !withPeople {
+            for person in people { context.delete(person) }   // requests go with them (cascade)
         }
         try? context.save()
 
