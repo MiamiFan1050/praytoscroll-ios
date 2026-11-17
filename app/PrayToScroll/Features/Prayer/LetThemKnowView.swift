@@ -208,6 +208,8 @@ struct BubbleShape: Shape {
 
 /// MFMessageComposeViewController wrapper.
 struct MessageComposer: UIViewControllerRepresentable {
+    static var canSend: Bool { MFMessageComposeViewController.canSendText() }
+
     let body: String
     var recipients: [String] = []
     let onFinish: (Bool) -> Void

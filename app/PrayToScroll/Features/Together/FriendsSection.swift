@@ -9,6 +9,7 @@ struct FriendsSection: View {
     @State private var availability: CircleAvailability?
     @State private var adding: AddFriendRequest?
     @State private var showShare = false
+    @State private var showInvite = false
     @State private var showUsername = false
     @State private var reporting: ReportTarget?
     @State private var confirmRemove: FriendProfile?
@@ -40,6 +41,9 @@ struct FriendsSection: View {
         }
         .sheet(isPresented: $showShare) {
             if let handle = model.username { ShareProfileSheet(handle: handle) }
+        }
+        .sheet(isPresented: $showInvite) {
+            if let handle = model.username { InviteContactSheet(handle: handle).environment(model) }
         }
         .sheet(isPresented: $showUsername) {
             NavigationStack { UsernameView(showsDone: true) }.environment(model)
@@ -100,6 +104,11 @@ struct FriendsSection: View {
     private var content: some View {
         if let handle = model.username {
             meCard(handle)
+            Button { showInvite = true } label: {
+                Label("Invite from contacts", systemImage: "person.crop.circle.badge.plus")
+            }
+            .buttonStyle(QuietButtonStyle(height: 46))
+            .accessibilityIdentifier("friends.invite")
         } else {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Pick a @username so friends can add you and see your streak. It's optional, and nobody can find you until you do.")
