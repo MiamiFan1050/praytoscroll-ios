@@ -1,0 +1,131 @@
+# Pray to Scroll v1.2 "Strict Lock" build (STRICT_LOCK on): project.yml + the Screen Time lock.
+#   xcodegen generate --spec project-strictlock.yml
+# Only archive this once Apple has approved the Family Controls (Distribution) entitlement for every bundle ID
+# below, with matching App Store profiles. The default build (project.yml) has none of this in it.
+include:
+  - path: project.yml
+
+settings:
+  base:
+    MARKETING_VERSION: "1.2"
+  configs:
+    Debug:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG STRICT_LOCK
+    Release:
+      SWIFT_ACTIVE_COMPILATION_CONDITIONS: STRICT_LOCK
+
+targets:
+  PrayToScroll:
+    entitlements:
+      # Its own file, so generating this build never edits the default build's entitlements. The properties merge
+      # with project.yml's (app group + CloudKit stay).
+      path: PrayToScroll/PrayToScroll-StrictLock.entitlements
+      properties:
+        com.apple.developer.family-controls: true
+    dependencies:
+      - target: PrayToScrollShieldConfig
+        embed: true
+        codeSign: true
+      - target: PrayToScrollShieldAction
+        embed: true
+        codeSign: true
+      - target: PrayToScrollMonitor
+        embed: true
+        codeSign: true
+
+  # Screen Time (Strict Lock) extensions: the shield's look, its buttons, and the relock when a window ends.
+  PrayToScrollShieldConfig:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: StrictLock/ShieldConfiguration
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.amenkeyapp.ios.shieldconfig
+        PRODUCT_NAME: PrayToScrollShieldConfig
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+      configs:
+        Release:
+          CODE_SIGN_IDENTITY: "Apple Distribution"
+          PROVISIONING_PROFILE_SPECIFIER: "AmenKey ShieldConfig AppStore"
+    info:
+      path: StrictLock/ShieldConfiguration/Info.plist
+      properties:
+        CFBundleDisplayName: Pray to Scroll Shield
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.ManagedSettingsUI.shield-configuration-service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShieldConfigurationExtension
+    entitlements:
+      path: StrictLock/ShieldConfiguration/ShieldConfig.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.amenkeyapp.ios
+        com.apple.developer.family-controls: true
+
+  PrayToScrollShieldAction:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: StrictLock/ShieldAction
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.amenkeyapp.ios.shieldaction
+        PRODUCT_NAME: PrayToScrollShieldAction
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+      configs:
+        Release:
+          CODE_SIGN_IDENTITY: "Apple Distribution"
+          PROVISIONING_PROFILE_SPECIFIER: "AmenKey ShieldAction AppStore"
+    info:
+      path: StrictLock/ShieldAction/Info.plist
+      properties:
+        CFBundleDisplayName: Pray to Scroll Shield Action
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.ManagedSettings.shield-action-service
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShieldActionExtension
+    entitlements:
+      path: StrictLock/ShieldAction/ShieldAction.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.amenkeyapp.ios
+        com.apple.developer.family-controls: true
+
+  PrayToScrollMonitor:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: StrictLock/DeviceActivityMonitor
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.amenkeyapp.ios.monitor
+        PRODUCT_NAME: PrayToScrollMonitor
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+      configs:
+        Release:
+          CODE_SIGN_IDENTITY: "Apple Distribution"
+          PROVISIONING_PROFILE_SPECIFIER: "AmenKey Monitor AppStore"
+    info:
+      path: StrictLock/DeviceActivityMonitor/Info.plist
+      properties:
+        CFBundleDisplayName: Pray to Scroll Monitor
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.deviceactivity.monitor-extension
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).DeviceActivityMonitorExtension
+    entitlements:
+      path: StrictLock/DeviceActivityMonitor/Monitor.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.com.amenkeyapp.ios
+        com.apple.developer.family-controls: true

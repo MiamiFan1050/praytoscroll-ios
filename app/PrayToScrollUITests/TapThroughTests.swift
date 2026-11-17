@@ -21,8 +21,10 @@ final class TapThroughTests: XCTestCase {
         pause(0.8)
         let started = Date()
 
+        #if STRICT_LOCK
         // Home: "Locked" with the picked apps' icons.
         XCTAssertTrue(app.descendants(matching: .any)["lock.icons"].firstMatch.waitForExistence(timeout: 5))
+        #endif
         pause(2.0)
 
         // Pray → Amen
@@ -76,6 +78,7 @@ final class TapThroughTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["circle.title"].waitForExistence(timeout: 6))
         pause(2.0)
 
+#if STRICT_LOCK
         // Locked apps: Settings → Locked apps (Screen Time: the picked apps, Change apps, the 15-minute note).
         app.tabBars.buttons["Today"].tap()
         pause(1.0)
@@ -101,6 +104,33 @@ final class TapThroughTests: XCTestCase {
             }
         }
         pause(1.5)
+#else
+        // Gate setup: Settings → Gated apps & setup. (After the Amen the Today card shows "Unlocked", which has no
+        // long-press menu; the locked card's "Gate setup" menu is covered by the crawler.)
+        app.tabBars.buttons["Today"].tap()
+        pause(1.0)
+        app.buttons["home.settings"].tap()
+        let gated = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Gated apps'")).firstMatch
+        for _ in 0..<4 {
+            if gated.waitForExistence(timeout: 2), gated.isHittable { break }
+            app.swipeUp()
+        }
+        pause(1.0)
+        gated.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["gate.title"].waitForExistence(timeout: 6))
+        pause(2.0)
+        let instagram = app.buttons["gate.guide.instagram"]
+        if instagram.waitForExistence(timeout: 3), instagram.isHittable {
+            instagram.tap()
+            let guide = app.buttons["guide.next"]
+            if guide.waitForExistence(timeout: 5) {
+                for _ in 0..<3 { pause(1.2); if guide.exists, guide.isHittable { guide.tap() } }
+                pause(1.0)
+                if app.buttons["Close"].exists { app.buttons["Close"].tap() }
+            }
+        }
+        pause(0.8)
+#endif
         // Back out of the pushed setup screen, then close Settings.
         let back = app.navigationBars.buttons["Settings"]   // the pushed screen's back button
         if back.exists, back.isHittable { back.tap(); pause(0.8) }

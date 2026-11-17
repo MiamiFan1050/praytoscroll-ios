@@ -11,6 +11,7 @@ struct HomeView: View {
     @State private var prayAfterAdding: UUID?
     @State private var circleSummary: CircleSummary?
 
+    #if STRICT_LOCK
     /// v1.0 users on the Shortcuts gate: offer the real lock once (closable).
     private var screenTimeOffer: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -36,6 +37,7 @@ struct HomeView: View {
         }
         .akCard(padding: 14)
     }
+    #endif
 
     var body: some View {
         ZStack {
@@ -44,7 +46,9 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     header
                     GateStatusCard(onEmergency: { showEmergency = true })
+                    #if STRICT_LOCK
                     if model.offersScreenTime { screenTimeOffer }
+                    #endif
                     HStack(alignment: .top, spacing: 14) {
                         prayNowCard
                         streakCard

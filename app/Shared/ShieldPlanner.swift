@@ -1,3 +1,4 @@
+#if STRICT_LOCK   // the Screen Time lock: only in the project-strictlock.yml build
 import Foundation
 
 /// What Screen Time should be doing right now.
@@ -114,3 +115,4 @@ enum ShieldPlanner {
         method == .screenTime ? max(minimumMinutes, GateEngine.emergencyMinutes) : GateEngine.emergencyMinutes
     }
 }
+#endif

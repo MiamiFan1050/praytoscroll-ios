@@ -1,3 +1,5 @@
+// STRICT_LOCK-ONLY: the Screen Time lock's planner (project-strictlock.yml); STRICT_LOCK=1 tools/run-unit-tests.sh runs it.
+#if STRICT_LOCK
 import XCTest
 @testable import PrayToScroll
 
@@ -155,3 +157,4 @@ private struct SimulatedDevice {
     var shielded = false
     var timerEnd: Date?
 }
+#endif

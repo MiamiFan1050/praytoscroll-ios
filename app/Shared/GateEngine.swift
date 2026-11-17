@@ -10,7 +10,10 @@ enum GateDecision: Equatable, Sendable {
 }
 
 enum AllowReason: String, Equatable, Sendable {
-    case gateOff, paused, notGated, unlocked, dailyKey, launchPass, grace, screenTime
+    case gateOff, paused, notGated, unlocked, dailyKey, launchPass, grace
+    #if STRICT_LOCK
+    case screenTime
+    #endif
 }
 
 /// Everything the gate needs to decide, read from the shared app-group store.
@@ -25,8 +28,10 @@ struct GateSnapshot: Equatable, Sendable {
     var launchPasses: [String: Date] = [:]
     /// Per-app "Test my gate" requests (when the test started).
     var testPending: [String: Date] = [:]
+    #if STRICT_LOCK
     /// Screen Time shields are doing the locking, so a leftover Shortcuts automation must not gate a second time.
     var screenTimeActive: Bool = false
+    #endif
 }
 
 /// Pure decision logic for the Prayer Gate (used by the App Intents, the app and the tests).
@@ -87,7 +92,9 @@ enum GateEngine {
             return .verifyTest
         }
         if !snapshot.gateEnabled { return .allow(until: nil, reason: .gateOff) }
+        #if STRICT_LOCK
         if snapshot.screenTimeActive { return .allow(until: nil, reason: .screenTime) }
+        #endif
         if let paused = snapshot.pausedUntil, now < paused { return .allow(until: paused, reason: .paused) }
 
         // A known app the person removed from their list passes through. Unknown or generic ids are gated,

@@ -128,6 +128,17 @@ final class UnlockMethodTests: XCTestCase {
         XCTAssertEqual(unknown.unlockMethod, .prayer, "an unknown value falls back to Prayer")
     }
 
+    /// The default build (STRICT_LOCK off) has no Screen Time lock, so a saved "screenTime" loads as the Shortcuts gate.
+    func testTheLockMethodFollowsTheBuild() throws {
+        let saved = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"lockMethod":"screenTime"}"#.utf8))
+        #if STRICT_LOCK
+        XCTAssertEqual(saved.lockMethod, .screenTime)
+        #else
+        XCTAssertEqual(saved.lockMethod, .shortcuts)
+        #endif
+        XCTAssertEqual(AppSettings().lockMethod, .shortcuts)
+    }
+
     func testEachMethodStartsTheRightSession() {
         XCTAssertEqual(UnlockMethod.prayer.style(prayerStyle: .quick), .quick)
         XCTAssertEqual(UnlockMethod.prayer.style(prayerStyle: .forSomeone), .forSomeone)

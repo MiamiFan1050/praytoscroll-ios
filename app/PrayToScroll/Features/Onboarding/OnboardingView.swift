@@ -8,10 +8,15 @@ struct OnboardingView: View {
     @State private var step: Step = .welcome
     @State private var goingBack = false
     @State private var showGateSetup = false
+    #if STRICT_LOCK
     @State private var showLockPicker = false
     /// The Shortcuts gate instead of Screen Time: the person asked for it, or declined Screen Time access.
     @State private var useShortcuts = false
     @State private var lockDenied = false
+    #else
+    /// The default build has no Screen Time: the Shortcuts gate is the lock.
+    private var useShortcuts: Bool { true }
+    #endif
     @State private var reminderTime = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var name = ""
     @State private var handle = ""
@@ -60,7 +65,9 @@ struct OnboardingView: View {
             }
         }
         .environment(\.colorScheme, .dark)
+        #if STRICT_LOCK
         .background(model.lock.picker(isPresented: $showLockPicker) { model.lockSelectionChanged() })
+        #endif
         .sheet(isPresented: $showGateSetup, onDismiss: { advance() }) {
             NavigationStack { GateSetupView() }
                 .environment(model)
@@ -138,7 +145,9 @@ struct OnboardingView: View {
         case .promise: return text("promise.cta", "I'm in")
         case .tryIt: return model.sampleCompleted ? "Continue" : "Try a 15-second prayer"
         case .chooseApps:
+            #if STRICT_LOCK
             if !useShortcuts { return model.lock.hasSelection ? "Continue" : "Choose apps" }
+            #endif
             return model.settings.gatedAppIDs.isEmpty ? "Choose at least one" : text("chooseApps.cta", "Continue")
         case .style: return text("unlockStyle.cta", "Continue")
         case .window: return text("window.cta", "Continue")
@@ -173,7 +182,11 @@ struct OnboardingView: View {
         case .tryIt: return model.sampleCompleted ? nil : "Skip"
         // Under Screen Time: "Not now" (no locked apps yet; Home offers "Choose the apps to lock" later).
         // "Use Shortcuts instead" is a link on the page itself.
+        #if STRICT_LOCK
         case .chooseApps: return useShortcuts ? "I'll choose later" : (model.lock.hasSelection ? nil : "Not now")
+        #else
+        case .chooseApps: return "I'll choose later"
+        #endif
         case .reminders: return text("reminders.secondary", "Not now")
         case .name: return "Skip"
         case .username: return UsernameRules.normalize(handle).isEmpty ? nil : "Skip"
@@ -209,12 +222,14 @@ struct OnboardingView: View {
 
     private func primaryAction() {
         switch step {
+        #if STRICT_LOCK
         case .chooseApps:
             if useShortcuts || model.lock.hasSelection {
                 advance()
             } else {
                 Task { await allowScreenTimeAndPick() }
             }
+        #endif
         case .tryIt:
             if model.sampleCompleted {
                 advance()
@@ -251,6 +266,7 @@ struct OnboardingView: View {
 
     private func secondaryAction() {
         switch step {
+        #if STRICT_LOCK
         case .chooseApps:
             if !useShortcuts {
                 // Keep Screen Time as the plan, with nothing locked yet: the app works, and Home shows
@@ -258,6 +274,7 @@ struct OnboardingView: View {
                 model.updateSettings { $0.lockMethod = .screenTime }
             }
             advance()
+        #endif
         case .reminders:
             model.updateSettings { s in
                 s.reminders.dailyEnabled = false
@@ -277,6 +294,7 @@ struct OnboardingView: View {
         }
     }
 
+    #if STRICT_LOCK
     /// Screen Time first: Apple's one-time permission, then Apple's app picker. Declined → the Shortcuts gate.
     private func allowScreenTimeAndPick() async {
         let result = model.lock.authorization == .approved ? .approved : await model.lock.requestAuthorization()
@@ -289,6 +307,7 @@ struct OnboardingView: View {
             model.updateSettings { $0.lockMethod = .shortcuts }
         }
     }
+    #endif
 
     private func saveReminderTime() {
         let parts = Calendar.current.dateComponents([.hour, .minute], from: reminderTime)
@@ -539,10 +558,16 @@ struct OnboardingView: View {
 
     private var chooseAppsPage: some View {
         scrollPage {
+            #if STRICT_LOCK
             header(text("chooseApps.headline", "Which apps pull you in?"),
                    useShortcuts ? text("chooseApps.subline", "Pick the ones you open without thinking.")
                                 : "Pick them in Apple's Screen Time list. They stay locked until you pray.")
+            #else
+            header(text("chooseApps.headline", "Which apps pull you in?"),
+                   text("chooseApps.subline", "Pick the ones you open without thinking."))
+            #endif
             if useShortcuts {
+                #if STRICT_LOCK
                 if lockDenied {
                     Label("Screen Time wasn't allowed, so we'll use a Shortcuts gate. You can switch in Settings any time.",
                           systemImage: "info.circle.fill")
@@ -550,6 +575,7 @@ struct OnboardingView: View {
                         .foregroundStyle(Palette.cream.opacity(0.75))
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                #endif
                 Text("Start with 1–3. You can add more any time.")
                     .font(.akFootnote.weight(.semibold))
                     .foregroundStyle(Palette.warmGold)
@@ -559,11 +585,14 @@ struct OnboardingView: View {
                     .foregroundStyle(Palette.cream.opacity(0.6))
                     .fixedSize(horizontal: false, vertical: true)
             } else {
+                #if STRICT_LOCK
                 screenTimeChooser
+                #endif
             }
         }
     }
 
+    #if STRICT_LOCK
     private var screenTimeChooser: some View {
         let _ = model.lockRevision
         return VStack(alignment: .leading, spacing: 16) {
@@ -610,6 +639,7 @@ struct OnboardingView: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
+    #endif
 
     private var stylePage: some View {
         scrollPage {
@@ -710,12 +740,14 @@ struct OnboardingView: View {
             UnlockChoiceGrid(presets: model.unlockPresets, selected: model.unlockChoice) { choice in
                 model.updateSettings { choice.apply(to: &$0) }
             }
+            #if STRICT_LOCK
             if model.settings.lockMethod == .screenTime {
                 Text("Screen Time locks apps again no sooner than 15 minutes, so windows start there.")
                     .font(.akCaption)
                     .foregroundStyle(Palette.cream.opacity(0.6))
                     .fixedSize(horizontal: false, vertical: true)
             }
+            #endif
             Text(model.unlockChoice == .restOfToday
                  ? "Pray once and your apps stay open until \(UnlockForView.hourLabel(model.settings.dailyKeyResetHour)). You can change the time in Settings."
                  : "Want to decide each time? Turn on the switch below.")

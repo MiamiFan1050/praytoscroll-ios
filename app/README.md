@@ -8,7 +8,7 @@ SwiftUI app, iOS 17+, Swift 5 mode. The Xcode project is generated with XcodeGen
 | `PrayToScrollWidget` | Streak, verse and Pray now widgets (home + lock screen) |
 | `PrayToScrollTests` | Unit tests (gate, streak + freeze, challenges, links, prompt bag, copy, name filter, bundled content) |
 | `PrayToScrollUITests` | Flow checks + App Store screenshots (`ScreenshotTests`) |
-| `PrayToScrollShieldConfig`, `PrayToScrollShieldAction`, `PrayToScrollMonitor` (v1.1) | Screen Time lock: the shield's look ("Pray to open TikTok"), its Pray now button (posts a notification that opens the prayer), the relock when a window ends |
+| `PrayToScrollShieldConfig`, `PrayToScrollShieldAction`, `PrayToScrollMonitor` (STRICT_LOCK build only) | Screen Time lock: the shield's look ("Pray to open TikTok"), its Pray now button (posts a notification that opens the prayer), the relock when a window ends |
 
 The display name is set in one place: `APP_DISPLAY_NAME` in `project.yml` (code reads it via `AppConstants.appName`).
 The web base for links (privacy, support, `join?c=CODE`) is `AKWebBase` in `project.yml`.
@@ -18,7 +18,8 @@ The web base for links (privacy, support, `join?c=CODE`) is `AKWebBase` in `proj
 ```bash
 brew install xcodegen          # once
 cd app
-xcodegen generate              # PrayToScroll.xcodeproj
+xcodegen generate              # PrayToScroll.xcodeproj (the default build, 1.1: no Screen Time)
+# xcodegen generate --spec project-strictlock.yml   # the Screen Time lock build (1.2), see below
 
 SIM=$(bash ../ci/pick_sim.sh)  # best 6.9" iPhone simulator
 xcodebuild -project PrayToScroll.xcodeproj -scheme PrayToScroll -destination "id=$SIM" CODE_SIGNING_ALLOWED=NO build
@@ -35,8 +36,9 @@ are managed outside this repo; never create or revoke anything with Apple from h
 ## Without Xcode (Command Line Tools only)
 
 ```bash
-tools/typecheck.sh all     # app, widget, Strict Lock app + 3 extensions, unit tests: "clean" or the errors
+tools/typecheck.sh all     # both builds: app (+Release), STRICT_LOCK app (+Release), widget, 3 extensions, unit tests
 tools/run-unit-tests.sh    # builds the unit tests into a Mac Catalyst runner and runs them
+STRICT_LOCK=1 tools/run-unit-tests.sh   # the same with the Screen Time lock compiled in
 ```
 
 They compile against the Mac Catalyst copies of the iOS frameworks in the CLT macOS SDK. The CLT has no SwiftData
@@ -102,7 +104,30 @@ can send is "prayed for you", shown in the app on the next open (push would need
 Erase All Data deletes the username, profile, links, requests, prayed-for rows and blocks
 (`CloudKitFriendService.deleteMyData`). `MockFriendService` (Debug only) has the same rules for UI tests.
 
-## The Screen Time lock (v1.1)
+## Two builds: STRICT_LOCK
+
+The Screen Time lock needs Apple's Family Controls (Distribution) approval, so it's behind a build-time switch:
+
+| | `project.yml` (default, ships as 1.1) | `project-strictlock.yml` (STRICT_LOCK, ships as 1.2) |
+|---|---|---|
+| Lock | the Shortcuts Prayer Gate | Screen Time, with the Shortcuts gate as the fallback |
+| Targets | app + widget | app + widget + the 3 Screen Time extensions, embedded |
+| Entitlements | no `family-controls` | `PrayToScroll-StrictLock.entitlements` (`family-controls`) |
+| Code | everything Screen Time is under `#if STRICT_LOCK`: not compiled, not linked | all of it |
+| Signing | today's 2 App Store profiles | needs Family Controls profiles for all 4 bundles |
+
+`project-strictlock.yml` includes `project.yml` and only adds: `STRICT_LOCK` in `SWIFT_ACTIVE_COMPILATION_CONDITIONS`,
+`MARKETING_VERSION` 1.2, the entitlement, the 3 extension targets and their embedding. Code that only exists in the
+lock build goes in `#if STRICT_LOCK` (whole files: `ShieldPlanner`, `StrictLockStore`, `AppLock`, `LockSetupView`);
+a unit-test file that needs it starts with `// STRICT_LOCK-ONLY` so the local runner skips it in the default build.
+
+CI runs the full suite on the default build and, in the `strict` job, unit tests + an unsigned Release compile of the
+lock build. The default build's Release check proves the lock isn't there at all (guideline 2.5.19): no
+FamilyControls / ManagedSettings / DeviceActivity link or symbol, no extension but the widget, no `family-controls`
+entitlement, version 1.1. The strict job checks the opposite (frameworks linked, 4 extensions, version 1.2), so the
+scan is known to see the lock when it's in.
+
+## The Screen Time lock (STRICT_LOCK build)
 
 The picked apps are locked with Screen Time (FamilyControls `.individual`, ManagedSettings shields, a
 DeviceActivity relock timer). The Shortcuts gate is the fallback when Screen Time access is declined.

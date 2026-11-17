@@ -1,3 +1,4 @@
+#if STRICT_LOCK   // the Screen Time lock: only in the project-strictlock.yml build (v1.2)
 import SwiftUI
 
 enum LockAuthorization: Equatable, Sendable {
@@ -227,4 +228,5 @@ private struct DemoLockPicker: View {
         .onAppear { picked = Set(lock.pickedIDs) }
     }
 }
+#endif
 #endif

@@ -1,3 +1,4 @@
+#if STRICT_LOCK   // the Screen Time lock: only in the project-strictlock.yml build (v1.2)
 import SwiftUI
 import UserNotifications
 
@@ -200,3 +201,4 @@ struct LockSetupView: View {
         notificationsOff = status == .denied || status == .notDetermined
     }
 }
+#endif

@@ -93,10 +93,9 @@ jobs:
             -destination "generic/platform=iOS" -derivedDataPath ../build-release \
             CODE_SIGNING_ALLOWED=NO build 2>&1 | tee ../out/release.log | grep -E "error:|\*\* BUILD" || true
           grep -q "\*\* BUILD SUCCEEDED \*\*" ../out/release.log
-          # App Store requires a privacy manifest (UserDefaults is a required-reason API) in the app, the widget and
-          # the three Screen Time extensions.
+          # App Store requires a privacy manifest (UserDefaults is a required-reason API) in the app and the widget.
           find ../build-release/Build/Products -name PrivacyInfo.xcprivacy -path "*.app/*" | tee ../out/privacy-manifests.txt
-          [ "$(grep -c . ../out/privacy-manifests.txt)" -ge 5 ]
+          [ "$(grep -c . ../out/privacy-manifests.txt)" -ge 2 ]
           # No dormant code in the Release binary (guideline 2.5.19): no demo/mock/StoreKit types, no StoreKit link.
           APPDIR=$(find ../build-release/Build/Products -maxdepth 2 -name "*.app" -type d | head -1)
           BIN="$APPDIR/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APPDIR/Info.plist")"
@@ -107,6 +106,22 @@ jobs:
           cat ../out/release-dormant.txt
           [ ! -s ../out/release-dormant.txt ]
           echo "Release binary: no demo, mock or StoreKit code"
+          # STRICT_LOCK off (the default build, v1.1): Screen Time isn't dormant, it isn't there (guideline 2.5.19).
+          # No Screen Time framework linked or named, no Screen Time extension, no family-controls entitlement.
+          # (The strict job runs the same checks the other way round, so they're known to see the lock when it's in.)
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APPDIR/Info.plist")
+          echo "version $VERSION"; [ "$VERSION" = "1.1" ]
+          { otool -L "$BIN" | grep -E "FamilyControls|ManagedSettings|DeviceActivity" || true; } > ../out/release-screentime.txt
+          { grep -E "FamilyControls|ManagedSettings|DeviceActivity|FamilyActivity|ShieldPlanner|StrictLockStore|ScreenTimeLock|LockSetupView|DemoLock" ../out/release-strings.txt || true; } | sort -u >> ../out/release-screentime.txt
+          ls "$APPDIR/PlugIns" | tee ../out/release-plugins.txt
+          { grep -v "^PrayToScrollWidget.appex$" ../out/release-plugins.txt || true; } >> ../out/release-screentime.txt
+          for f in $(grep -h "CODE_SIGN_ENTITLEMENTS = " PrayToScroll.xcodeproj/project.pbxproj | sed -E 's/.*= "?([^";]+)"?;.*/\1/' | sort -u) \
+                   $(find ../build-release -name "*.xcent" 2>/dev/null); do
+            echo "entitlements: $f"; { grep -l "family-controls" "$f" || true; } >> ../out/release-screentime.txt
+          done
+          cat ../out/release-screentime.txt
+          [ ! -s ../out/release-screentime.txt ]
+          echo "Release binary (STRICT_LOCK off): no Screen Time frameworks, symbols, extensions or entitlement"
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -115,6 +130,72 @@ jobs:
           path: |
             out/*.log
             out/screenshots
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # STRICT_LOCK on (project-strictlock.yml: the Screen Time lock build, 1.2): unit tests + a Release compile only.
+  strict:
+    if: ${{ !inputs.only_tests }}
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Tools + project (STRICT_LOCK)
+        run: |
+          brew install xcodegen >/dev/null
+          mkdir -p out
+          cd app && xcodegen generate --spec project-strictlock.yml
+
+      - name: Pick simulator
+        run: |
+          UDID=$(bash ci/pick_sim.sh)
+          echo "SIM=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID" || true
+
+      - name: Unit tests (STRICT_LOCK)
+        run: |
+          set -o pipefail
+          cd app
+          xcodebuild -project PrayToScroll.xcodeproj -scheme PrayToScrollUnit \
+            -destination "id=$SIM" -derivedDataPath ../build-strict \
+            CODE_SIGNING_ALLOWED=NO test 2>&1 | tee ../out/strict-unit.log | grep -E "error:|Test Case .*failed|Executed|\*\* (BUILD|TEST)" || true
+          grep -q "\*\* TEST SUCCEEDED \*\*" ../out/strict-unit.log
+
+      - name: Release compile (STRICT_LOCK, device, unsigned)
+        if: always()
+        run: |
+          set -o pipefail
+          cd app
+          xcodebuild -project PrayToScroll.xcodeproj -scheme PrayToScroll -configuration Release \
+            -destination "generic/platform=iOS" -derivedDataPath ../build-strict-release \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tee ../out/strict-release.log | grep -E "error:|\*\* BUILD" || true
+          grep -q "\*\* BUILD SUCCEEDED \*\*" ../out/strict-release.log
+          APPDIR=$(find ../build-strict-release/Build/Products -maxdepth 2 -name "*.app" -type d | head -1)
+          BIN="$APPDIR/$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APPDIR/Info.plist")"
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APPDIR/Info.plist")
+          echo "version $VERSION"; [ "$VERSION" = "1.2" ]
+          # The lock is in: Screen Time linked, all four extensions embedded, a privacy manifest in each bundle.
+          otool -L "$BIN" | grep -E "FamilyControls|ManagedSettings|DeviceActivity"
+          ls "$APPDIR/PlugIns"
+          [ "$(ls "$APPDIR/PlugIns" | grep -c '\.appex$')" -eq 4 ]
+          [ "$(find "$APPDIR" -name PrivacyInfo.xcprivacy | grep -c .)" -ge 5 ]
+          grep -q "family-controls" PrayToScroll/PrayToScroll-StrictLock.entitlements
+          # Still no demo, mock or StoreKit code.
+          strings -a "$BIN" > ../out/strict-strings.txt
+          { grep -E "DemoSeeder|MockCircleService|DemoLock|DemoContacts|DemoMessageComposer|ProStore|com\.amenkeyapp\.ios\.demo" ../out/strict-strings.txt || true; } | sort -u > ../out/strict-dormant.txt
+          cat ../out/strict-dormant.txt
+          [ ! -s ../out/strict-dormant.txt ]
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: strict-out
+          path: out/*.log
           if-no-files-found: ignore
           retention-days: 7
 

@@ -67,6 +67,7 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(app.buttons["onboarding.back"].waitForExistence(timeout: 5), "moved past the welcome screen")
     }
 
+    #if STRICT_LOCK   // the Screen Time lock (project-strictlock.yml)
     /// v1.1 Strict Lock: onboarding asks for Screen Time, shows the app picker (DemoLock stands in for Apple's in
     /// Debug), the picked apps' icons appear, the Shortcuts setup step is skipped and Home shows "Locked" with them.
     func testOnboardingPicksAppsToLockWithScreenTime() {
@@ -125,7 +126,9 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(homeIcons.waitForExistence(timeout: 5), "Home shows Locked: [the picked apps]")
         XCTAssertTrue(homeIcons.label.contains("TikTok"), homeIcons.label)
     }
+    #endif
 
+    #if STRICT_LOCK   // the Screen Time lock (project-strictlock.yml)
     /// Settings → Locked apps shows what's locked and the 15-minute note; the window choices start at 15.
     func testLockedAppsScreenShowsThePickedApps() {
         let app = launch(["-route", "lock"])
@@ -137,6 +140,7 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS '15 minutes'")).firstMatch.exists,
                       "the 15-minute minimum is said in the UI")
     }
+    #endif
 
     func testCircleLeaderboardShowsMeAndReportMenu() {
         let app = launch(["-route", "circle"])
@@ -213,6 +217,7 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(status.label.contains("1:59:") || status.label.contains("2:00:"), "Home counts down the 2 h picked: \(status.label)")
     }
 
+    #if STRICT_LOCK   // the Screen Time lock (project-strictlock.yml)
     func testScreenTimeUnlockForStartsAtFifteenMinutes() {
         let app = launch(["-route", "settings"])   // the demo uses the Screen Time lock
         let unlockFor = app.buttons["settings.unlockFor"]
@@ -223,6 +228,7 @@ final class FlowTests: XCTestCase {
         XCTAssertFalse(app.buttons["unlockFor.m5"].exists, "5 min is Shortcuts only: Screen Time can't relock sooner than 15")
         XCTAssertTrue(app.buttons["unlockFor.rest"].exists)
     }
+    #endif
 
     func testUnlockWithDevotionalShowsTheReadingThenAmen() {
         let app = launch(["-route", "settings"])
@@ -410,6 +416,7 @@ final class FlowTests: XCTestCase {
                       "the link opens Add a friend with their username looked up")
     }
 
+    #if STRICT_LOCK   // the Screen Time lock (project-strictlock.yml)
     /// Under Screen Time, "Not now" goes on without locked apps; Home then offers "Choose the apps to lock".
     func testOnboardingNotNowSkipsChoosingAppsAndHomeOffersItLater() {
         let app = launch(["-onboarding", "-noMotion"])
@@ -444,4 +451,5 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(card.staticTexts.matching(NSPredicate(format: "label == %@", "Choose the apps to lock")).firstMatch.exists,
                       "Home offers to choose them later")
     }
+    #endif
 }

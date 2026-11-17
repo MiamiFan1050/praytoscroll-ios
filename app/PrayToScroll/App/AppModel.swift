@@ -75,8 +75,10 @@ final class AppModel {
     let container: ModelContainer
     let circles: any CircleService
     let friends: any FriendService
+    #if STRICT_LOCK
     /// Screen Time shields (Apple's in the app, a stand-in in the Debug demo, a fake in unit tests).
     let lock: any AppLock
+    #endif
     /// The address book for "Add someone" type-ahead. Read on demand, never uploaded.
     let contacts: any ContactsProvider
     let content = ContentStore.shared
@@ -109,21 +111,25 @@ final class AppModel {
     var troubleshootApp: GatedApp?
     var showSettings = false
     var showGateSetup = false
+    #if STRICT_LOCK
     var showLockSetup = false
+    #endif
     var peopleShowsAnswered = false
     var openCircleCode: String?
     var toast: String?
     var shortcutsInstalled = true
+    #if STRICT_LOCK
     /// Set when Screen Time refuses the relock timer: the apps stay locked and this explains why (never silent).
     var lockProblem: String?
     /// Bumped after the picked apps change, so views showing their icons refresh.
     private(set) var lockRevision = 0
+    #endif
 
     private var testingApp: GatedApp?
     private var testStartedAt: Date?
 
     /// `store` is injectable so unit tests can drive the real gate/streak code against scratch defaults.
-    init(options: LaunchOptions = .current, store injected: SharedStore? = nil, lock injectedLock: (any AppLock)? = nil) {
+    init(options: LaunchOptions = .current, store injected: SharedStore? = nil, lock injectedLock: LockInjection? = nil) {
         self.options = options
         #if DEBUG
         let demo = options.isDemo
@@ -140,7 +146,9 @@ final class AppModel {
         #if DEBUG
         self.circles = demo ? MockCircleService.demo() : CloudKitCircleService()
         self.friends = demo ? MockFriendService.demo(withUsername: !options.showOnboarding && !options.noUsername) : CloudKitFriendService()
+        #if STRICT_LOCK
         self.lock = injectedLock ?? (demo ? (options.showOnboarding ? DemoLock(authorized: false, picked: []) : DemoLock()) : ScreenTimeLock())
+        #endif
         self.contacts = demo ? DemoContacts(status: options.contactsStatus ?? .notDetermined) : DeviceContacts()
         if demo {
             DemoSeeder.seedDefaults(store: sharedStore, options: options)
@@ -148,7 +156,9 @@ final class AppModel {
         #else
         self.circles = CloudKitCircleService()
         self.friends = CloudKitFriendService()
+        #if STRICT_LOCK
         self.lock = injectedLock ?? ScreenTimeLock()
+        #endif
         self.contacts = DeviceContacts()
         #endif
         var loaded = sharedStore.settings
@@ -197,17 +207,22 @@ final class AppModel {
         change(&copy)
         guard copy != settings else { return }
         let remindersChanged = copy.reminders != settings.reminders || copy.firstName != settings.firstName
+        #if STRICT_LOCK
         let lockChanged = copy.gateEnabled != settings.gateEnabled || copy.lockMethod != settings.lockMethod
+        #endif
         let translationChanged = copy.translation != settings.translation
         settings = copy
         store.settings = copy
         if translationChanged { verses.translation = copy.translation; refreshReminders() }
         Haptics.enabled = copy.hapticsEnabled
         if remindersChanged { refreshReminders() }
+        #if STRICT_LOCK
         if lockChanged { syncLock() }
+        #endif
         WidgetCenter.shared.reloadAllTimelines()
     }
 
+    #if STRICT_LOCK
     // MARK: Screen Time lock
 
     /// Screen Time shields are the lock (picked in onboarding / Settings, access granted, apps picked).
@@ -245,6 +260,15 @@ final class AppModel {
             syncLock()
         }
     }
+    #else
+    // The default build (project.yml) has no Screen Time: the Shortcuts gate is the lock, with its own timings.
+
+    var usesScreenTime: Bool { false }
+    var effectiveWindowMinutes: Int { settings.unlockWindowMinutes }
+    var emergencyMinutes: Int { GateEngine.emergencyMinutes }
+    /// Nothing to sync without Screen Time (the Shortcuts automation reads the gate state when an app opens).
+    func syncLock(now: Date = Date()) {}
+    #endif
 
     // MARK: Circle prayer requests
 
@@ -277,6 +301,7 @@ final class AppModel {
                     seedPrompt: today.day.prompt)
     }
 
+    #if STRICT_LOCK
     /// Home's card for people who set up the v1.0 Shortcuts gate: the real lock is one tap away.
     var offersScreenTime: Bool {
         let _ = lockRevision
@@ -298,6 +323,9 @@ final class AppModel {
     private func lockSafeEnd(_ end: Date, now: Date) -> Date {
         usesScreenTime ? ShieldPlanner.end(atLeastMinimumFrom: now, proposed: end) : end
     }
+    #else
+    private func lockSafeEnd(_ end: Date, now: Date) -> Date { end }
+    #endif
 
     func binding<Value>(_ keyPath: WritableKeyPath<AppSettings, Value>) -> Binding<Value> {
         Binding(get: { self.settings[keyPath: keyPath] },
@@ -613,7 +641,11 @@ final class AppModel {
     }
 
     /// The shortest window offered: 5 minutes in Shortcuts mode.
+    #if STRICT_LOCK
     var minimumUnlockMinutes: Int { ShieldPlanner.minimumWindowMinutes(for: usesScreenTime ? .screenTime : .shortcuts) }
+    #else
+    var minimumUnlockMinutes: Int { GateEngine.minimumWindowMinutes }
+    #endif
 
     /// The presets offered in Settings, onboarding and on the Amen screen (Custom is separate).
     var unlockPresets: [UnlockChoice] { UnlockChoice.presets(minimumMinutes: minimumUnlockMinutes) }
@@ -879,7 +911,9 @@ final class AppModel {
         case "someone": startPrayer(style: .forSomeone, source: .manual, personID: suggestedPerson()?.id)
         case "choose": startPrayer(style: .forSomeone, source: .manual)
         case "gate": showGateSetup = true
+        #if STRICT_LOCK
         case "lock": showLockSetup = true
+        #endif
         case "people": selectedTab = .people
         case "answered":
             selectedTab = .people
@@ -904,12 +938,14 @@ final class AppModel {
     // MARK: Reset
 
     func resetAllData() {
+        #if STRICT_LOCK
         // Lift Screen Time shields first: the picked apps are erased with everything else.
         lock.cancelRelock()
         lock.unshield()
         lock.forgetSelection()
         store.screenTimeActive = false
         lockRevision += 1
+        #endif
         try? context.delete(model: PrayerSession.self)
         try? context.delete(model: JournalEntry.self)
         try? context.delete(model: PrayerRequest.self)
@@ -944,3 +980,11 @@ final class AppModel {
         selectedTab = .today
     }
 }
+
+#if STRICT_LOCK
+/// Unit tests hand AppModel a fake Screen Time lock.
+typealias LockInjection = any AppLock
+#else
+/// No Screen Time in this build, so there's nothing to inject.
+enum LockInjection {}
+#endif

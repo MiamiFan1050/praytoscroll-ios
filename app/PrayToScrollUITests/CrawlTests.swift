@@ -46,9 +46,11 @@ final class CrawlTests: XCTestCase {
     func test10GateSetup() {
         crawl(Target(number: 10, name: "gate-setup", args: route("gate"), marker: "gate.title", cover: .navBar("Prayer Gate")))
     }
+    #if STRICT_LOCK   // the Screen Time lock (project-strictlock.yml)
     func test26LockSetup() {
         crawl(Target(number: 26, name: "lock-setup", args: route("lock"), marker: "lock.title", cover: .navBar("Lock your apps")))
     }
+    #endif
     func test11GateVerified() {
         crawl(Target(number: 11, name: "gate-verified", args: route("verified"), marker: "verified.title", cover: .marker))
     }

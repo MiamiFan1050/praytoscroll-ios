@@ -210,7 +210,11 @@ struct AppSettings: Codable, Equatable, Sendable {
         gatedAppIDs = try c.decodeIfPresent([String].self, forKey: .gatedAppIDs) ?? d.gatedAppIDs
         customApps = (try? c.decodeIfPresent([GatedApp].self, forKey: .customApps)) ?? d.customApps
         gateEnabled = try c.decodeIfPresent(Bool.self, forKey: .gateEnabled) ?? d.gateEnabled
+        #if STRICT_LOCK
         lockMethod = (try? c.decodeIfPresent(LockMethod.self, forKey: .lockMethod)) ?? d.lockMethod
+        #else
+        lockMethod = .shortcuts   // the default build has no Screen Time lock, whatever an older build saved
+        #endif
         translation = (try? c.decodeIfPresent(BibleTranslation.self, forKey: .translation)) ?? d.translation
         wordTextScale = (try? c.decodeIfPresent(Double.self, forKey: .wordTextScale)) ?? d.wordTextScale
         readAloud = (try? c.decodeIfPresent(Bool.self, forKey: .readAloud)) ?? d.readAloud

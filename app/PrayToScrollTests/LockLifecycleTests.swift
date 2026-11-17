@@ -1,4 +1,5 @@
 // HOSTED-ONLY: drives the real AppModel (SwiftData + notifications + app host), so tools/run-unit-tests.sh skips this file.
+#if STRICT_LOCK   // the Screen Time lock (project-strictlock.yml)
 import SwiftUI
 import XCTest
 @testable import PrayToScroll
@@ -204,3 +205,4 @@ final class LockLifecycleTests: XCTestCase {
         XCTAssertEqual(lock.lockedCount, 0, "the picked apps are forgotten too")
     }
 }
+#endif

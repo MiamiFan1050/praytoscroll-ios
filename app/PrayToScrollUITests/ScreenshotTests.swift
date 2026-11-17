@@ -86,11 +86,19 @@ final class ScreenshotTests: XCTestCase {
         snap("07-circle", settle: 1.8)
     }
 
+    #if STRICT_LOCK
     func test08LockedApps() {
         let app = launch(route: "lock")
         waitFor(app.descendants(matching: .any)["lock.title"])
         snap("08-lock")
     }
+    #else
+    func test08GateSetup() {
+        let app = launch(route: "gate")
+        waitFor(app.descendants(matching: .any)["gate.title"])
+        snap("08-gate")
+    }
+    #endif
 
     func test09Streak() {
         let app = launch(route: "stats")

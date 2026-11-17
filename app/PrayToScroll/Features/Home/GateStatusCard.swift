@@ -11,6 +11,7 @@ struct GateStatusCard: View {
         }
     }
 
+#if STRICT_LOCK
     @ViewBuilder
     private func content(now: Date) -> some View {
         let apps = model.settings.gatedApps
@@ -89,6 +90,27 @@ struct GateStatusCard: View {
             Button { model.showLockSetup = true } label: { Label("Locked apps", systemImage: "lock.shield") }
         }
     }
+#else
+    @ViewBuilder
+    private func content(now: Date) -> some View {
+        let apps = model.settings.gatedApps
+        if !model.settings.gateEnabled {
+            row(symbol: "lock.slash.fill", tint: Theme.textTertiary, title: "Prayer Gate is off",
+                detail: "Turn it on in Settings whenever you're ready.", actionTitle: "Settings") { model.showSettings = true }
+        } else if apps.isEmpty || (model.protectedCount == 0 && model.setupMarked.isEmpty) {
+            row(symbol: "key.fill", tint: Theme.goldIcon, title: "Set up your Prayer Gate",
+                detail: "One automation, about a minute. Your apps will wait for your Amen.", actionTitle: "Set up") { model.showGateSetup = true }
+        } else if model.isPaused(now: now), let until = model.pausedUntil {
+            row(symbol: "pause.circle.fill", tint: Theme.goldIcon,
+                title: "Paused until \(until.formatted(.dateTime.weekday(.abbreviated).hour().minute()))",
+                detail: "Your gate is resting. It counts honestly in your stats.", actionTitle: "Resume") { model.pauseGate(days: nil) }
+        } else if let end = model.currentUnlockEnd(now: now) {
+            unlocked(end: end, now: now, apps: apps)
+        } else {
+            locked(apps: apps)
+        }
+    }
+#endif
 
     private func unlocked(end: Date, now: Date, apps: [GatedApp], openCount: Int? = nil, relocks: Bool = false) -> some View {
         let isDaily = model.dailyKeyUntil.map { $0 >= end } ?? false

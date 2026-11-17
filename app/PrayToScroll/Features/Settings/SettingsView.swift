@@ -140,6 +140,7 @@ struct SettingsView: View {
         Section {
             Toggle(isOn: model.binding(\.gateEnabled)) { settingsLabel("Prayer Gate", "key.fill") }
                 .tint(Palette.gold)
+            #if STRICT_LOCK
             NavigationLink {
                 LockSetupView(showsDoneButton: false)
             } label: {
@@ -151,6 +152,7 @@ struct SettingsView: View {
                 }
             }
             .accessibilityIdentifier("settings.lockedApps")
+            #endif
             if model.settings.lockMethod == .shortcuts {
                 NavigationLink {
                     GateSetupView(showsDoneButton: false)

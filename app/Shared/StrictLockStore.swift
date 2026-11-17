@@ -1,5 +1,6 @@
-#if !NO_SCREEN_TIME
-// (NO_SCREEN_TIME is set only by tools/run-unit-tests.sh, whose Mac Catalyst runner has no Screen Time frameworks.)
+#if STRICT_LOCK && !NO_SCREEN_TIME
+// STRICT_LOCK: only the project-strictlock.yml build has Screen Time. (NO_SCREEN_TIME is set only by
+// tools/run-unit-tests.sh, whose Mac Catalyst runner has no Screen Time frameworks.)
 import DeviceActivity
 import FamilyControls
 import Foundation

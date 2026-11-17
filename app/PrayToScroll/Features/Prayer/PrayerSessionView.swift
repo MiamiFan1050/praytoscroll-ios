@@ -103,10 +103,13 @@ private struct PrayingView: View {
                 if let app = flow.gatedApp {
                     waitingPill(app)
                         .padding(.top, 10)
-                } else if flow.request.gatedAppID == AppLinks.screenTimeGateID {
+                }
+                #if STRICT_LOCK
+                if flow.gatedApp == nil, flow.request.gatedAppID == AppLinks.screenTimeGateID {
                     screenTimePill
                         .padding(.top, 10)
                 }
+                #endif
 
                 if flow.canSwitchMethod {
                     UnlockMethodPicker(flow: flow)
@@ -178,6 +181,7 @@ private struct PrayingView: View {
         Haptics.selection()
     }
 
+    #if STRICT_LOCK
     /// From a Screen Time shield: the picked apps' real icons wait for the Amen.
     private var screenTimePill: some View {
         HStack(spacing: 8) {
@@ -192,6 +196,7 @@ private struct PrayingView: View {
         .background(Capsule().fill(Color.white.opacity(0.06)))
         .overlay(Capsule().strokeBorder(Palette.gold.opacity(0.25), lineWidth: 1))
     }
+    #endif
 
     private func waitingPill(_ app: GatedApp) -> some View {
         HStack(spacing: 8) {

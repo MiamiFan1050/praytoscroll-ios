@@ -75,10 +75,12 @@ struct MainTabView: View {
             NavigationStack { GateSetupView() }
                 .environment(model)
         }
+        #if STRICT_LOCK
         .sheet(isPresented: $model.showLockSetup) {
             NavigationStack { LockSetupView() }
                 .environment(model)
         }
+        #endif
     }
 }
 

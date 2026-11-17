@@ -44,9 +44,11 @@ final class SharedStore: @unchecked Sendable {
         static let testPending = "ak.gate.testPending"
         static let setupMarked = "ak.gate.setupMarked"
         static let promptBags = "ak.prompts.bags"
+        #if STRICT_LOCK
         static let screenTimeActive = "ak.strict.active"
         static let relockScheduledFor = "ak.strict.relockAt"
         static let screenTimeOfferDismissed = "ak.strict.offerDismissed"
+        #endif
         static let wordSeen = "ak.word.seen"
         static let wordSeed = "ak.word.seed"
     }
@@ -88,12 +90,17 @@ final class SharedStore: @unchecked Sendable {
 
     var gateSnapshot: GateSnapshot {
         let s = settings
-        return GateSnapshot(gateEnabled: s.gateEnabled, gatedAppIDs: Set(s.gatedAppIDs), customApps: s.customApps,
-                            unlockedUntil: unlockedUntil, pausedUntil: pausedUntil, dailyKeyUntil: dailyKeyUntil,
-                            launchPasses: launchPasses, testPending: testPending, screenTimeActive: screenTimeActive)
+        var snapshot = GateSnapshot(gateEnabled: s.gateEnabled, gatedAppIDs: Set(s.gatedAppIDs), customApps: s.customApps,
+                                    unlockedUntil: unlockedUntil, pausedUntil: pausedUntil, dailyKeyUntil: dailyKeyUntil,
+                                    launchPasses: launchPasses, testPending: testPending)
+        #if STRICT_LOCK
+        snapshot.screenTimeActive = screenTimeActive
+        #endif
+        return snapshot
     }
 
-    // MARK: Screen Time (Strict Lock)
+    #if STRICT_LOCK
+    // MARK: Screen Time (Strict Lock, project-strictlock.yml only)
 
     /// True while Screen Time shields are in charge (set by the app after every lock sync).
     var screenTimeActive: Bool {
@@ -106,6 +113,13 @@ final class SharedStore: @unchecked Sendable {
         get { date(Key.relockScheduledFor) }
         set { setDate(newValue, Key.relockScheduledFor) }
     }
+
+    /// A v1.0 Shortcuts user closed the "lock with Screen Time" card on Home.
+    var screenTimeOfferDismissed: Bool {
+        get { defaults.bool(forKey: Key.screenTimeOfferDismissed) }
+        set { defaults.set(newValue, forKey: Key.screenTimeOfferDismissed) }
+    }
+    #endif
 
     /// Scroll the Word: verse days in the order they were seen (oldest first), so sessions don't repeat.
     var wordSeen: [Int] {
@@ -123,12 +137,6 @@ final class SharedStore: @unchecked Sendable {
         let value = UInt64.random(in: 1...UInt64.max)
         defaults.set(String(value), forKey: Key.wordSeed)
         return value
-    }
-
-    /// A v1.0 Shortcuts user closed the "lock with Screen Time" card on Home.
-    var screenTimeOfferDismissed: Bool {
-        get { defaults.bool(forKey: Key.screenTimeOfferDismissed) }
-        set { defaults.set(newValue, forKey: Key.screenTimeOfferDismissed) }
     }
 
     /// Short per-app passes so PrayToScroll reopening an app never re-triggers the gate.

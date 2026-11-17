@@ -67,9 +67,12 @@ run() {
   if [ -n "$catalyst" ]; then echo "   ($(echo "$catalyst" | wc -l | tr -d ' ') iOS-only APIs Catalyst can't see: $(echo "$catalyst" | sed -E "s/.*error: '([^']+)'.*/\1/" | sort -u | tr '\n' ' '))"; fi
 }
 cd "$WORK"
+# Both builds: the default (no Screen Time) and project-strictlock.yml's STRICT_LOCK.
 if [ "$what" = app ] || [ "$what" = all ]; then
   run app -D DEBUG $(find PrayToScroll Shared -name "*.swift")
   run app-release $(find PrayToScroll Shared -name "*.swift")
+  run app-strict -D DEBUG -D STRICT_LOCK $(find PrayToScroll Shared -name "*.swift")
+  run app-strict-release -D STRICT_LOCK $(find PrayToScroll Shared -name "*.swift")
 fi
 if [ "$what" = widget ] || [ "$what" = all ]; then
   run widget -application-extension $(find PrayToScrollWidget Shared -name "*.swift" ! -name StrictLockStore.swift)
@@ -77,12 +80,13 @@ fi
 if [ "$what" = extensions ] || [ "$what" = all ]; then
   # The three Screen Time extensions (shield look, shield buttons, relock monitor).
   for ext in ShieldConfiguration ShieldAction DeviceActivityMonitor; do
-    run "ext-$ext" -application-extension -parse-as-library $(find "StrictLock/$ext" Shared -name "*.swift")
+    run "ext-$ext" -application-extension -parse-as-library -D STRICT_LOCK $(find "StrictLock/$ext" Shared -name "*.swift")
   done
 fi
 if { [ "$what" = tests ] || [ "$what" = all ]; } && [ -d PrayToScrollTests ]; then
   # Unit tests compile against the app sources directly, with a small XCTest stand-in (no XCTest in the CLT).
   prep_tests
   run tests -D DEBUG $(find PrayToScroll Shared PrayToScrollTests -name "*.swift") "$WORK/XCTestShim.swift"
+  run tests-strict -D DEBUG -D STRICT_LOCK $(find PrayToScroll Shared PrayToScrollTests -name "*.swift") "$WORK/XCTestShim.swift"
 fi
 exit $status
