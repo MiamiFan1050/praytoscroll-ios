@@ -192,6 +192,8 @@ struct FeedCard: View {
             .padding(.horizontal, 12)
             .frame(minHeight: 32)
             .background(Capsule().fill(.ultraThinMaterial))
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(line)
             .accessibilityIdentifier("word.friendsSaved")
     }
 
@@ -319,6 +321,7 @@ struct FeedCard: View {
             .font(.akSubheadlineSemibold)
             .foregroundStyle(right ? Palette.warmGold : Palette.cream)
             .transition(.opacity.combined(with: .move(edge: .bottom)))
+            .accessibilityElement(children: .combine)
             .accessibilityIdentifier(id)
     }
 

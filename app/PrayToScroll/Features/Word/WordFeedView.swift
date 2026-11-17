@@ -106,6 +106,7 @@ struct WordFeedView: View {
             cardBecameVisible(id)
         }
         .onChange(of: topic) { _, _ in rebuild() }
+        .onChange(of: model.username) { _, _ in model.refreshFriendSaves(force: true) }
         .onChange(of: model.settings.ambientSound) { _, on in on ? AmbientSound.shared.start() : AmbientSound.shared.stop() }
         .onAppear {
             if items.isEmpty { rebuild() }

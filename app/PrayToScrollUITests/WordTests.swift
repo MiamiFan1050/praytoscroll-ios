@@ -47,10 +47,10 @@ final class WordTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["word.finish.full"].waitForExistence(timeout: 4), "the whole verse shows")
         let right = choices.filter { ($0.value as? String) == "Right answer" }
         XCTAssertEqual(right.count, 1, "exactly one ending is marked right")
-        let result = app.descendants(matching: .any)["word.finish.result"].label
+        let result = app.descendants(matching: .any)["word.finish.result"].firstMatch.label
         XCTAssertTrue(result.hasPrefix(choices[1] == right.first ? "Right!" : "Not quite"), result)
         choices[0].tap()
-        XCTAssertEqual(app.descendants(matching: .any)["word.finish.result"].label, result, "one answer per card")
+        XCTAssertEqual(app.descendants(matching: .any)["word.finish.result"].firstMatch.label, result, "one answer per card")
         app.swipeUp()
         XCTAssertNotNil(visibleVerse(app), "a verse follows the quiz")
     }
@@ -63,7 +63,7 @@ final class WordTests: XCTestCase {
         let choices = (0..<3).map { app.buttons["word.who.choice.\($0)"] }
         XCTAssertTrue(choices.allSatisfy { $0.exists }, "three names")
         choices[2].tap()
-        let result = app.descendants(matching: .any)["word.who.result"]
+        let result = app.descendants(matching: .any)["word.who.result"].firstMatch
         XCTAssertTrue(result.waitForExistence(timeout: 4))
         let right = choices.filter { ($0.value as? String) == "Right answer" }
         XCTAssertEqual(right.count, 1)
@@ -106,8 +106,9 @@ final class WordTests: XCTestCase {
     func testSaveToABoardAndFriendsWhoSavedIt() {
         let app = launchDemo(["-route", "word"])
         XCTAssertTrue(app.descendants(matching: .any)["word.feed"].waitForExistence(timeout: 10))
-        let friends = firstHittable(app.descendants(matching: .any).matching(identifier: "word.friendsSaved"))
-        XCTAssertEqual(friends?.label, "Grace and Sam saved this", "the demo friends saved today's verse")
+        let friends = app.descendants(matching: .any)["word.friendsSaved"].firstMatch
+        XCTAssertTrue(friends.waitForExistence(timeout: 10), "the demo friends saved today's verse")
+        XCTAssertEqual(friends.label, "Grace and Sam saved this")
 
         firstHittable(app.buttons.matching(identifier: "word.save"))?.tap()
         let addToBoard = app.buttons["word.toast.board"]
