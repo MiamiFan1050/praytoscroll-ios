@@ -95,7 +95,8 @@ final class FlowTests: XCTestCase {
         for _ in 0..<10 where !(headline.exists && headline.label.contains("Which apps")) { step() }
         XCTAssertTrue(headline.label.contains("Which apps"), "reached the app step")
         XCTAssertEqual(cta.label, "Choose apps")
-        XCTAssertEqual(secondary.label, "Use Shortcuts instead", "the Shortcuts gate stays as the fallback")
+        XCTAssertEqual(secondary.label, "Not now", "you can go on without locking anything yet")
+        XCTAssertTrue(app.buttons["onboarding.useShortcuts"].exists, "the Shortcuts gate stays as the fallback")
 
         // Allow Screen Time → Apple's picker (the demo stand-in) → pick TikTok and Instagram.
         cta.tap()
@@ -407,5 +408,40 @@ final class FlowTests: XCTestCase {
         app.open(URL(string: "prayscroll://u/hannah_b")!)
         XCTAssertTrue(app.descendants(matching: .any)["friends.search.result"].waitForExistence(timeout: 10),
                       "the link opens Add a friend with their username looked up")
+    }
+
+    /// Under Screen Time, "Not now" goes on without locked apps; Home then offers "Choose the apps to lock".
+    func testOnboardingNotNowSkipsChoosingAppsAndHomeOffersItLater() {
+        let app = launch(["-onboarding", "-noMotion"])
+        let cta = app.buttons["onboarding.cta"]
+        let secondary = app.buttons["onboarding.secondary"]
+        let headline = app.descendants(matching: .any)["onboarding.headline"].firstMatch
+        XCTAssertTrue(cta.waitForExistence(timeout: 10))
+        func step() {
+            let opensSomething = ["prayer", "Show me how", "Start praying", "Choose apps"].contains { cta.label.contains($0) }
+            if cta.exists, cta.isEnabled, cta.isHittable, !(opensSomething && secondary.exists) {
+                cta.tap()
+            } else if secondary.exists, secondary.isHittable {
+                secondary.tap()
+            }
+            Thread.sleep(forTimeInterval: 0.8)
+            let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            for label in ["Allow", "Don’t Allow", "Don't Allow"] where springboard.alerts.buttons[label].exists {
+                springboard.alerts.buttons[label].tap()
+                break
+            }
+        }
+        for _ in 0..<10 where !(headline.exists && headline.label.contains("Which apps")) { step() }
+        XCTAssertTrue(headline.label.contains("Which apps"), "reached the app step")
+        XCTAssertTrue(cta.isEnabled, "Choose apps works before anything is picked")
+        XCTAssertEqual(secondary.label, "Not now")
+        secondary.tap()
+        XCTAssertTrue(waitUntil(5) { !(headline.label.contains("Which apps")) }, "moved on without picking apps")
+        for _ in 0..<14 where !app.buttons["home.prayNow"].exists { step() }
+        XCTAssertTrue(app.buttons["home.prayNow"].waitForExistence(timeout: 8), "reached Home")
+        let card = app.descendants(matching: .any)["home.gateStatus"].firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertTrue(card.staticTexts.matching(NSPredicate(format: "label == %@", "Choose the apps to lock")).firstMatch.exists,
+                      "Home offers to choose them later")
     }
 }

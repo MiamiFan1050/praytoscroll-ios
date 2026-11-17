@@ -171,7 +171,9 @@ struct OnboardingView: View {
     private var secondaryTitle: String? {
         switch step {
         case .tryIt: return model.sampleCompleted ? nil : "Skip"
-        case .chooseApps: return useShortcuts ? "I'll choose later" : "Use Shortcuts instead"
+        // Under Screen Time: "Not now" (no locked apps yet; Home offers "Choose the apps to lock" later).
+        // "Use Shortcuts instead" is a link on the page itself.
+        case .chooseApps: return useShortcuts ? "I'll choose later" : (model.lock.hasSelection ? nil : "Not now")
         case .reminders: return text("reminders.secondary", "Not now")
         case .name: return "Skip"
         case .username: return UsernameRules.normalize(handle).isEmpty ? nil : "Skip"
@@ -250,12 +252,12 @@ struct OnboardingView: View {
     private func secondaryAction() {
         switch step {
         case .chooseApps:
-            if useShortcuts {
-                advance()
-            } else {
-                withAnimation { useShortcuts = true }
-                model.updateSettings { $0.lockMethod = .shortcuts }
+            if !useShortcuts {
+                // Keep Screen Time as the plan, with nothing locked yet: the app works, and Home shows
+                // "Choose the apps to lock".
+                model.updateSettings { $0.lockMethod = .screenTime }
             }
+            advance()
         case .reminders:
             model.updateSettings { s in
                 s.reminders.dailyEnabled = false
@@ -587,6 +589,17 @@ struct OnboardingView: View {
                 lockPoint("arrow.uturn.backward", "When time's up it locks again, even mid-scroll.")
                 lockPoint("hand.raised.fill", "Apple only shares anonymous tokens with us. Never your usage.")
             }
+            Button {
+                withAnimation { useShortcuts = true }
+                model.updateSettings { $0.lockMethod = .shortcuts }
+            } label: {
+                Label("Use Shortcuts instead", systemImage: "arrow.triangle.branch")
+                    .font(.akSubheadlineSemibold)
+                    .foregroundStyle(Palette.warmGold)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityIdentifier("onboarding.useShortcuts")
         }
     }
 

@@ -182,6 +182,7 @@ struct GateStatusCard: View {
             .background(Capsule().fill(Palette.goldButton))
         }
         .akCard()
+        .accessibilityElement(children: .contain)   // the card's id stays on the card, not its text and button
         .accessibilityIdentifier("home.gateStatus")
     }
 }

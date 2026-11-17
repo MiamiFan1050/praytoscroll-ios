@@ -96,7 +96,8 @@ final class CrawlTests: XCTestCase {
         app.launchArguments = ["-demo", "-uitest", "-noMotion", "-onboarding", "-appearance", "dark"]
         app.launch()
         XCTAssertTrue(app.buttons["onboarding.cta"].waitForExistence(timeout: 10))
-        let skipLabels: Set<String> = ["onboarding.cta", "onboarding.secondary", "onboarding.back"]
+        // "Use Shortcuts instead" would switch the walk off the Screen Time path; FlowTests covers that link.
+        let skipLabels: Set<String> = ["onboarding.cta", "onboarding.secondary", "onboarding.back", "onboarding.useShortcuts"]
         var page = 0
         while page < 20, !app.buttons["home.prayNow"].exists {
             page += 1
@@ -453,6 +454,11 @@ final class CrawlTests: XCTestCase {
         if app.descendants(matching: .any)["amenButton"].exists {
             restoreFromSession()
             return Outcome(text: "started the sample prayer (left it)")
+        }
+        if app.buttons["lockpicker.done"].exists {   // "Change apps" reopened the (demo) Screen Time picker
+            app.buttons["lockpicker.done"].tap()
+            Thread.sleep(forTimeInterval: 0.8)
+            return Outcome(text: "opened the app picker (closed it)")
         }
         if !app.buttons["onboarding.cta"].exists {
             let top = describeTopScreen()
