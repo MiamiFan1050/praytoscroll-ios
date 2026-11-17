@@ -176,7 +176,9 @@ final class PrayerFlow {
         switch style {
         case .quick:
             if let seed = request.seedPrompt, !seed.isEmpty {
-                built = [PrayerStep(kind: .prompt, overline: request.circleRequest != nil ? "Praying for your circle" : "Pause & pray",
+                let overline = request.circleRequest != nil ? "Praying for your circle"
+                    : (request.storyEpisodeID != nil ? "Pray to watch" : "Pause & pray")
+                built = [PrayerStep(kind: .prompt, overline: overline,
                                     title: "", prompt: seed, symbol: request.topic?.symbol ?? "bolt.heart.fill",
                                     poolKey: request.circleRequest != nil ? "" : "quick")]
             } else if let topic = request.topic {
@@ -346,7 +348,8 @@ final class PrayerFlow {
         let outcome = PrayerOutcome(style: style, source: request.source, gatedAppID: request.gatedAppID,
                                     startedAt: startedAt, completedAt: Date(), personID: personID,
                                     personName: personName, verseRef: verseRefForHistory,
-                                    circleRequest: request.circleRequest, friend: request.friend)
+                                    circleRequest: request.circleRequest, friend: request.friend,
+                                    storyEpisodeID: request.storyEpisodeID)
         completion = model.completePrayer(outcome)
         // A friend sees "prayed for you" in the app, so there's no text message to offer.
         withAnimationPhase(style == .forSomeone && !personName.isEmpty && request.friend == nil ? .letThemKnow : .celebration)

@@ -1,3 +1,4 @@
+import StoreKit
 import SwiftUI
 
 /// After the Amen: the streak grows, light rises, and the door opens.
@@ -15,6 +16,7 @@ struct CelebrationView: View {
     @State private var pickedUntil: Date?
     @FocusState private var journalFocused: Bool
     @Namespace private var flameSpace
+    @Environment(\.requestReview) private var requestReview
 
     var body: some View {
         ZStack {
@@ -49,6 +51,13 @@ struct CelebrationView: View {
                     shownStreak = flow.completion?.streak.current ?? shownStreak
                 }
                 if (flow.completion?.streak.current ?? 0) > (flow.completion?.previousStreak ?? 0) { Haptics.success() }
+            }
+            // Apple's rating sheet after a calm, happy prayer (never on the way to another app, once per version).
+            if ReviewPrompt.shouldAsk(model: model, source: flow.request.source, isSample: flow.request.isSample) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+                    ReviewPrompt.markAsked(model: model)
+                    requestReview()
+                }
             }
         }
         .sheet(item: $shareCard) { kind in

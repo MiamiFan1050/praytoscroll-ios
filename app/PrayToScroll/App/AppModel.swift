@@ -28,6 +28,8 @@ struct SessionRequest: Identifiable, Equatable {
     var circleRequest: CirclePrayerRequest?
     /// "Pray for @friend": the Amen shows them "@you prayed for you 🙏".
     var friend: FriendProfile?
+    /// "Pray to watch" on a Bible Stories episode: the Amen opens that episode for good.
+    var storyEpisodeID: String?
 }
 
 /// What happened in a finished prayer.
@@ -42,6 +44,7 @@ struct PrayerOutcome {
     var verseRef: String = ""
     var circleRequest: CirclePrayerRequest?
     var friend: FriendProfile?
+    var storyEpisodeID: String?
 }
 
 /// What the celebration shows.
@@ -537,11 +540,12 @@ final class AppModel {
     func startPrayer(style: UnlockStyle? = nil, source: SessionSource, gatedAppID: String? = nil,
                      personID: UUID? = nil, mood: PrayerMood? = nil, isSample: Bool = false,
                      verse: Verse? = nil, seedPrompt: String? = nil, topic: PrayerTopic? = nil,
-                     circleRequest: CirclePrayerRequest? = nil, friend: FriendProfile? = nil) {
+                     circleRequest: CirclePrayerRequest? = nil, friend: FriendProfile? = nil,
+                     storyEpisodeID: String? = nil) {
         let request = SessionRequest(style: style ?? defaultSessionStyle, source: source, gatedAppID: gatedAppID,
                                      personID: personID, mood: mood, isSample: isSample,
                                      verse: verse, seedPrompt: seedPrompt, topic: topic, circleRequest: circleRequest,
-                                     friend: friend)
+                                     friend: friend, storyEpisodeID: storyEpisodeID)
         if activeSession != nil {
             activeSession = nil
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { self.activeSession = request }
@@ -604,6 +608,7 @@ final class AppModel {
 
         store.lastPrayerAt = outcome.completedAt
         refreshStreak()
+        if let episodeID = outcome.storyEpisodeID { stories.unlock(episodeID) }
 
         if let circleRequest = outcome.circleRequest, !circleRequest.isMine {
             Task {

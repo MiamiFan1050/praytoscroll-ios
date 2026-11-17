@@ -55,6 +55,7 @@ struct HomeView: View {
                     }
                     .fixedSize(horizontal: false, vertical: true)
                     AdventCard()
+                    StoriesCard()
                     quickRow
                     topicRow
                     verseCard

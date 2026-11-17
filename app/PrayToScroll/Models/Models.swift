@@ -106,7 +106,7 @@ final class JournalEntry {
 }
 
 enum SessionSource: String, Codable, Sendable {
-    case manual, gate, widget, deepLink, onboarding, reminder
+    case manual, gate, widget, deepLink, onboarding, reminder, story
 }
 
 /// One completed prayer.
