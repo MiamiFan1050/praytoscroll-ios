@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// An arched doorway: a rectangle with a semicircular top. The "door" the key opens.
+/// An arched doorway: a rectangle with a semicircular top.
 struct ArchShape: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
@@ -49,60 +49,117 @@ struct FlameShape: Shape {
     }
 }
 
-/// The key's shaft, collar and teeth (the bow is drawn with `ArchShape`).
-struct KeyShaftShape: Shape {
+/// A wax seal's rim: a disc with soft scallops, like pressed wax.
+struct WaxSealShape: Shape {
+    var bumps: Int = 12
+    var depth: CGFloat = 0.08
+
     func path(in rect: CGRect) -> Path {
-        // Designed in a 100 x 84 box: collar at the top, shaft down the middle, two teeth on the right.
-        func r(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {
-            CGRect(x: rect.minX + x / 100 * rect.width, y: rect.minY + y / 84 * rect.height,
-                   width: w / 100 * rect.width, height: h / 84 * rect.height)
-        }
-        let corner = CGSize(width: rect.width * 0.03, height: rect.width * 0.03)
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) / 2
+        let steps = max(24, bumps * 12)
         var path = Path()
-        path.addRoundedRect(in: r(32, 0, 36, 9), cornerSize: corner)       // collar
-        path.addRoundedRect(in: r(43, 4, 14, 80), cornerSize: corner)      // shaft
-        path.addRoundedRect(in: r(55, 50, 20, 10), cornerSize: corner)     // tooth 1
-        path.addRoundedRect(in: r(55, 68, 14, 10), cornerSize: corner)     // tooth 2
+        for i in 0...steps {
+            let t = Double(i) / Double(steps) * 2 * .pi
+            let r = radius * (1 - depth * CGFloat((1 - cos(Double(bumps) * t)) / 2))
+            let point = CGPoint(x: center.x + r * CGFloat(sin(t)), y: center.y - r * CGFloat(cos(t)))
+            if i == 0 { path.move(to: point) } else { path.addLine(to: point) }
+        }
+        path.closeSubpath()
         return path
     }
 }
 
-/// The PrayToScroll mark: a gold key whose bow is an arched doorway with a small cross of light inside.
+/// The open sheet of a scroll: straight top and bottom (they meet the rollers), gently curved-in sides.
+struct ParchmentShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let bow = rect.width * 0.07
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.minY))
+        path.addQuadCurve(to: CGPoint(x: rect.maxX, y: rect.maxY), control: CGPoint(x: rect.maxX - bow, y: rect.midY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addQuadCurve(to: CGPoint(x: rect.minX, y: rect.minY), control: CGPoint(x: rect.minX + bow, y: rect.midY))
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// The Pray to Scroll mark: an open scroll between two gold rollers, sealed with red wax and a gold cross.
+/// Our own motif (it echoes the scroll in the app icon). `open` below 1 draws the rollers closer together,
+/// as if the scroll were still partly rolled; the Amen button unrolls it as you hold.
 struct PrayToScrollMark: View {
     var glow: Bool = true
-    var lineWidthRatio: CGFloat = 0.09
+    var open: CGFloat = 1
+
+    static let aspect: CGFloat = 0.74
+    private static let waxLight = Color(hex: 0xD45A45)
+    private static let wax = Color(hex: 0xA9352A)
+    private static let waxDeep = Color(hex: 0x6E1C17)
 
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width
             let h = geo.size.height
-            let bowHeight = h * 0.56
-            let line = w * lineWidthRatio
-            ZStack(alignment: .top) {
-                // Light pouring through the doorway.
-                ArchShape()
-                    .fill(RadialGradient(colors: [Palette.cream, Palette.warmGold.opacity(0.85), Palette.gold.opacity(0.25)],
-                                         center: UnitPoint(x: 0.5, y: 0.62), startRadius: 0, endRadius: w * 0.55))
-                    .frame(width: w * 0.80 - line, height: bowHeight - line)
-                    .offset(y: line / 2)
-                    .opacity(glow ? 0.95 : 0.75)
-                ArchShape()
-                    .stroke(Palette.goldGradient, style: StrokeStyle(lineWidth: line, lineJoin: .round))
-                    .frame(width: w * 0.80, height: bowHeight)
-                CrossShape(armRatio: 0.24)
-                    .fill(Color.white)
-                    .frame(width: w * 0.24, height: bowHeight * 0.44)
-                    .offset(y: bowHeight * 0.34)
-                    .shadow(color: Palette.warmGold.opacity(glow ? 0.9 : 0), radius: w * 0.06)
-                KeyShaftShape()
-                    .fill(Palette.goldGradient)
-                    .frame(width: w * 0.8, height: h - bowHeight + line / 2)
-                    .offset(y: bowHeight - line / 2)
+            let openness = min(1, max(0.35, open))
+            let rollerHeight = h * 0.115
+            let span = (h - rollerHeight) * openness       // roller centre to roller centre
+            let midY = h / 2
+            let sheetWidth = w * 0.72
+            let seal = w * 0.44
+            ZStack {
+                ParchmentShape()
+                    .fill(LinearGradient(colors: [Palette.cream, Palette.parchment, Color(hex: 0xE4CFA6)],
+                                         startPoint: .top, endPoint: .bottom))
+                    .frame(width: sheetWidth, height: span)
+                    .position(x: w / 2, y: midY)
+                // Two lines of writing above the seal (too small to matter on the widget, so they fade out there).
+                VStack(spacing: h * 0.05) {
+                    Capsule().frame(width: sheetWidth * 0.6, height: max(0.5, h * 0.022))
+                    Capsule().frame(width: sheetWidth * 0.42, height: max(0.5, h * 0.022))
+                }
+                .foregroundStyle(Palette.deepGold.opacity(h > 30 ? 0.4 : 0))
+                .position(x: w / 2, y: midY - span * 0.26)
+                .opacity(openness > 0.8 ? 1 : 0)
+                ZStack {
+                    WaxSealShape()
+                        .fill(RadialGradient(colors: [Self.waxLight, Self.wax, Self.waxDeep],
+                                             center: UnitPoint(x: 0.36, y: 0.3), startRadius: 0, endRadius: seal * 0.62))
+                    Circle()
+                        .strokeBorder(Self.waxDeep.opacity(0.6), lineWidth: max(0.5, seal * 0.045))
+                        .padding(seal * 0.15)
+                    CrossShape(armRatio: 0.27)
+                        .fill(Palette.goldGradient)
+                        .frame(width: seal * 0.34, height: seal * 0.48)
+                }
+                .frame(width: seal, height: seal)
+                .shadow(color: .black.opacity(0.25), radius: seal * 0.06, y: seal * 0.04)
+                .position(x: w / 2, y: midY + span * (openness > 0.8 ? 0.12 : 0))
+                roller(width: w, height: rollerHeight).position(x: w / 2, y: midY - span / 2)
+                roller(width: w, height: rollerHeight).position(x: w / 2, y: midY + span / 2)
             }
             .frame(width: w, height: h)
-            .shadow(color: Palette.gold.opacity(glow ? 0.55 : 0), radius: glow ? w * 0.12 : 0)
+            .shadow(color: Palette.gold.opacity(glow ? 0.5 : 0), radius: glow ? w * 0.12 : 0)
         }
-        .aspectRatio(0.62, contentMode: .fit)
+        .aspectRatio(Self.aspect, contentMode: .fit)
         .accessibilityHidden(true)
+    }
+
+    /// A gold rod with a round knob at each end.
+    private func roller(width: CGFloat, height: CGFloat) -> some View {
+        let knob = height * 1.2
+        let knobFill = RadialGradient(colors: [Palette.warmGold, Palette.gold, Palette.deepGold],
+                                      center: UnitPoint(x: 0.35, y: 0.3), startRadius: 0, endRadius: knob * 0.7)
+        return ZStack {
+            Capsule()
+                .fill(LinearGradient(colors: [Color(hex: 0xFBE7B0), Palette.gold, Palette.deepGold], startPoint: .top, endPoint: .bottom))
+                .frame(width: width - knob, height: height)
+            HStack(spacing: 0) {
+                Circle().fill(knobFill).frame(width: knob, height: knob)
+                Spacer(minLength: 0)
+                Circle().fill(knobFill).frame(width: knob, height: knob)
+            }
+        }
+        .frame(width: width, height: knob)
     }
 }

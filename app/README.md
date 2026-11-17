@@ -60,9 +60,11 @@ Launch arguments (scheme or UI tests):
 
 ## Art
 
-`tools/import_art.sh` copies `../art/*.png` into `PrayToScroll/Resources/Assets.xcassets` (mascots downscaled to
-600 px @3x; `icon_1024.png` must be opaque). Every illustration has a SwiftUI fallback (`MascotView`, `ArtImage`),
-so a missing file never breaks a screen. `tools/make_icon.swift` draws a fallback icon in code.
+`tools/import_art.sh` copies `../art/*.png` into `PrayToScroll/Resources/Assets.xcassets` as @3x PNGs at the size each
+is shown, and compresses them with `pngquant` when it's installed. `icon_1024.png` must be opaque. Every illustration
+has a SwiftUI fallback (`MascotView`, `ArtImage`), so a missing file never breaks a screen. Without an icon file,
+`tools/make_icon.swift` flattens the praying scroll onto the midnight background. The brand mark (`PrayToScrollMark`, a
+sealed scroll) is drawn in code in `Shared/BrandShapes.swift`, so the widget and share cards use it too.
 
 ## Content
 

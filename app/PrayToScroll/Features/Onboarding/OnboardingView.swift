@@ -423,7 +423,7 @@ struct OnboardingView: View {
             VStack(spacing: 12) {
                 promiseRow(1, "iphone.gen3", "Open Instagram, TikTok, anything you choose", "Your app pauses for a moment.")
                 promiseRow(2, "hands.and.sparkles.fill", "Pray for 30 seconds or a few minutes", "A prompt, a verse, or a friend.")
-                promiseRow(3, "key.fill", "Press and hold Amen", "Your app opens, and stays open for your window.")
+                promiseRow(3, "hand.tap.fill", "Press and hold Amen", "Your app opens, and stays open for your window.")
             }
             Label("Free. No ads. No account. No tracking.", systemImage: "lock.shield.fill")
                 .font(.akFootnote.weight(.semibold))
@@ -666,7 +666,7 @@ struct OnboardingView: View {
 
     private var gateSetupPage: some View {
         scrollPage {
-            ArtImage(name: "PadlockGold") { DoorwayIllustration(symbol: "key.fill") }
+            ArtImage(name: "SealScroll") { DoorwayIllustration(symbol: "scroll.fill") }
                 .frame(width: 150, height: 150)
                 .shadow(color: Palette.gold.opacity(0.4), radius: 28)
                 .frame(maxWidth: .infinity)
@@ -713,7 +713,7 @@ struct OnboardingView: View {
     }
 }
 
-/// A gently pulsing key-in-ring that previews the Amen button.
+/// A gently pulsing scroll-in-ring that previews the Amen button.
 private struct HoldPreview: View {
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     private var reduceMotion: Bool { systemReduceMotion || MotionPolicy.off }

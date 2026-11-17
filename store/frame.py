@@ -7,7 +7,7 @@ gradient, the screenshot in a rounded device frame below, gold accents.
 
 Usage (from anywhere):
     python3 store/frame.py                      # every PNG in store/screenshots/raw/
-    python3 store/frame.py --caption "Amen is the *key.*" path/to/shot.png
+    python3 store/frame.py --caption "Pray *before* you scroll." path/to/shot.png
     python3 store/frame.py --raw DIR --out DIR --captions FILE
 
 Captions come from store/SCREENSHOT_CAPTIONS.md (the markdown table). A raw

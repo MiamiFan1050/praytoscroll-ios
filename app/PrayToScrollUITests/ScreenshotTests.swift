@@ -1,6 +1,6 @@
 import XCTest
 
-/// App Store screenshots from the seeded `-demo` launch. Each screen is attached to the test result as
+/// App Store screenshots from the seeded `-demo` launch (the demo person is Grace). Each screen is attached to the test result as
 /// "NN-name" (lifetime .keepAlways) and, when SCREENSHOT_DIR is set (pass TEST_RUNNER_SCREENSHOT_DIR to
 /// xcodebuild), also written there as a PNG. Run: tools/screenshots.sh
 final class ScreenshotTests: XCTestCase {

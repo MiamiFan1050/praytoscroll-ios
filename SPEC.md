@@ -1,6 +1,6 @@
 # AmenKey (folder name: praypass) — product + build spec (v1.0)
 
-**RENAMED 2026-11-16: "PrayPass" is taken on the App Store and com.praypass.app is taken. The app is AmenKey everywhere: display name AmenKey, store name `AmenKey: Pray to Unlock`, bundle com.amenkeyapp.ios (+ .widget, .shieldconfig, .shieldaction, .monitor, all registered), App Group group.com.amenkeyapp.ios, CloudKit iCloud.com.amenkeyapp.ios, URL scheme amenkey://. Brand idea: "Amen is the key". The press-and-hold Amen that unlocks your apps is the signature moment. Icon: a gold key whose bow is an arched doorway with a small cross of light, on the midnight gradient. Where this spec says PrayPass, read AmenKey.**
+**RENAMED 2026-11-16: "PrayPass" is taken on the App Store and com.praypass.app is taken. The app is AmenKey everywhere: display name AmenKey, store name `AmenKey: Pray to Unlock`, bundle com.amenkeyapp.ios (+ .widget, .shieldconfig, .shieldaction, .monitor, all registered), App Group group.com.amenkeyapp.ios, CloudKit iCloud.com.amenkeyapp.ios, URL scheme amenkey://. Brand idea: "Amen is the key". The press-and-hold Amen that unlocks your apps is the signature moment. Icon: the praying scroll on midnight (updated 11-17; no key imagery anywhere, the in-app mark is a sealed scroll). Where this spec says PrayPass, read AmenKey.**
 
 Owner: Mark Morrison (individual Apple developer, team ZV8C94YFWU, seller "Mark Morrison").
 Goal: a genuinely excellent iOS app, live on the App Store. Mark's words: "copy all the features [of the

@@ -25,7 +25,7 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
         return ShieldConfiguration(
             backgroundBlurStyle: .systemUltraThinMaterialDark,
             backgroundColor: UIColor(hex: 0x0E1726),
-            icon: UIImage(systemName: "key.fill")?.withTintColor(UIColor(hex: 0xE9B949), renderingMode: .alwaysOriginal),
+            icon: UIImage(systemName: "hands.and.sparkles.fill")?.withTintColor(UIColor(hex: 0xE9B949), renderingMode: .alwaysOriginal),
             title: ShieldConfiguration.Label(text: "Pray first", color: cream),
             subtitle: ShieldConfiguration.Label(text: "\(name ?? "This app") opens after a short prayer.\nKnees before feeds.", color: cream.withAlphaComponent(0.75)),
             primaryButtonLabel: ShieldConfiguration.Label(text: "Pray now", color: UIColor(hex: 0x0E1726)),
