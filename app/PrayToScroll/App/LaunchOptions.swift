@@ -14,6 +14,10 @@ struct LaunchOptions: Sendable {
     let route: String?
     /// `-appearance light|dark`
     let appearance: AppearancePreference?
+    /// `-noPeople` with `-demo`: an empty prayer list (a new user adding their first person).
+    let noPeople: Bool
+    /// `-contacts denied|limited|full` with `-demo`: the demo address book's permission (default: not asked yet).
+    let contactsStatus: ContactsAccess?
 
     static let current = LaunchOptions(arguments: ProcessInfo.processInfo.arguments)
 
@@ -34,6 +38,17 @@ struct LaunchOptions: Sendable {
         } else {
             appearance = nil
         }
+        noPeople = arguments.contains("-noPeople")
+        if let index = arguments.firstIndex(of: "-contacts"), arguments.indices.contains(index + 1) {
+            switch arguments[index + 1] {
+            case "denied": contactsStatus = .denied
+            case "limited": contactsStatus = .limited
+            case "full": contactsStatus = .full
+            default: contactsStatus = nil
+            }
+        } else {
+            contactsStatus = nil
+        }
         #else
         isDemo = false
         showOnboarding = false
@@ -41,6 +56,8 @@ struct LaunchOptions: Sendable {
         longMinimum = false
         route = nil
         appearance = nil
+        noPeople = false
+        contactsStatus = nil
         #endif
     }
 }

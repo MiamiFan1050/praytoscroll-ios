@@ -12,6 +12,8 @@ final class Person {
     var lastPrayedAt: Date?
     var prayerCount: Int = 0
     var colorIndex: Int = 0
+    /// A number for "Let them know" texts, from Contacts or typed. Stays on this iPhone.
+    var phone: String?
     @Relationship(deleteRule: .cascade, inverse: \PrayerRequest.person)
     var requests: [PrayerRequest] = []
 
@@ -32,6 +34,12 @@ final class Person {
 
     var firstName: String {
         name.split(separator: " ").first.map(String.init) ?? name
+    }
+
+    /// The saved number, if there is a usable one.
+    var textNumber: String? {
+        let trimmed = (phone ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.contains(where: \.isNumber) ? trimmed : nil
     }
 
     var openRequests: [PrayerRequest] {

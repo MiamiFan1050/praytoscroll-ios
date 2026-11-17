@@ -66,6 +66,8 @@ final class AppModel {
     let store: SharedStore
     let container: ModelContainer
     let circles: any CircleService
+    /// The address book for "Add someone" type-ahead. Read on demand, never uploaded.
+    let contacts: any ContactsProvider
     let content = ContentStore.shared
     let verses = VerseProvider.shared
 
@@ -115,11 +117,13 @@ final class AppModel {
         self.container = modelContainer
         #if DEBUG
         self.circles = demo ? MockCircleService.demo() : CloudKitCircleService()
+        self.contacts = demo ? DemoContacts(status: options.contactsStatus ?? .notDetermined) : DeviceContacts()
         if demo {
             DemoSeeder.seedDefaults(store: sharedStore, options: options)
         }
         #else
         self.circles = CloudKitCircleService()
+        self.contacts = DeviceContacts()
         #endif
         var loaded = sharedStore.settings
         #if DEBUG
@@ -129,7 +133,7 @@ final class AppModel {
         Haptics.enabled = loaded.hapticsEnabled
         #if DEBUG
         if demo {
-            DemoSeeder.seedData(context: modelContainer.mainContext, store: sharedStore)
+            DemoSeeder.seedData(context: modelContainer.mainContext, store: sharedStore, withPeople: !options.noPeople)
             var seeded = sharedStore.settings
             if let forced = options.appearance { seeded.appearance = forced }
             self.settings = seeded
@@ -517,12 +521,18 @@ final class AppModel {
     }
 
     @discardableResult
-    func addPerson(name: String, relationship: String, emoji: String = "") -> Person {
+    func addPerson(name: String, relationship: String, emoji: String = "", phone: String? = nil) -> Person {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let number = phone?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let existing = allPeople().first(where: { $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }) {
+            if existing.textNumber == nil, let number, !number.isEmpty {
+                existing.phone = number
+                try? context.save()
+            }
             return existing
         }
         let person = Person(name: trimmed, relationship: relationship, emoji: emoji)
+        if let number, !number.isEmpty { person.phone = number }
         context.insert(person)
         try? context.save()
         return person

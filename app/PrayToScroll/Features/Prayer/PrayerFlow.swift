@@ -52,7 +52,11 @@ final class PrayerFlow {
     var revealedLines = 1
     var personID: UUID?
     var personName: String = ""
+    /// Their number for the "Let them know" text, if we have one (from Contacts or their prayer-list entry).
+    var personPhone: String?
     var personRequests: [String] = []
+    /// The "for someone" prompt prayed (raw, with {name}), so the text can tell them what you prayed.
+    private(set) var forSomeoneTemplate: String?
     var completion: PrayerCompletion?
     var startedAt = Date()
 
@@ -110,20 +114,38 @@ final class PrayerFlow {
     func choose(person: Person) {
         personID = person.id
         personName = person.name
+        personPhone = person.textNumber
         personRequests = person.openRequests.prefix(3).map(\.text)
     }
 
-    func choose(name: String, addToList: Bool) {
+    func choose(name: String, phone: String? = nil, addToList: Bool) {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         if addToList {
-            let person = model.addPerson(name: trimmed, relationship: "")
+            let person = model.addPerson(name: trimmed, relationship: "", phone: phone)
             choose(person: person)
+            if personPhone == nil { personPhone = phone }
         } else {
             personID = nil
             personName = trimmed
+            personPhone = phone
             personRequests = []
         }
+    }
+
+    /// A number picked on the "Let them know" screen; saved to their prayer-list entry for next time.
+    func setPhone(_ phone: String?) {
+        guard let phone, !phone.isEmpty else { return }
+        personPhone = phone
+        if let personID, let person = model.fetchPerson(id: personID), person.textNumber == nil {
+            person.phone = phone
+            try? model.container.mainContext.save()
+        }
+    }
+
+    /// The prefilled text: "I just prayed for you 🙏", what you prayed, and the app's link.
+    var letThemKnowMessage: String {
+        LetThemKnowMessage.build(template: forSomeoneTemplate, link: AppLinks.shareURL)
     }
 
     func beginPrayingForChosenPerson() {
@@ -182,8 +204,10 @@ final class PrayerFlow {
             revealedLines = 1
         case .forSomeone:
             let name = personFirstName.isEmpty ? "them" : personFirstName
+            let template = draw("forSomeone", library.forSomeone)
+            forSomeoneTemplate = template
             built = [PrayerStep(kind: .prompt, overline: "Praying for \(name)", title: "",
-                                prompt: ContentStore.fill(draw("forSomeone", library.forSomeone), name: name),
+                                prompt: ContentStore.fill(template, name: name),
                                 symbol: "person.2.fill", poolKey: "forSomeone")]
         case .readVerse:
             // A different verse each time (a shuffled bag over the 366), unless a specific one was asked for.

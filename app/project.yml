@@ -69,6 +69,7 @@ targets:
         LSRequiresIPhoneOS: true
         ITSAppUsesNonExemptEncryption: false
         NSPhotoLibraryAddUsageDescription: Save your prayer cards and milestone badges to Photos.
+        NSContactsUsageDescription: Find the people you pray for by name, and text them that you prayed. Your contacts never leave your iPhone.
         UILaunchScreen:
           UIColorName: LaunchBackground
         UISupportedInterfaceOrientations:
