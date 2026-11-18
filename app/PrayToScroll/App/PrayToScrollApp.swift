@@ -24,6 +24,7 @@ struct PrayToScrollApp: App {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { model.sceneBecameActive() }
+            if phase == .background { model.sceneEnteredBackground() }
         }
     }
 }

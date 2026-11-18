@@ -24,7 +24,7 @@ struct LockSetupView: View {
                     case .notDetermined: allowCard
                     case .denied: deniedCard
                     }
-                    if let problem = model.lockProblem { problemCard(problem) }
+                    if model.lock.authorization == .approved, model.lock.hasSelection { lockCheckCard }
                     if notificationsOff, model.lock.authorization == .approved { notificationsCard }
                     howItWorks
                     shortcutsLink
@@ -117,15 +117,39 @@ struct LockSetupView: View {
         .akCard(highlighted: model.lock.hasSelection)
     }
 
-    private func problemCard(_ problem: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Your apps stayed locked", systemImage: "exclamationmark.triangle.fill")
-                .font(.akHeadline).foregroundStyle(Theme.roseText)
-            Text(problem).font(.akFootnote).foregroundStyle(Theme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Button("Try again") { model.retryLock() }.buttonStyle(QuietButtonStyle(height: 44))
+    /// The lock check: what the lock is doing right now, and the proof it relocks by itself.
+    private var lockCheckCard: some View {
+        let health = model.lockHealth()
+        return VStack(alignment: .leading, spacing: 10) {
+            switch health {
+            case .paused(let fault):
+                Label("Lock paused, tap to fix", systemImage: "exclamationmark.lock.fill")
+                    .font(.akHeadline).foregroundStyle(Theme.roseText)
+                Text(fault.detail + " Tap Fix and they lock again on time.")
+                    .font(.akFootnote).foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Fix") { model.retryLock() }.buttonStyle(QuietButtonStyle(height: 44))
+                    .accessibilityIdentifier("lock.fix")
+            case .open(let relocksAt):
+                checkRow("Open now. Locks again by itself at \(relocksAt.formatted(date: .omitted, time: .shortened)).")
+            case .locked:
+                checkRow("Locked. Your apps wait for your Amen.")
+            case .off, .accessOff:
+                checkRow("Prayer Gate is off, so nothing is locked.")
+            }
+            if let last = model.lastRelockAt {
+                checkRow("Last locked again by itself: \(last.formatted(date: .abbreviated, time: .shortened)).")
+            }
         }
         .akCard()
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("lock.check")
+    }
+
+    private func checkRow(_ text: String) -> some View {
+        Label(text, systemImage: "checkmark.shield.fill")
+            .font(.akFootnote).foregroundStyle(Theme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private var notificationsCard: some View {

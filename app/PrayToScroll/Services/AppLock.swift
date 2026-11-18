@@ -3,6 +3,18 @@ import SwiftUI
 
 enum LockAuthorization: Equatable, Sendable {
     case notDetermined, approved, denied
+
+    /// FamilyControls' AuthorizationStatus by raw value: 0 not determined, 1 denied, 2 approved, and 3, iOS 26.4's
+    /// approvedWithDataAccess, which is approved too (reading it as "not determined" would leave the apps unlocked).
+    /// Anything newer reads as not determined, so the app asks again instead of trusting a lock it can't confirm.
+    init(screenTimeStatus raw: Int) {
+        switch raw {
+        case 0: self = .notDetermined
+        case 1: self = .denied
+        case 2, 3: self = .approved
+        default: self = .notDetermined
+        }
+    }
 }
 
 /// The Screen Time lock behind one small API, so AppModel's lock lifecycle runs (and is unit-tested) the same with
@@ -14,11 +26,19 @@ protocol AppLock: AnyObject {
     /// Apps + categories + sites picked.
     var lockedCount: Int { get }
     var scheduledRelock: Date? { get }
+    /// A relock timer is running and still ends when it should (not dropped by a reboot or an iOS update, not moved
+    /// by a time-zone change).
     var isMonitoring: Bool { get }
+    var isShielded: Bool { get }
     func shield()
     func unshield()
+    /// Throws a LockFault when Screen Time refuses the timer.
     func scheduleRelock(at end: Date, now: Date) throws
     func cancelRelock()
+    /// "Open Pray to Scroll to lock your apps again" at `date`, while the lock is paused (nil cancels it).
+    func remindToRelock(at date: Date?)
+    /// Calls `onChange` when Screen Time access changes (turned off in Settings, re-granted, reset by an iOS update).
+    func observeAuthorization(_ onChange: @escaping @MainActor () -> Void)
     /// Erase everything: forget the picked apps.
     func forgetSelection()
     /// The picked apps' real icons (Apple renders them; the app never learns the names).
@@ -29,19 +49,28 @@ protocol AppLock: AnyObject {
 
 extension AppLock {
     var hasSelection: Bool { lockedCount > 0 }
+    func observeAuthorization(_ onChange: @escaping @MainActor () -> Void) {}
 }
 
 #if !NO_SCREEN_TIME
+import Combine
 import FamilyControls
 
 /// The real lock: FamilyControls (.individual) + ManagedSettings shields + a DeviceActivity relock timer.
 final class ScreenTimeLock: AppLock {
+    private var authorizationWatch: AnyCancellable?
+
     var authorization: LockAuthorization {
-        switch AuthorizationCenter.shared.authorizationStatus {
-        case .approved: return .approved
-        case .denied: return .denied
-        default: return .notDetermined
-        }
+        LockAuthorization(screenTimeStatus: AuthorizationCenter.shared.authorizationStatus.rawValue)
+    }
+
+    func observeAuthorization(_ onChange: @escaping @MainActor () -> Void) {
+        // Delivered on the next main-queue turn, after the published value has changed.
+        authorizationWatch = AuthorizationCenter.shared.$authorizationStatus
+            .dropFirst()
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { _ in MainActor.assumeIsolated { onChange() } }
     }
 
     func requestAuthorization() async -> LockAuthorization {
@@ -56,10 +85,12 @@ final class ScreenTimeLock: AppLock {
     var lockedCount: Int { StrictLockStore.lockedCount }
     var scheduledRelock: Date? { SharedStore.shared.relockScheduledFor }
     var isMonitoring: Bool { StrictLockStore.isMonitoring }
+    var isShielded: Bool { StrictLockStore.isShielded }
     func shield() { StrictLockStore.shield() }
     func unshield() { StrictLockStore.unshield() }
     func scheduleRelock(at end: Date, now: Date) throws { try StrictLockStore.scheduleRelock(at: end, now: now) }
     func cancelRelock() { StrictLockStore.cancelRelock() }
+    func remindToRelock(at date: Date?) { StrictLockStore.remindToRelock(at: date) }
     func forgetSelection() { StrictLockStore.selection = FamilyActivitySelection() }
 
     func icons(size: CGFloat, limit: Int) -> AnyView {
@@ -127,10 +158,12 @@ final class ScreenTimeLock: AppLock {
     var lockedCount: Int { 0 }
     var scheduledRelock: Date? { nil }
     var isMonitoring: Bool { false }
+    var isShielded: Bool { false }
     func shield() {}
     func unshield() {}
     func scheduleRelock(at end: Date, now: Date) throws {}
     func cancelRelock() {}
+    func remindToRelock(at date: Date?) {}
     func forgetSelection() {}
     func icons(size: CGFloat, limit: Int) -> AnyView { AnyView(EmptyView()) }
     func picker(isPresented: Binding<Bool>, onChange: @escaping () -> Void) -> AnyView { AnyView(EmptyView()) }
@@ -162,6 +195,7 @@ final class DemoLock: AppLock {
     func unshield() { isShielded = false }
     func scheduleRelock(at end: Date, now: Date) throws { scheduledRelock = end }
     func cancelRelock() { scheduledRelock = nil }
+    func remindToRelock(at date: Date?) {}
     func forgetSelection() { pickedIDs = [] }
 
     func setPicked(_ ids: [String]) { pickedIDs = ids }

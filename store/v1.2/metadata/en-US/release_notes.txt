@@ -1,0 +1,10 @@
+Strict Lock is here.
+
+The apps you pick now lock with Apple's Screen Time. A locked app shows "Pray to open": pray, hold Amen, and it opens for your window, then locks again by itself when your time is up, even mid-scroll.
+
+• Pick apps, categories or sites from Apple's Screen Time list. Pray to Scroll only gets anonymous tokens, never your usage.
+• Home shows the lock at a glance: locked, open and when it locks again, or paused with a one-tap fix.
+• The emergency pass, pauses and the Daily key all lock again by themselves.
+• Prefer Shortcuts? The Prayer Gate is still there.
+
+Free. No ads. No account. No tracking.

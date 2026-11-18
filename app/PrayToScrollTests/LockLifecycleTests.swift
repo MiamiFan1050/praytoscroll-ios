@@ -15,7 +15,11 @@ final class LockLifecycleTests: XCTestCase {
         var scheduledRelock: Date?
         var refuseTimer = false
         var calls: [String] = []
-        var isMonitoring: Bool { scheduledRelock.map { $0 > Date() } ?? false }
+        var reminder: Date?
+        /// A reboot / iOS update / time-zone change made the running timer stale.
+        var timerLost = false
+        var isMonitoring: Bool { !timerLost && (scheduledRelock.map { $0 > Date() } ?? false) }
+        var isShielded: Bool { shielded }
 
         func requestAuthorization() async -> LockAuthorization { authorization }
         func shield() { shielded = true; calls.append("shield") }
@@ -24,8 +28,10 @@ final class LockLifecycleTests: XCTestCase {
             calls.append("schedule")
             if refuseTimer { throw NSError(domain: "DeviceActivity", code: 1) }
             scheduledRelock = end
+            timerLost = false
         }
         func cancelRelock() { scheduledRelock = nil; calls.append("cancel") }
+        func remindToRelock(at date: Date?) { reminder = date }
         func forgetSelection() { lockedCount = 0 }
         func icons(size: CGFloat, limit: Int) -> AnyView { AnyView(EmptyView()) }
         func picker(isPresented: Binding<Bool>, onChange: @escaping () -> Void) -> AnyView { AnyView(EmptyView()) }
@@ -67,7 +73,8 @@ final class LockLifecycleTests: XCTestCase {
         XCTAssertEqual(lock.scheduledRelock, end, "the relock timer ends with the window")
         XCTAssertFalse(lock.shielded)
         XCTAssertEqual(lock.calls, ["schedule", "unshield"], "the timer starts BEFORE the shield comes down")
-        XCTAssertNil(model.lockProblem)
+        XCTAssertNil(model.lockFault)
+        XCTAssertEqual(model.lockHealth(), .open(relocksAt: end), "Home's lock check: relock set")
 
         // Back in the app 5 minutes later: nothing restarts.
         lock.calls = []
@@ -78,6 +85,16 @@ final class LockLifecycleTests: XCTestCase {
         model.syncLock(now: end.addingTimeInterval(1))
         XCTAssertTrue(lock.shielded)
         XCTAssertNil(lock.scheduledRelock)
+        XCTAssertEqual(model.lockHealth(now: end.addingTimeInterval(1)), .locked)
+    }
+
+    @MainActor
+    func testLeavingTheAppLocksAWindowThatEndedWhileItWasOpen() throws {
+        let (model, store, lock) = makeModel()
+        pray(model)
+        store.unlockedUntil = Date().addingTimeInterval(-1)   // the window ran out while Pray to Scroll was on screen
+        model.sceneEnteredBackground()
+        XCTAssertTrue(lock.shielded)
     }
 
     @MainActor
@@ -111,18 +128,70 @@ final class LockLifecycleTests: XCTestCase {
     }
 
     @MainActor
-    func testATimerScreenTimeRefusesKeepsTheAppsLockedAndSaysSo() throws {
-        let (model, _, lock) = makeModel()
+    func testATimerScreenTimeRefusesFailsOpenSaysLockPausedAndTapToFixRelocks() throws {
+        let (model, store, lock) = makeModel()
         lock.refuseTimer = true
-        pray(model)
-        XCTAssertTrue(lock.shielded, "no relock timer, no opening")
-        XCTAssertNotNil(model.lockProblem, "never silent")
+        let end = try XCTUnwrap(pray(model).unlockedUntil)
+        XCTAssertFalse(lock.shielded, "fail open: the Amen still opens the apps")
+        XCTAssertEqual(model.lockFault, .timerRefused, "never silent")
+        XCTAssertEqual(store.lockFault, .timerRefused, "kept in the app group, so it survives the app being killed")
+        XCTAssertEqual(model.lockHealth(), .paused(.timerRefused), "Home: Lock paused, tap to fix")
+        XCTAssertEqual(lock.reminder, end, "a notification at the window's end")
+        XCTAssertFalse(store.screenTimeActive, "a leftover Shortcuts automation guards the apps meanwhile")
 
         lock.refuseTimer = false
-        model.retryLock()
+        model.retryLock()   // Fix
         XCTAssertFalse(lock.shielded)
-        XCTAssertNotNil(lock.scheduledRelock)
-        XCTAssertNil(model.lockProblem)
+        XCTAssertEqual(lock.scheduledRelock, end)
+        XCTAssertNil(model.lockFault)
+        XCTAssertEqual(model.lockHealth(), .open(relocksAt: end))
+        XCTAssertTrue(store.screenTimeActive)
+    }
+
+    @MainActor
+    func testAPausedLockWhoseWindowEndedLocksOnTheNextOpen() throws {
+        let (model, store, lock) = makeModel()
+        lock.refuseTimer = true
+        let end = try XCTUnwrap(pray(model).unlockedUntil)
+        lock.refuseTimer = false
+        model.syncLock(now: end.addingTimeInterval(60))   // the reminder opened the app after the window
+        XCTAssertTrue(lock.shielded)
+        XCTAssertNil(model.lockFault)
+        XCTAssertNil(store.lockFault)
+    }
+
+    @MainActor
+    func testAFaultTheMonitorRecordedShowsOnHomeAndTheNextSyncFixesIt() throws {
+        let (model, store, lock) = makeModel()
+        model.pauseGate(days: 7)
+        store.lockFault = .rearmFailed   // the extension couldn't start the pause's second leg
+        lock.timerLost = true
+        model.sceneBecameActive()
+        XCTAssertNil(model.lockFault)
+        XCTAssertNil(store.lockFault)
+        XCTAssertFalse(lock.timerLost, "a new timer was started")
+        XCTAssertEqual(lock.scheduledRelock, store.pausedUntil)
+        XCTAssertFalse(lock.shielded, "still paused")
+    }
+
+    @MainActor
+    func testAPausedLockIsReadFromTheAppGroupAtLaunch() {
+        let store = SharedStore(defaults: makeScratchDefaults())
+        store.lockFault = .rearmFailed
+        let model = AppModel(options: LaunchOptions(arguments: ["-demo"]), store: store, lock: FakeLock())
+        XCTAssertEqual(model.lockFault, .rearmFailed, "the monitor extension's fault shows on Home")
+    }
+
+    @MainActor
+    func testALostTimerIsStartedAgainOnTheNextOpen() throws {
+        let (model, _, lock) = makeModel()
+        let end = try XCTUnwrap(pray(model).unlockedUntil)
+        lock.timerLost = true   // a reboot, an iOS update or a time-zone change
+        lock.calls = []
+        model.sceneBecameActive()
+        XCTAssertEqual(lock.calls, ["schedule", "unshield"])
+        XCTAssertEqual(lock.scheduledRelock, end)
+        XCTAssertEqual(model.lockHealth(), .open(relocksAt: end))
     }
 
     @MainActor
@@ -167,9 +236,36 @@ final class LockLifecycleTests: XCTestCase {
         XCTAssertFalse(model.usesScreenTime)
         XCTAssertFalse(lock.shielded)
         XCTAssertFalse(store.screenTimeActive)
+        XCTAssertTrue(model.screenTimeAccessLost, "Home: Screen Time access is off, not \"Choose the apps\"")
+        XCTAssertEqual(model.lockHealth(), .accessOff)
         XCTAssertEqual(model.effectiveWindowMinutes, 15)
         XCTAssertEqual(GateEngine.decide(appID: "instagram", now: Date(), snapshot: store.gateSnapshot), .requirePrayer,
                        "the Shortcuts automation asks for the prayer again")
+    }
+
+    @MainActor
+    func testScreenTimeAccessResetByAnIOSUpdateIsShownAndLocksAgainWhenItsBack() {
+        let (model, _, lock) = makeModel()
+        XCTAssertTrue(lock.shielded)
+        lock.authorization = .notDetermined   // an iOS update asked again
+        model.syncLock()
+        XCTAssertFalse(lock.shielded, "never stuck locked")
+        XCTAssertTrue(model.screenTimeAccessLost)
+        lock.authorization = .approved
+        model.syncLock()
+        XCTAssertTrue(lock.shielded)
+        XCTAssertFalse(model.screenTimeAccessLost)
+        XCTAssertEqual(model.lockHealth(), .locked)
+    }
+
+    @MainActor
+    func testANewUserWhoNeverAllowedScreenTimeIsNotToldItWasTurnedOff() {
+        let store = SharedStore(defaults: makeScratchDefaults())
+        let lock = FakeLock()
+        lock.authorization = .notDetermined
+        let model = AppModel(options: LaunchOptions(arguments: ["-demo"]), store: store, lock: lock)
+        model.updateSettings { $0.lockMethod = .screenTime }
+        XCTAssertFalse(model.screenTimeAccessLost)
     }
 
     @MainActor
@@ -203,6 +299,8 @@ final class LockLifecycleTests: XCTestCase {
         XCTAssertNil(lock.scheduledRelock)
         XCTAssertFalse(store.screenTimeActive)
         XCTAssertEqual(lock.lockedCount, 0, "the picked apps are forgotten too")
+        XCTAssertNil(lock.reminder)
+        XCTAssertNil(model.lockFault)
     }
 }
 #endif

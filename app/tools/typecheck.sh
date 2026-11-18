@@ -3,12 +3,13 @@
 # frameworks in the Command Line Tools SDK. The CLT has no SwiftData/Foundation macro plugins, so a scratch
 # copy of the sources gets @Model replaced by hand-written PersistentModel stubs and #Predicate by a shim.
 # Usage: tools/typecheck.sh [app|widget|extensions|tests|all]   (prints "error:" lines; exit 0 = clean)
+# STRICT_LOCK builds get two extra passes (-noscreentime, -fcshim): see fcshim() below.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 APP="$(pwd)"
 SDK=${SDK:-/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk}
 WORK=${TMPDIR:-/tmp}/praytoscroll-typecheck
-rm -rf "$WORK" && mkdir -p "$WORK"
+rm -rf "$WORK" "$WORK-fcshim" && mkdir -p "$WORK"
 cp -R PrayToScroll Shared PrayToScrollWidget StrictLock "$WORK/"
 [ -d PrayToScrollTests ] && cp -R PrayToScrollTests "$WORK/"
 
@@ -55,6 +56,43 @@ prep_tests() {
   sed -i '' 's/^@main$//' PrayToScroll/App/PrayToScrollApp.swift
 }
 status=0
+# The Screen Time files use FamilyControls API that Mac Catalyst can't see, and those errors stop swiftc before it
+# type-checks the rest of a STRICT_LOCK build. So the strict build is also checked (1) without them (NO_SCREEN_TIME,
+# what the unit runner builds) and (2) in a copy where that API is swapped for same-shaped stubs.
+fcshim() {
+  SHIM="$WORK-fcshim"
+  rm -rf "$SHIM" && cp -R "$WORK" "$SHIM"
+  for f in Shared/StrictLockStore.swift PrayToScroll/Services/AppLock.swift; do
+    sed -i '' -e 's/FamilyActivitySelection/ShimSelection/g' -e 's/AuthorizationCenter\.shared/ShimAuthCenter.shared/g' \
+      -e 's/\.familyActivityPicker(/.shimPicker(/g' -e 's/Label(token)/ShimLabel(token)/g' "$SHIM/$f"
+  done
+  cat > "$SHIM/Shared/FamilyControlsShim.swift" <<'SWIFT'
+#if STRICT_LOCK
+import Combine
+import ManagedSettings
+import SwiftUI
+struct ShimSelection: Codable, Equatable {
+    var applicationTokens: Set<ApplicationToken> = []
+    var categoryTokens: Set<ActivityCategoryToken> = []
+    var webDomainTokens: Set<WebDomainToken> = []
+}
+enum ShimStatus: Int { case notDetermined, denied, approved }
+enum ShimMember { case individual }
+final class ShimAuthCenter: ObservableObject {
+    static let shared = ShimAuthCenter()
+    @Published var authorizationStatus: ShimStatus = .notDetermined
+    func requestAuthorization(for member: ShimMember) async throws {}
+}
+extension View {
+    func shimPicker(headerText: String, footerText: String, isPresented: Binding<Bool>, selection: Binding<ShimSelection>) -> some View { self }
+}
+struct ShimLabel: View {
+    init(_ token: ApplicationToken) {}
+    var body: some View { EmptyView() }
+}
+#endif
+SWIFT
+}
 run() {
   local label=$1; shift
   local out
@@ -73,14 +111,19 @@ if [ "$what" = app ] || [ "$what" = all ]; then
   run app-release $(find PrayToScroll Shared -name "*.swift")
   run app-strict -D DEBUG -D STRICT_LOCK $(find PrayToScroll Shared -name "*.swift")
   run app-strict-release -D STRICT_LOCK $(find PrayToScroll Shared -name "*.swift")
+  run app-strict-noscreentime -D DEBUG -D STRICT_LOCK -D NO_SCREEN_TIME $(find PrayToScroll Shared -name "*.swift")
+  fcshim
+  cd "$SHIM"; run app-strict-fcshim -D DEBUG -D STRICT_LOCK $(find PrayToScroll Shared -name "*.swift"); cd "$WORK"
 fi
 if [ "$what" = widget ] || [ "$what" = all ]; then
   run widget -application-extension $(find PrayToScrollWidget Shared -name "*.swift" ! -name StrictLockStore.swift)
 fi
 if [ "$what" = extensions ] || [ "$what" = all ]; then
   # The three Screen Time extensions (shield look, shield buttons, relock monitor).
+  [ -d "$WORK-fcshim" ] || fcshim
   for ext in ShieldConfiguration ShieldAction DeviceActivityMonitor; do
     run "ext-$ext" -application-extension -parse-as-library -D STRICT_LOCK $(find "StrictLock/$ext" Shared -name "*.swift")
+    cd "$WORK-fcshim"; run "ext-$ext-fcshim" -application-extension -parse-as-library -D STRICT_LOCK $(find "StrictLock/$ext" Shared -name "*.swift"); cd "$WORK"
   done
 fi
 if { [ "$what" = tests ] || [ "$what" = all ]; } && [ -d PrayToScrollTests ]; then
@@ -88,5 +131,6 @@ if { [ "$what" = tests ] || [ "$what" = all ]; } && [ -d PrayToScrollTests ]; th
   prep_tests
   run tests -D DEBUG $(find PrayToScroll Shared PrayToScrollTests -name "*.swift") "$WORK/XCTestShim.swift"
   run tests-strict -D DEBUG -D STRICT_LOCK $(find PrayToScroll Shared PrayToScrollTests -name "*.swift") "$WORK/XCTestShim.swift"
+  run tests-strict-noscreentime -D DEBUG -D STRICT_LOCK -D NO_SCREEN_TIME $(find PrayToScroll Shared PrayToScrollTests -name "*.swift") "$WORK/XCTestShim.swift"
 fi
 exit $status

@@ -47,6 +47,11 @@ final class SharedStore: @unchecked Sendable {
         #if STRICT_LOCK
         static let screenTimeActive = "ak.strict.active"
         static let relockScheduledFor = "ak.strict.relockAt"
+        static let relockTimerEnd = "ak.strict.timerEnd"
+        static let relockTimeZone = "ak.strict.timerZone"
+        static let lockFault = "ak.strict.fault"
+        static let lastRelockAt = "ak.strict.lastRelock"
+        static let screenTimeWasApproved = "ak.strict.wasApproved"
         static let screenTimeOfferDismissed = "ak.strict.offerDismissed"
         #endif
         static let wordSeen = "ak.word.seen"
@@ -113,6 +118,36 @@ final class SharedStore: @unchecked Sendable {
     var relockScheduledFor: Date? {
         get { date(Key.relockScheduledFor) }
         set { setDate(newValue, Key.relockScheduledFor) }
+    }
+
+    /// When the running DeviceActivity interval ends (15 min at least, so it can be later than the window's end).
+    var relockTimerEnd: Date? {
+        get { date(Key.relockTimerEnd) }
+        set { setDate(newValue, Key.relockTimerEnd) }
+    }
+
+    /// The time zone the relock timer's wall-clock schedule was written in.
+    var relockTimeZone: String? {
+        get { defaults.string(forKey: Key.relockTimeZone) }
+        set { defaults.set(newValue, forKey: Key.relockTimeZone) }
+    }
+
+    /// Set while the lock has failed open ("Lock paused, tap to fix"), by the app or the monitor extension.
+    var lockFault: LockFault? {
+        get { defaults.string(forKey: Key.lockFault).flatMap(LockFault.init(rawValue:)) }
+        set { defaults.set(newValue?.rawValue, forKey: Key.lockFault) }
+    }
+
+    /// The last time the monitor extension put the shield back by itself (Home's proof that it relocks).
+    var lastRelockAt: Date? {
+        get { date(Key.lastRelockAt) }
+        set { setDate(newValue, Key.lastRelockAt) }
+    }
+
+    /// Screen Time access was granted once: if it reads anything else later, it was turned off (or reset by an iOS update).
+    var screenTimeWasApproved: Bool {
+        get { defaults.bool(forKey: Key.screenTimeWasApproved) }
+        set { defaults.set(newValue, forKey: Key.screenTimeWasApproved) }
     }
 
     /// A v1.0 Shortcuts user closed the "lock with Screen Time" card on Home.

@@ -197,7 +197,7 @@ struct SettingsView: View {
                 }
             }
         } header: { Text("Prayer Gate") } footer: {
-            Text("One emergency pass a day opens an app for 5 minutes without praying. Pauses and passes are counted honestly in Progress.")
+            Text("One emergency pass a day opens an app for \(model.emergencyMinutes) minutes without praying. Pauses and passes are counted honestly in Progress.")
         }
     }
 

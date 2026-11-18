@@ -144,11 +144,19 @@ scan is known to see the lock when it's in.
 The picked apps are locked with Screen Time (FamilyControls `.individual`, ManagedSettings shields, a
 DeviceActivity relock timer). The Shortcuts gate is the fallback when Screen Time access is declined.
 
-- `Shared/ShieldPlanner.swift`: every decision (pure, unit-tested in `ShieldPlannerTests`, incl. a simulated-device
-  property test). Apple's schedules span at least 15 minutes, so under Screen Time every window (and the emergency
-  pass, and a Daily key near its reset) is at least 15 minutes and the UI says so. The relock timer is started
-  BEFORE a shield comes down; if Screen Time refuses it, the apps stay locked and the app shows why.
-- `Shared/StrictLockStore.swift`: the shield, the picked tokens and the timer, shared by the app and the extensions.
+- `Shared/ShieldPlanner.swift`: every decision (pure) plus `RelockEngine`, the relock timer and the monitor against
+  any `ScreenTimeDevice`. Under Screen Time every window (and the emergency pass, and a Daily key near its reset) is
+  at least 15 minutes and the UI says so. The relock timer is started BEFORE a shield comes down. Each relock gets two
+  callbacks (the interval's end warning on the window's end, the end itself a minute later) and a safety
+  notification the monitor withdraws; a week's pause runs in legs under Apple's one-week cap. If Screen Time refuses
+  a timer the lock fails OPEN, never closed: Home says "Lock paused, tap to fix" and every sync retries. Home's lock
+  check, a lost or moved timer (reboot, iOS update, time-zone change) and revoked access are all handled there;
+  `app/RELEASE-1.2.md` has the full failure table.
+- Tests: `ShieldPlannerTests` (the pure rules) and `LockFailureTests` (every failure path, on `SimulatedPhone`, an
+  iPhone with Apple's DeviceActivity rules running the real `RelockEngine`) run locally with
+  `STRICT_LOCK=1 tools/run-unit-tests.sh`; `LockLifecycleTests` (AppModel's wiring) runs in CI.
+- `Shared/StrictLockStore.swift`: the shield, the picked tokens and the timer on Apple's Screen Time, shared by the
+  app and the extensions.
 - `PrayToScroll/Services/AppLock.swift`: the app's lock API: `ScreenTimeLock` (real), `DemoLock` (Debug only:
   the simulator can't show Apple's picker or shields), and a stub for the Catalyst unit runner (`NO_SCREEN_TIME`,
   set only by `tools/run-unit-tests.sh`).

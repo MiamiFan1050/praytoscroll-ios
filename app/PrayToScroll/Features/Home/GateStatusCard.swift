@@ -19,9 +19,14 @@ struct GateStatusCard: View {
         if !model.settings.gateEnabled {
             row(symbol: "lock.slash.fill", tint: Theme.textTertiary, title: "Prayer Gate is off",
                 detail: "Turn it on in Settings whenever you're ready.", actionTitle: "Settings") { model.showSettings = true }
-        } else if let problem = model.lockProblem {
-            row(symbol: "exclamationmark.lock.fill", tint: Theme.roseText, title: "Your apps stayed locked",
-                detail: problem, actionTitle: "Try again") { model.retryLock() }
+        } else if model.screenTimeAccessLost {
+            row(symbol: "exclamationmark.lock.fill", tint: Theme.roseText, title: "Screen Time access is off",
+                detail: "Your apps aren't locked right now. Turn access back on and they wait for your Amen again.",
+                actionTitle: "Turn on") { Task { await model.restoreScreenTimeAccess() } }
+        } else if model.usesScreenTime, case .paused(let fault) = model.lockHealth(now: now) {
+            // Failed open, never silent and never stuck: the apps are open and this says so until it's fixed.
+            row(symbol: "exclamationmark.lock.fill", tint: Theme.roseText, title: "Lock paused, tap to fix",
+                detail: fault.detail + " Tap Fix and they lock again on time.", actionTitle: "Fix") { model.retryLock() }
         } else if model.usesScreenTime {
             screenTimeContent(now: now)
         } else if model.settings.lockMethod == .screenTime {
@@ -79,6 +84,7 @@ struct GateStatusCard: View {
                         .frame(minHeight: 44)
                 }
             }
+            lockCheck(now: .now)
         }
         .akCard()
         .accessibilityElement(children: .contain)
@@ -89,6 +95,31 @@ struct GateStatusCard: View {
             Button { model.pauseGate(days: 7) } label: { Label("Pause for 1 week", systemImage: "pause") }
             Button { model.showLockSetup = true } label: { Label("Locked apps", systemImage: "lock.shield") }
         }
+    }
+
+    /// The lock check: proof on Home that the lock is on, or that a relock timer is set for this window.
+    @ViewBuilder
+    private func lockCheck(now: Date) -> some View {
+        switch model.lockHealth(now: now) {
+        case .locked:
+            if let last = model.lastRelockAt, now.timeIntervalSince(last) < 86_400 {
+                lockCheckLabel("Lock check: on. Locked again by itself at \(last.formatted(date: .omitted, time: .shortened)).")
+            } else {
+                lockCheckLabel("Lock check: on.")
+            }
+        case .open(let relocksAt):
+            lockCheckLabel("Lock check: relock set for \(relocksAt.formatted(date: .omitted, time: .shortened)).")
+        default:
+            EmptyView()
+        }
+    }
+
+    private func lockCheckLabel(_ text: String) -> some View {
+        Label(text, systemImage: "checkmark.shield.fill")
+            .font(.akCaption)
+            .foregroundStyle(Theme.sageText)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("home.lockHealth")
     }
 #else
     @ViewBuilder
@@ -136,6 +167,9 @@ struct GateStatusCard: View {
                      : "\(count) \(count == 1 ? "app is" : "apps are") open. Enjoy, then put it down.")
                     .font(.akFootnote)
                     .foregroundStyle(Theme.textSecondary)
+                #if STRICT_LOCK
+                if relocks { lockCheck(now: now) }
+                #endif
             }
             Spacer(minLength: 0)
         }

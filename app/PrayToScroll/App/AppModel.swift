@@ -119,10 +119,16 @@ final class AppModel {
     var toast: String?
     var shortcutsInstalled = true
     #if STRICT_LOCK
-    /// Set when Screen Time refuses the relock timer: the apps stay locked and this explains why (never silent).
-    var lockProblem: String?
-    /// Bumped after the picked apps change, so views showing their icons refresh.
+    /// Set while the lock has failed open ("Lock paused, tap to fix"): Screen Time refused the relock timer, so the
+    /// apps are open with nothing to lock them again by themselves. Mirrors the app group, where the monitor extension
+    /// can set it too. Never silent: Home shows it and a notification comes at the window's end.
+    private(set) var lockFault: LockFault?
+    /// The window end a running, current relock timer was confirmed for at the last sync (Home's lock check).
+    private(set) var lockVerifiedRelock: Date?
+    /// Bumped after the picked apps or Screen Time access change, so views showing them refresh.
     private(set) var lockRevision = 0
+    @ObservationIgnored private var lockObservers: [NSObjectProtocol] = []
+    @ObservationIgnored private var lockResync: Task<Void, Never>?
     #endif
 
     /// Scroll the Word progress: verses read, goal streak, level, badges, boards, "For you" weights. On this iPhone only.
@@ -190,6 +196,10 @@ final class AppModel {
         }
         reloadGateState()
         refreshStreak()
+        #if STRICT_LOCK
+        lockFault = sharedStore.lockFault
+        watchLockTriggers()
+        #endif
         #if DEBUG
         if demo { Task { await self.refreshUsername() } }
         #endif
@@ -249,17 +259,79 @@ final class AppModel {
     var emergencyMinutes: Int { ShieldPlanner.emergencyMinutes(for: usesScreenTime ? .screenTime : .shortcuts) }
 
     /// Brings Apple's shields in line with the gate state: shielded, open with a relock timer, or off.
-    /// Called after every unlock, pause, resume, setting change, app pick and on every return to the app.
+    /// Called after every unlock, pause, resume, setting change and app pick, on every return to and exit from the app,
+    /// at an open window's end while the app is open, on a time or time-zone change and when Screen Time access
+    /// changes. It is also the repair: a timer a reboot, an iOS update or a time-zone change lost or moved is started
+    /// again, a window that ended with nothing relocking is locked at once, and a paused lock is retried.
     func syncLock(now: Date = Date()) {
-        let active = settings.gateEnabled && usesScreenTime
-        let plan = ShieldPlanner.plan(now: now, active: active, unlockedUntil: store.unlockedUntil,
-                                      pausedUntil: store.pausedUntil, dailyKeyUntil: store.dailyKeyUntil)
-        store.screenTimeActive = active
+        if lock.authorization == .approved, settings.lockMethod == .screenTime { store.screenTimeWasApproved = true }
         let lock = self.lock
-        let step = ShieldPlanner.step(for: plan, now: now, scheduledRelock: lock.scheduledRelock, monitoring: lock.isMonitoring)
-        let ok = ShieldPlanner.perform(step, now: now, shield: { lock.shield() }, unshield: { lock.unshield() },
-                                       schedule: { try lock.scheduleRelock(at: $0, now: now) }, cancel: { lock.cancelRelock() })
-        lockProblem = ok ? nil : "Screen Time couldn't start the timer that locks your apps again, so they stay locked for now. Try again in a moment."
+        let plan = RelockEngine.sync(now: now, active: settings.gateEnabled && usesScreenTime, store: store,
+                                     scheduledRelock: lock.scheduledRelock, monitoring: lock.isMonitoring,
+                                     shield: { lock.shield() }, unshield: { lock.unshield() }, isShielded: { lock.isShielded },
+                                     schedule: { try lock.scheduleRelock(at: $0, now: now) }, cancel: { lock.cancelRelock() },
+                                     remind: { lock.remindToRelock(at: $0) })
+        lockFault = store.lockFault
+        lockVerifiedRelock = lock.isMonitoring ? lock.scheduledRelock : nil
+        scheduleLockResync(plan: plan, now: now)
+    }
+
+    /// Home's lock check (see ShieldPlanner.health).
+    func lockHealth(now: Date = Date()) -> LockHealth {
+        let _ = lockRevision
+        let plan = ShieldPlanner.plan(now: now, active: settings.gateEnabled && usesScreenTime, unlockedUntil: store.unlockedUntil,
+                                      pausedUntil: store.pausedUntil, dailyKeyUntil: store.dailyKeyUntil)
+        return ShieldPlanner.health(plan: plan, accessLost: screenTimeAccessLost, fault: lockFault, verifiedRelock: lockVerifiedRelock)
+    }
+
+    /// Screen Time access was granted, and now isn't (turned off in Settings, or reset by an iOS update): nothing is
+    /// locked, and Home says so instead of "Choose the apps to lock".
+    var screenTimeAccessLost: Bool {
+        let _ = lockRevision
+        return settings.gateEnabled && settings.lockMethod == .screenTime && lock.authorization != .approved
+            && store.screenTimeWasApproved
+    }
+
+    /// The last time the monitor put the shield back by itself.
+    var lastRelockAt: Date? { store.lastRelockAt }
+
+    /// "Turn on" on Home's access-off card: Apple asks again; if the answer is still no, Settings opens.
+    func restoreScreenTimeAccess() async {
+        let result = await lock.requestAuthorization()
+        lockRevision += 1
+        if result == .approved {
+            syncLock()
+            if !lock.hasSelection { showLockSetup = true }
+        } else if let url = URL(string: UIApplication.openSettingsURLString) {
+            await UIApplication.shared.open(url)
+        }
+    }
+
+    /// A time or time-zone change moves a wall-clock relock timer; Screen Time access can change in Settings.
+    private func watchLockTriggers() {
+        let center = NotificationCenter.default
+        lockObservers = [Notification.Name.NSSystemTimeZoneDidChange, UIApplication.significantTimeChangeNotification].map { name in
+            center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.syncLock() }
+            }
+        }
+        lock.observeAuthorization { [weak self] in
+            self?.lockRevision += 1
+            self?.syncLock()
+        }
+    }
+
+    /// While the app is open, sync again just after an open window ends (the monitor relocks; this confirms it, and
+    /// locks if it didn't).
+    private func scheduleLockResync(plan: ShieldPlan, now: Date) {
+        lockResync?.cancel()
+        guard case .open(let until) = plan else { lockResync = nil; return }
+        let delay = max(0, until.timeIntervalSince(now)) + 2
+        lockResync = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            self?.syncLock()
+        }
     }
 
     /// After the picker: start with "Screen Time" as the lock and shield the new picks.
@@ -325,8 +397,9 @@ final class AppModel {
         lockRevision += 1
     }
 
+    /// "Fix" on a paused lock: try the relock timer again (or lock now, if the window is over).
     func retryLock() {
-        lockProblem = nil
+        lockRevision += 1
         syncLock()
     }
 
@@ -490,6 +563,11 @@ final class AppModel {
     }
 
     // MARK: Foreground
+
+    /// Leaving the app re-checks the lock too: a window that ended while the app was open locks before the next app opens.
+    func sceneEnteredBackground() {
+        syncLock()
+    }
 
     func sceneBecameActive() {
         reloadGateState()
@@ -682,7 +760,8 @@ final class AppModel {
             ReminderService.shared.scheduleWindowEnd(at: window, minutes: minutes, enabled: settings.windowEndNudge)
         }
         reloadGateState()
-        syncLock(now: base.at)
+        // The timer starts now (the Amen screen's "change length" comes a little after the Amen itself).
+        syncLock(now: max(base.at, Date()))
         return currentUnlockEnd(now: base.at) ?? end
     }
 
@@ -985,7 +1064,11 @@ final class AppModel {
         lock.cancelRelock()
         lock.unshield()
         lock.forgetSelection()
+        lock.remindToRelock(at: nil)
+        lockResync?.cancel()
         store.screenTimeActive = false
+        lockFault = nil
+        lockVerifiedRelock = nil
         lockRevision += 1
         #endif
         try? context.delete(model: PrayerSession.self)

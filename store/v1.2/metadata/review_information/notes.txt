@@ -1,0 +1,42 @@
+Thank you for reviewing Pray to Scroll 1.2.
+
+NO ACCOUNT NEEDED
+There is no sign-in, no account and no paywall. Every feature is free and there are no in-app purchases. All personal data (prayer list, journal, streaks, settings, the picked apps) is stored on the device.
+
+WHAT'S NEW: STRICT LOCK WITH SCREEN TIME (FAMILY CONTROLS)
+Version 1.2 locks apps the user chooses until they pray, using Apple's Screen Time APIs on the user's own device. Our team's Family Controls (Distribution) entitlement request is S7N7QC6BD5.
+- Authorization: AuthorizationCenter.requestAuthorization(for: .individual). It is the user's own iPhone; there is no parent/child setup and no remote control of another device.
+- Choosing apps: Apple's FamilyActivityPicker. We store only the opaque tokens, in the app's App Group on the device. We never learn app names or usage, and we do not use DeviceActivityReport or read any usage data.
+- Locking: ManagedSettingsStore shields only the picked apps, categories and sites.
+- Shield screen (ShieldConfiguration extension): "Pray to open [app]". Its "Pray now" button (ShieldAction extension) posts a local notification that opens the prayer in Pray to Scroll; "Not now" closes the shield.
+- Relocking (DeviceActivityMonitor extension): after a prayer, the apps open for the user's chosen window (at least 15 minutes, DeviceActivity's minimum) and a one-off DeviceActivity schedule shields them again when it ends.
+- Always under the user's control: turning the Prayer Gate off in Settings lifts every shield at once; a daily emergency pass opens the apps for 15 minutes without praying; the lock can be paused for 1, 3 or 7 days; and Settings › Screen Time › Apps with Screen Time Access removes it entirely. If Screen Time can't start a relock timer, the lock opens rather than trapping the user, and Home says "Lock paused, tap to fix".
+- No data leaves the device for any of this.
+
+HOW TO TEST STRICT LOCK (about 2 minutes, on a real device; Screen Time shields don't appear in the Simulator)
+1. Launch Pray to Scroll and go through onboarding. At "Which apps pull you in?", tap "Choose apps" and approve Screen Time access.
+2. In Apple's picker, choose an app installed on the device (for example Safari or Photos) and tap Done. Home shows "Locked" with its icon.
+3. Open that app: it shows the "Pray to open" shield. Tap "Pray now", then tap the notification.
+4. Pray, and when the timer ring completes, press and hold "Amen" for about 1 second. Home shows "Unlocked" with the time left, and the app opens normally.
+5. Wait 15 minutes (the shortest window Screen Time can relock): the app locks again by itself, even if it's open, and Home shows "Locked" again.
+6. Settings › Prayer Gate off unlocks everything at once; Settings › Pause gate… opens the apps for 1, 3 or 7 days and they relock when it ends.
+
+FASTEST TEST WITHOUT SCREEN TIME (about 30 seconds)
+Decline Screen Time access during onboarding (or tap "Use the Shortcuts gate instead"): the app falls back to the version 1.0 Prayer Gate, a Shortcuts personal automation the user creates with our in-app guide. On Home, tap "Pray now", follow the prompt and hold "Amen": the unlock window starts. In Safari, prayscroll://pray?app=instagram opens the same prayer screen the automation shows.
+
+SCROLL THE WORD
+A full-screen, swipe-up feed of Bible verses (bundled public-domain World English Bible), the healthy thing to scroll after praying. No setup needed.
+
+PRAYER CIRCLES (OPTIONAL)
+A small friends leaderboard using Apple's CloudKit public database (container iCloud.com.amenkeyapp.ios). It needs iCloud sign-in; without it, the Circles screen shows an explanation. A circle record stores only a chosen nickname, the 6-character circle code, a weekly prayer count and a streak. No chat, profiles, photos or other user content. To test: Circles > Create circle, choose a nickname; the code and invite link appear. Joining with that code from a second Apple ID shows both members. Leaving a circle deletes the user's record.
+
+PERMISSIONS AND PRIVACY
+- Screen Time (Family Controls, .individual): requested when the user chooses to lock apps; used only to shield the apps they pick and relock them.
+- Notifications: requested during onboarding, used only for local reminders and the shield's "Pray now" tap.
+- Contacts: "Pray for someone" uses Apple's contact picker (CNContactPickerViewController), so there is no Contacts permission prompt. Only the picked name is stored, on the device.
+- Messages: "Let them know" opens Apple's message composer (MFMessageComposeViewController) prefilled with "I just prayed for you" and an app link; the user decides whether to send. Without Messages, the share sheet is used.
+- No analytics, ads or tracking SDKs, so no App Tracking Transparency prompt.
+- Bible text is the public-domain World English Bible, bundled in the app.
+
+CONTACT
+Support and privacy questions: https://docs.google.com/forms/d/e/1FAIpQLSd970nDhpb_sqjTqumvty5jvxK4t3gkhYplR6XmVWjTiQun6Q/viewform
