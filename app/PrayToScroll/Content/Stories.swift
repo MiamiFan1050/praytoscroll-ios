@@ -197,7 +197,8 @@ enum ReviewPrompt {
         if model.store.defaults.string(forKey: askedVersionKey) == version { return false }
         // Not in the first day, and not before a few prayers.
         guard model.store.prayedDays.count >= 2 else { return false }
-        let prayers = (try? model.container.mainContext.fetchCount(FetchDescriptor<PrayerSession>())) ?? 0
+        let offline = SessionSource.offline.rawValue
+        let prayers = (try? model.container.mainContext.fetchCount(FetchDescriptor<PrayerSession>(predicate: #Predicate { $0.sourceRaw != offline }))) ?? 0
         return prayers >= 3
     }
 

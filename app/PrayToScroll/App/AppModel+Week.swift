@@ -7,7 +7,7 @@ extension AppModel {
     func weekReport(now: Date = Date(), calendar: Calendar = .current) -> WeekReport {
         let sessions = allSessions().map {
             WeekSessionFact(completedAt: $0.completedAt, durationSeconds: $0.durationSeconds, personName: $0.personName,
-                            isGate: $0.source == .gate)
+                            isGate: $0.source == .gate, isTimedPrayer: $0.source != .offline)
         }
         let answered = ((try? context.fetch(FetchDescriptor<PrayerRequest>())) ?? []).compactMap(\.answeredAt)
         let saved = ((try? context.fetch(FetchDescriptor<SavedVerse>())) ?? []).map(\.savedAt)

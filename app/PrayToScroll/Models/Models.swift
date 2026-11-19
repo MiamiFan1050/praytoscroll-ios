@@ -107,6 +107,9 @@ final class JournalEntry {
 
 enum SessionSource: String, Codable, Sendable {
     case manual, gate, widget, deepLink, onboarding, reminder, story
+    /// "I prayed offline yesterday": a day prayed away from the app, logged for the streak (no minutes, not an in-app
+    /// prayer). Older builds read an unknown source as .manual, so a synced one is harmless there.
+    case offline
 }
 
 /// One completed prayer.

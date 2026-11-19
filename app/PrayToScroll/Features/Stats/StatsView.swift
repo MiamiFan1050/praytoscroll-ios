@@ -9,6 +9,8 @@ struct StatsView: View {
     @Query private var journal: [JournalEntry]
     @State private var shareCard: ShareCardKind?
     @State private var week: WeekReport?
+    @State private var offlineDay: DayKey?
+    @State private var confirmOffline = false
 
     var body: some View {
         @Bindable var model = model
@@ -45,10 +47,19 @@ struct StatsView: View {
         .onAppear {
             model.refreshStreak()
             week = model.weekReport()
+            offlineDay = model.offlineOffer()
         }
-        .onChange(of: sessions.count) { _, _ in week = model.weekReport() }
+        .onChange(of: sessions.count) { _, _ in
+            week = model.weekReport()
+            offlineDay = model.offlineOffer()
+        }
         .onChange(of: model.settings.reminders) { _, _ in week = model.weekReport() }
-        .onChange(of: scenePhase) { _, phase in if phase == .active { week = model.weekReport() } }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            model.refreshStreak()
+            week = model.weekReport()
+            offlineDay = model.offlineOffer()
+        }
     }
 
     // MARK: Streak
@@ -89,25 +100,60 @@ struct StatsView: View {
     private var graceCard: some View {
         let streak = model.streak
         let usedDay = streak.frozenDays.filter { WeekID($0, calendar: .current) == WeekID(DayKey(Date(), calendar: .current), calendar: .current) }.first
-        return HStack(spacing: 14) {
-            ZStack {
-                Circle().fill(Color(hex: 0x8FB8E8).opacity(0.18)).frame(width: 50, height: 50)
-                Image(systemName: "snowflake").font(.title3.weight(.semibold)).foregroundStyle(Color(hex: 0x8FB8E8))
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(Color(hex: 0x8FB8E8).opacity(0.18)).frame(width: 50, height: 50)
+                    Image(systemName: "snowflake").font(.title3.weight(.semibold)).foregroundStyle(Color(hex: 0x8FB8E8))
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(streak.freezeAvailableThisWeek ? "Grace day ready" : "Grace day used this week")
+                        .font(.akHeadline).foregroundStyle(Theme.textPrimary)
+                    Text(streak.freezeAvailableThisWeek
+                         ? "Miss a day this week and your streak waits for you. Automatically."
+                         : "It covered \(usedDay.map { $0.startDate(in: .current).formatted(.dateTime.weekday(.wide)) } ?? "a missed day"). A new one comes Sunday.")
+                        .font(.akFootnote).foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text("Grace is free. We'll never sell streak freezes.")
+                        .font(.akCaption).foregroundStyle(Theme.textTertiary)
+                }
+                Spacer(minLength: 0)
             }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(streak.freezeAvailableThisWeek ? "Grace day ready" : "Grace day used this week")
-                    .font(.akHeadline).foregroundStyle(Theme.textPrimary)
-                Text(streak.freezeAvailableThisWeek
-                     ? "Miss a day this week and your streak waits for you. Automatically."
-                     : "It covered \(usedDay.map { $0.startDate(in: .current).formatted(.dateTime.weekday(.wide)) } ?? "a missed day"). A new one comes Sunday.")
-                    .font(.akFootnote).foregroundStyle(Theme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("Grace is free. We'll never sell streak freezes.")
-                    .font(.akCaption).foregroundStyle(Theme.textTertiary)
-            }
-            Spacer(minLength: 0)
+            if let offlineDay { offlineRow(offlineDay) }
         }
         .akCard()
+    }
+
+    /// "Prayed yesterday, just not in the app?": yesterday counts for the streak, twice a month at most.
+    private func offlineRow(_ day: DayKey) -> some View {
+        let left = model.offlineRemaining(for: day)
+        return VStack(alignment: .leading, spacing: 10) {
+            Divider().overlay(Theme.stroke)
+            Text("Prayed yesterday, just not in the app?")
+                .font(.akHeadline).foregroundStyle(Theme.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Let it count for your streak. \(left == 1 ? "1 left" : "\(left) left") this month.")
+                .font(.akFootnote).foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button { confirmOffline = true } label: {
+                Label("I prayed offline yesterday", systemImage: "checkmark.circle.fill")
+                    .font(.akSubheadlineSemibold)
+                    .foregroundStyle(Palette.midnight)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 44)
+                    .background(Capsule().fill(Palette.goldButton))
+            }
+            .buttonStyle(PressScaleStyle())
+            .accessibilityIdentifier("stats.offline")
+        }
+        .confirmationDialog("Did you pray yesterday, away from the app?", isPresented: $confirmOffline, titleVisibility: .visible) {
+            Button("Yes, I prayed yesterday") {
+                if model.logOfflinePrayer() { withAnimation { offlineDay = nil } }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("It keeps your streak. It doesn't add minutes or prayers.")
+        }
     }
 
     // MARK: Heatmap
@@ -167,10 +213,11 @@ struct StatsView: View {
     private var totals: some View {
         let minutes = Int((sessions.reduce(0) { $0 + $1.durationSeconds } / 60).rounded())
         let people = Set(sessions.map { $0.personName.lowercased() }.filter { !$0.isEmpty }).count
+        let prayers = sessions.filter { $0.source != .offline }.count   // a day logged offline isn't an in-app prayer
         return VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "All time")
             HStack(spacing: 12) {
-                StatTile(value: "\(sessions.count)", label: "prayers", systemImage: "hands.and.sparkles.fill")
+                StatTile(value: "\(prayers)", label: "prayers", systemImage: "hands.and.sparkles.fill")
                 StatTile(value: minutes >= 120 ? "\(minutes / 60)h" : "\(minutes)m", label: "with God", systemImage: "clock.fill", tint: Theme.sageText)
             }
             HStack(spacing: 12) {
