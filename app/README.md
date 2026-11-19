@@ -86,6 +86,13 @@ the content files change. `scroll.json` (app only) holds Scroll the Word's extra
 `tools/bible_text.py scroll <engwebp_vpl.txt> <eng-kjv_vpl.txt>` to refill the Bible text. `copy.json` placeholders: `{name}` (user's first name, "friend" fallback), `{hours}`,
 `{days}`, `{streak}`, `{verseRef}`, `{verseText}`; in `prompts.json`, `{name}` is the person being prayed for.
 
+`learn.json` (app only) holds Learn: the three paths and their lessons, the Daily 5 question pool, "Jesus said",
+"Where and when" and the feed series. Scripture is the WEB, word for word: after any edit, run
+`tools/learn_content.py fill <engwebp_vpl.txt>`, which fills every key-verse card from its reference and checks every
+reference, quote, quiz and length rule in `learn.json` and the scroll.json facts (it exits 1 on any problem). To check a
+draft file: `tools/learn_content.py check <file.json> <engwebp_vpl.txt>`; to look up a reference:
+`tools/learn_content.py ref "John 3:16" <engwebp_vpl.txt>`.
+
 ## Prayer Circles (CloudKit)
 
 Public database, schema in `CloudKit/schema.ckdb` (import with `xcrun cktool import-schema`, then deploy to
