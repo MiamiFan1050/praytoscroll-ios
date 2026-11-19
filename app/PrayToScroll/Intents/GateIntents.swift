@@ -14,6 +14,7 @@ enum GateIntentRunner {
         store.recordGateFired(appID: key, at: now)
         let snapshot = store.gateSnapshot
         let decision = GateEngine.decide(appID: key, now: now, snapshot: snapshot)
+        if decision.isReach { store.activity.record(.reach, app: key, at: now) }   // "Your week", on this iPhone only
 
         // The all-apps automation answers a test for whichever app is being tested.
         var target = key

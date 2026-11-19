@@ -8,6 +8,8 @@ enum ShareCardKind: Identifiable, Equatable {
     case prayedInstead
     case milestone(Int)
     case answered(request: String, person: String, note: String, days: Int?)
+    /// "My week with God" from Progress → Your week.
+    case week(WeekShareData)
 
     var id: String {
         switch self {
@@ -16,6 +18,7 @@ enum ShareCardKind: Identifiable, Equatable {
         case .prayedInstead: return "instead"
         case .milestone(let m): return "milestone-\(m)"
         case .answered(let r, _, _, _): return "answered-\(r)"
+        case .week: return "week"
         }
     }
 
@@ -26,8 +29,20 @@ enum ShareCardKind: Identifiable, Equatable {
         case .prayedInstead: return "Share your progress"
         case .milestone: return "Share your milestone"
         case .answered: return "Share an answered prayer"
+        case .week: return "Share your week"
         }
     }
+}
+
+/// The week card's numbers (the last 7 days), captured when Share is tapped.
+struct WeekShareData: Equatable {
+    var prayers: Int
+    var minutes: Int
+    var prayedOn: [Bool]
+    var dayLetters: [String]
+    var putDown: Int
+    var prayedFirst: Int
+    var streak: Int
 }
 
 /// Facts a card needs, captured from the model when the sheet opens.
@@ -145,6 +160,49 @@ struct ShareCardView: View {
                     .font(.system(size: 26, weight: .semibold, design: .serif))
                     .foregroundStyle(Palette.warmGold)
             }
+        case .week(let week):
+            VStack(spacing: 18) {
+                Text("MY WEEK WITH GOD")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .tracking(2)
+                    .foregroundStyle(Palette.warmGold)
+                Text("\(week.prayers)")
+                    .font(.system(size: 104, weight: .bold, design: .serif))
+                    .foregroundStyle(Palette.goldGradient)
+                Text(week.prayers == 1 ? "prayer" : "prayers")
+                    .font(.system(size: 26, weight: .semibold, design: .serif))
+                    .foregroundStyle(Palette.cream)
+                    .padding(.top, -14)
+                HStack(spacing: 10) {
+                    ForEach(Array(week.prayedOn.enumerated()), id: \.offset) { index, prayed in
+                        VStack(spacing: 6) {
+                            Circle()
+                                .fill(prayed ? AnyShapeStyle(Palette.goldButton) : AnyShapeStyle(Color.white.opacity(0.08)))
+                                .overlay(Circle().strokeBorder(Palette.gold.opacity(prayed ? 0 : 0.35), lineWidth: 1))
+                                .overlay(Image(systemName: "checkmark").font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(Palette.midnight).opacity(prayed ? 1 : 0))
+                                .frame(width: 32, height: 32)
+                            Text(week.dayLetters.indices.contains(index) ? week.dayLetters[index] : "")
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Palette.cream.opacity(0.6))
+                        }
+                    }
+                }
+                .padding(.top, 4)
+                VStack(alignment: .leading, spacing: 10) {
+                    weekLine("clock.fill", "\(week.minutes) \(week.minutes == 1 ? "minute" : "minutes") with God")
+                    if week.putDown > 0 {
+                        weekLine("hand.raised.fill", "Chose not to scroll \(week.putDown) \(week.putDown == 1 ? "time" : "times")")
+                    }
+                    if week.prayedFirst > 0 {
+                        weekLine("scroll.fill", "Prayed first \(week.prayedFirst) \(week.prayedFirst == 1 ? "time" : "times")")
+                    }
+                    if week.streak > 0 {
+                        weekLine("flame.fill", "\(week.streak)-day streak")
+                    }
+                }
+                .padding(.top, 8)
+            }
         case .answered(let request, let person, let note, let days):
             VStack(spacing: 18) {
                 ZStack {
@@ -171,6 +229,18 @@ struct ShareCardView: View {
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundStyle(Palette.cream.opacity(0.6))
             }
+        }
+    }
+
+    private func weekLine(_ symbol: String, _ text: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Palette.warmGold)
+                .frame(width: 22)
+            Text(text)
+                .font(.system(size: 19, weight: .semibold, design: .rounded))
+                .foregroundStyle(Palette.cream)
         }
     }
 

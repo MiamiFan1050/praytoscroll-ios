@@ -1,7 +1,8 @@
 import Foundation
 import UserNotifications
 
-/// All local notifications: daily prayer time, streak at risk at 8 PM, morning verse, and the window-end nudge.
+/// All local notifications: daily prayer time, streak at risk at 8 PM, morning verse, the Sunday recap,
+/// "before you scroll", and the window-end nudge.
 @MainActor
 final class ReminderService {
     static let shared = ReminderService()
@@ -14,6 +15,9 @@ final class ReminderService {
         static let riskPrefix = "ak.risk."
         static let versePrefix = "ak.verse."
         static let windowEnd = "ak.window.end"
+        static let weekly = "ak.week.recap"
+        static let nudge = "ak.nudge"
+        static let all = [daily, weekly, nudge]
     }
 
     func requestAuthorization() async -> Bool {
@@ -46,7 +50,7 @@ final class ReminderService {
 
     private func reschedule(settings: AppSettings, streak: StreakSummary, verses: VerseProvider, copy: CopyBook, now: Date) async {
         let pending = await center.pendingNotificationRequests()
-        let ours = pending.map(\.identifier).filter { $0 == ID.daily || $0.hasPrefix(ID.riskPrefix) || $0.hasPrefix(ID.versePrefix) }
+        let ours = pending.map(\.identifier).filter { ID.all.contains($0) || $0.hasPrefix(ID.riskPrefix) || $0.hasPrefix(ID.versePrefix) }
         center.removePendingNotificationRequests(withIdentifiers: ours)
 
         let calendar = Calendar.current
@@ -90,6 +94,33 @@ final class ReminderService {
                 let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
                 add(ID.riskPrefix + day.string, content, UNCalendarNotificationTrigger(dateMatching: parts, repeats: false))
             }
+        }
+
+        if r.weeklyRecapEnabled {
+            // Gregorian weekday 1 is Sunday whatever day the person's week starts on.
+            let content = UNMutableNotificationContent()
+            content.title = "Your week with God is ready"
+            content.body = "Your prayers, the times you chose not to scroll, and one idea for the week ahead."
+            content.sound = nil
+            content.userInfo = ["url": AppLinks.statsDeepLink.absoluteString]
+            var parts = DateComponents()
+            parts.weekday = 1
+            parts.hour = 19
+            parts.minute = 0
+            add(ID.weekly, content, UNCalendarNotificationTrigger(dateMatching: parts, repeats: true))
+        }
+
+        if r.nudgeEnabled {
+            let app = AppCatalog.app(id: r.nudgeAppID, customApps: settings.customApps)?.name
+            let content = UNMutableNotificationContent()
+            content.title = app.map { "Before you open \($0)" } ?? "Before you scroll"
+            content.body = name.isEmpty ? "A short prayer first. Thirty seconds is enough." : "A short prayer first, \(name). Thirty seconds is enough."
+            content.sound = .default
+            content.userInfo = ["url": AppLinks.prayDeepLink.absoluteString]
+            var parts = DateComponents()
+            parts.hour = r.nudgeHour
+            parts.minute = r.nudgeMinute
+            add(ID.nudge, content, UNCalendarNotificationTrigger(dateMatching: parts, repeats: true))
         }
 
         if r.morningVerseEnabled {

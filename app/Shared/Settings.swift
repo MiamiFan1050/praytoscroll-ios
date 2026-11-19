@@ -125,6 +125,14 @@ struct ReminderSettings: Codable, Equatable, Sendable {
     var morningVerseEnabled: Bool = false
     var morningHour: Int = 7
     var morningMinute: Int = 0
+    /// Sunday 7 PM: "Your week with God is ready" (opens Progress).
+    var weeklyRecapEnabled: Bool = true
+    /// "Before you scroll": a prayer reminder just before the hour you reach for your apps most (set from Your week).
+    var nudgeEnabled: Bool = false
+    var nudgeHour: Int = 21
+    var nudgeMinute: Int = 45
+    /// The app it's for, by catalog id ("" = your apps).
+    var nudgeAppID: String = ""
 
     init() {}
 
@@ -138,6 +146,11 @@ struct ReminderSettings: Codable, Equatable, Sendable {
         morningVerseEnabled = try c.decodeIfPresent(Bool.self, forKey: .morningVerseEnabled) ?? d.morningVerseEnabled
         morningHour = try c.decodeIfPresent(Int.self, forKey: .morningHour) ?? d.morningHour
         morningMinute = try c.decodeIfPresent(Int.self, forKey: .morningMinute) ?? d.morningMinute
+        weeklyRecapEnabled = (try? c.decodeIfPresent(Bool.self, forKey: .weeklyRecapEnabled)) ?? d.weeklyRecapEnabled
+        nudgeEnabled = (try? c.decodeIfPresent(Bool.self, forKey: .nudgeEnabled)) ?? d.nudgeEnabled
+        nudgeHour = min(23, max(0, (try? c.decodeIfPresent(Int.self, forKey: .nudgeHour)) ?? d.nudgeHour))
+        nudgeMinute = min(59, max(0, (try? c.decodeIfPresent(Int.self, forKey: .nudgeMinute)) ?? d.nudgeMinute))
+        nudgeAppID = (try? c.decodeIfPresent(String.self, forKey: .nudgeAppID)) ?? d.nudgeAppID
     }
 
     private static let defaultValue = ReminderSettings()

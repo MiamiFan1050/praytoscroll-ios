@@ -120,6 +120,7 @@ final class StoryLibrary {
         guard !watched.contains(episode.id) else { return }
         watched.insert(episode.id)
         defaults.set(Array(watched).sorted(), forKey: Key.watched)
+        ActivityLog(defaults: defaults).record(.story, detail: episode.id)   // "Your week"
     }
 
     func series(containing episodeID: String) -> StorySeries? {

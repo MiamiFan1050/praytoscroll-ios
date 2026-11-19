@@ -54,6 +54,17 @@ final class ActivityLogTests: XCTestCase {
         XCTAssertEqual(log.count(.reach, in: WeekWindow.current(now: t, calendar: cal)), 3)
     }
 
+    func testOnlyRealOpensCountAsReaches() {
+        let soon = Date().addingTimeInterval(600)
+        XCTAssertTrue(GateDecision.requirePrayer.isReach, "the gate asked for a prayer")
+        XCTAssertTrue(GateDecision.allow(until: soon, reason: .unlocked).isReach, "opened inside a window")
+        XCTAssertTrue(GateDecision.allow(until: soon, reason: .dailyKey).isReach)
+        for reason in [AllowReason.launchPass, .grace, .gateOff, .paused, .notGated] {
+            XCTAssertFalse(GateDecision.allow(until: soon, reason: reason).isReach, "\(reason) isn't the person reaching")
+        }
+        XCTAssertFalse(GateDecision.verifyTest.isReach, "Test my gate")
+    }
+
     func testOldEventsFallOffAndTheLogStaysSmall() {
         let (log, _) = makeLog()
         let now = TestCalendar.date(2026, 11, 18)

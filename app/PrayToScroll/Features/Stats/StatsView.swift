@@ -1,12 +1,14 @@
 import SwiftData
 import SwiftUI
 
-/// Progress: streak, grace day, heatmap, milestones, totals, time reclaimed, and the journal.
+/// Progress: your week, streak, grace day, heatmap, milestones, totals, time reclaimed, and the journal.
 struct StatsView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \PrayerSession.completedAt) private var sessions: [PrayerSession]
     @Query private var journal: [JournalEntry]
     @State private var shareCard: ShareCardKind?
+    @State private var week: WeekReport?
 
     var body: some View {
         @Bindable var model = model
@@ -14,6 +16,9 @@ struct StatsView: View {
             AppBackground()
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    if let week {
+                        WeekCard(report: week) { shareCard = .week(model.weekShareData(week)) }
+                    }
                     streakHero
                     graceCard
                     heatmapCard
@@ -37,7 +42,13 @@ struct StatsView: View {
         }
         .navigationDestination(isPresented: $model.openJournal) { JournalView() }
         .sheet(item: $shareCard) { kind in ShareCardSheet(kind: kind).environment(model) }
-        .onAppear { model.refreshStreak() }
+        .onAppear {
+            model.refreshStreak()
+            week = model.weekReport()
+        }
+        .onChange(of: sessions.count) { _, _ in week = model.weekReport() }
+        .onChange(of: model.settings.reminders) { _, _ in week = model.weekReport() }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { week = model.weekReport() } }
     }
 
     // MARK: Streak

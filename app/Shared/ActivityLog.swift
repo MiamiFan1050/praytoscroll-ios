@@ -94,6 +94,19 @@ extension SharedStore {
     var activity: ActivityLog { ActivityLog(defaults: defaults) }
 }
 
+extension GateDecision {
+    /// A real open by the person, for "the app you reach for most": the gate asked for a prayer, or let them into an
+    /// open window. Not PrayToScroll's own reopen (launch pass), a bounce in the grace seconds, a test, a pause, or an
+    /// app that isn't on the list.
+    var isReach: Bool {
+        switch self {
+        case .requirePrayer: return true
+        case .allow(_, let reason): return reason == .unlocked || reason == .dailyKey
+        case .verifyTest: return false
+        }
+    }
+}
+
 /// The rolling 7 days "Your week" talks about: today and the 6 days before it, whatever weekday the calendar
 /// starts on (so a Sunday-evening recap is a full week in every locale). Day edges follow the calendar's time zone,
 /// so a week across a clock change is 167 or 169 hours, never a day short.

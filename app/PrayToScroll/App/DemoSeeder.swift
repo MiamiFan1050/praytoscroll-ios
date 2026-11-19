@@ -70,6 +70,24 @@ enum DemoSeeder {
         store.frozenDays = [today.adding(days: -9, calendar: calendar)]
         store.promptBags = [:]
 
+        // "Your week": Instagram most evenings around 10, TikTok at lunch, two put-downs, gate prayers, moods.
+        let log = store.activity
+        log.clear()
+        if !options.showOnboarding {
+            for back in 1...6 {
+                let day = today.adding(days: -back, calendar: calendar)
+                func at(_ hour: Int, _ minute: Int) -> Date {
+                    calendar.date(bySettingHour: hour, minute: minute, second: 0, of: day.noonDate(in: calendar)) ?? now
+                }
+                log.record(.reach, app: "instagram", at: at(22, 4 + back))
+                if back.isMultiple(of: 2) { log.record(.reach, app: "tiktok", at: at(12, 40)) }
+                if back <= 4 { log.record(.prayedFirst, app: back.isMultiple(of: 2) ? "tiktok" : "instagram", at: at(22, 6 + back)) }
+                if back == 2 || back == 5 { log.record(.putDown, app: "instagram", at: at(22, 9)) }
+                log.record(.mood, detail: (back <= 3 ? PrayerMood.grateful : .anxious).rawValue, at: at(7, 35))
+            }
+            log.record(.story, detail: "demo", at: now.addingTimeInterval(-26 * hour))
+        }
+
         // Scroll the Word: four goal days in a row before today (today still open, nothing read yet), Level 5.
         var word = WordProgress()
         for back in 1...12 {

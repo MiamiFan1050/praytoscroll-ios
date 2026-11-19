@@ -307,6 +307,17 @@ final class FlowTests: XCTestCase {
         XCTAssertFalse(status.label.contains("left"), "no unlock window started: \(status.label)")
     }
 
+    /// Progress opens on Your week: the last 7 days, what you reach for, and one idea with a one-tap action.
+    func testProgressOpensWithYourWeekAndOneIdea() {
+        let app = launch(["-route", "stats"])
+        XCTAssertTrue(app.descendants(matching: .any)["stats.week"].firstMatch.waitForExistence(timeout: 10))
+        let insight = app.staticTexts["stats.week.insight"]
+        XCTAssertTrue(insight.waitForExistence(timeout: 5))
+        XCTAssertTrue(insight.label.contains("Instagram"), "the demo reaches for Instagram around 10 PM: \(insight.label)")
+        XCTAssertTrue(app.buttons["stats.week.action"].exists)
+        XCTAssertTrue(app.buttons["stats.week.share"].exists)
+    }
+
     func testDeepLinkJoinOpensTogether() {
         let app = launch([])
         XCTAssertTrue(app.buttons["home.prayNow"].waitForExistence(timeout: 10))

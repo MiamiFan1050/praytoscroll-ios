@@ -45,6 +45,8 @@ struct PrayerOutcome {
     var circleRequest: CirclePrayerRequest?
     var friend: FriendProfile?
     var storyEpisodeID: String?
+    /// The mood chip picked, for "Your week" (most-felt mood).
+    var mood: PrayerMood?
 }
 
 /// What the celebration shows.
@@ -436,6 +438,7 @@ final class AppModel {
         let now = Date()
         store.emergencyLastUsed = now
         store.emergencyUses += 1
+        store.activity.record(.emergency, app: app?.id, at: now)
         let until = lockSafeEnd(GateEngine.unlock(from: now, minutes: emergencyMinutes, existing: store.unlockedUntil), now: now)
         store.unlockedUntil = until
         reloadGateState()
@@ -595,6 +598,11 @@ final class AppModel {
                                     personName: outcome.personName, verseRef: outcome.verseRef)
         session.personID = outcome.personID
         context.insert(session)
+        if outcome.source == .gate {
+            store.activity.record(.prayedFirst, app: outcome.gatedAppID.map { GateEngine.canonicalID($0, customApps: settings.customApps) },
+                                  at: outcome.completedAt)
+        }
+        if let mood = outcome.mood { store.activity.record(.mood, detail: mood.rawValue, at: outcome.completedAt) }
 
         if let personID = outcome.personID {
             let descriptor = FetchDescriptor<Person>(predicate: #Predicate { $0.id == personID })

@@ -243,7 +243,37 @@ struct SettingsView: View {
                     Text("Time").padding(.leading, 42)
                 }
             }
+            Toggle(isOn: Binding(get: { model.settings.reminders.nudgeEnabled },
+                                 set: { on in
+                                     model.updateSettings { $0.reminders.nudgeEnabled = on }
+                                     if on { requestNotifications() }
+                                 })) {
+                settingsLabel(nudgeTitle, "hand.raised.fill")
+            }
+            .tint(Palette.gold)
+            .accessibilityIdentifier("settings.nudge")
+            if model.settings.reminders.nudgeEnabled {
+                DatePicker(selection: timeBinding(hour: \.reminders.nudgeHour, minute: \.reminders.nudgeMinute),
+                           displayedComponents: .hourAndMinute) {
+                    Text("Time").padding(.leading, 42)
+                }
+            }
+            Toggle(isOn: Binding(get: { model.settings.reminders.weeklyRecapEnabled },
+                                 set: { on in
+                                     model.updateSettings { $0.reminders.weeklyRecapEnabled = on }
+                                     if on { requestNotifications() }
+                                 })) {
+                settingsLabel("Your week, Sundays at 7 PM", "calendar")
+            }
+            .tint(Palette.gold)
+            .accessibilityIdentifier("settings.weeklyRecap")
         } header: { Text("Reminders") }
+    }
+
+    /// "Before you open Instagram": the reminder Your week offers just before the hour you reach for it most.
+    private var nudgeTitle: String {
+        let id = model.settings.reminders.nudgeAppID
+        return id.isEmpty ? "Before you scroll" : "Before you open \(model.appName(for: id))"
     }
 
     private func requestNotifications() {

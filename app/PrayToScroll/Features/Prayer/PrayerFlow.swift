@@ -349,7 +349,7 @@ final class PrayerFlow {
                                     startedAt: startedAt, completedAt: Date(), personID: personID,
                                     personName: personName, verseRef: verseRefForHistory,
                                     circleRequest: request.circleRequest, friend: request.friend,
-                                    storyEpisodeID: request.storyEpisodeID)
+                                    storyEpisodeID: request.storyEpisodeID, mood: mood)
         completion = model.completePrayer(outcome)
         // A friend sees "prayed for you" in the app, so there's no text message to offer.
         withAnimationPhase(style == .forSomeone && !personName.isEmpty && request.friend == nil ? .letThemKnow : .celebration)
