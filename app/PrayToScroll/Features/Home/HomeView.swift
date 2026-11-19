@@ -57,7 +57,7 @@ struct HomeView: View {
                     if showsNightCard { nightPrayerCard }
                     AdventCard()
                     StoriesCard()
-                    // LEARN-HOOK: LearnHomeCard() (Features/Learn/LearnHomeCard.swift; hidden in UI-test runs unless -learnCard)
+                    LearnHomeCard()
                     quickRow
                     topicRow
                     verseCard

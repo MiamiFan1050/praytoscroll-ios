@@ -261,9 +261,8 @@ struct LessonPlayerView: View {
     private func finish(_ lesson: Lesson) {
         guard reward == nil else { return }
         let path = library.locate(lesson.id)?.path
-        // TODO(LEARN-STREAK): a finished lesson doesn't touch the prayer streak (StreakEngine / prayedDays) here.
-        // "Pray about it" on the next page runs the normal prayer flow, which counts. To count the lesson itself,
-        // record the day in the streak code during the merge.
+        // A finished lesson earns XP, not a prayer day: the streak counts prayers (and verse/devotional unlocks).
+        // The lesson ends on "Pray about it", which counts through the normal prayer flow.
         let earned = store.progress.complete(lesson, in: path, right: right, today: .today())
         Haptics.success()
         withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { reward = earned }
