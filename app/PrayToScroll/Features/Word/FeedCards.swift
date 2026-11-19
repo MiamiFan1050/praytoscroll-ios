@@ -11,6 +11,8 @@ struct FeedCardActions {
     var boards: () -> Void = {}
     var answer: (String) -> Void = { _ in }
     var keepGoing: () -> Void = {}
+    /// A Learn card: open today's Daily 5 or the lesson.
+    var openLearn: (LearnNudge) -> Void = { _ in }
 }
 
 /// One full-screen card: a photo backdrop with a slow drift, the card's content, and (on verse cards) the rail of
@@ -94,6 +96,14 @@ struct FeedCard: View {
             if let milestone = item.milestone {
                 MilestoneCardContent(milestone: milestone, isCurrent: isCurrent, onPray: actions.pray, onKeepGoing: actions.keepGoing)
             }
+        case .jesusSaid:
+            if let saying = item.saying { JesusSaidCardContent(saying: saying, textScale: textScale, onPray: actions.pray) }
+        case .place:
+            if let place = item.place { PlaceCardContent(place: place, textScale: textScale) }
+        case .series:
+            if let part = item.seriesPart { SeriesCardContent(part: part, textScale: textScale) }
+        case .lesson:
+            if let nudge = item.nudge { LearnNudgeCardContent(nudge: nudge) { actions.openLearn(nudge) } }
         }
     }
 
@@ -327,7 +337,7 @@ struct FeedCard: View {
 
     private func factContent(_ fact: BibleFact) -> some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Bible fact").akOverline(color: Palette.warmGold)
+            Text("Did you know?").akOverline(color: Palette.warmGold)
             Text(fact.text)
                 .font(.system(size: verseSize * 0.95 * textScale, weight: .semibold, design: .serif))
                 .foregroundStyle(Palette.cream)
