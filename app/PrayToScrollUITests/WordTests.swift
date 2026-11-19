@@ -29,7 +29,8 @@ final class WordTests: XCTestCase {
     /// Whatever card is on screen: a verse ("<text>. <ref>") or the main line of a quiz, fact, question or prompt.
     private func cardKey(_ app: XCUIApplication) -> String? {
         let refPattern = "(?s).*\\. (1 |2 |3 )?[A-Z][A-Za-z ]+ [0-9]+:[0-9]+(-[0-9]+)?$"
-        let ids = ["word.finish", "word.finish.full", "word.who", "word.fact", "word.reflect", "word.prompt", "word.milestone"]
+        let ids = ["word.finish", "word.finish.full", "word.who", "word.fact", "word.reflect", "word.prompt", "word.milestone",
+                   "word.jesus", "word.place", "word.series", "word.learn"]
         let cards = app.descendants(matching: .any).matching(NSPredicate(format: "label MATCHES %@ OR identifier IN %@", refPattern, ids))
         return firstHittable(cards, timeout: 4)?.label
     }

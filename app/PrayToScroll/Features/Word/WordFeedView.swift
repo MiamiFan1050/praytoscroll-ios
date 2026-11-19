@@ -27,7 +27,16 @@ struct WordFeedView: View {
     @State private var visibleSince = Date()
     @State private var savedToast: Verse?
     @State private var milestoneCount = 0
+    /// Learn (the path map, a lesson or today's Daily 5), full screen over the feed.
+    @State private var learnStart: LearnStart?
+    #if DEBUG
+    @MainActor private static var openedLearnForTests = false
+    #endif
+    /// Right answers in a row on the feed's quizzes; every third gets a flame burst.
+    @State private var combo = 0
+    @State private var comboBurst: Int?
     private let reader = VerseReader.shared
+    private let learn = LearnStore.shared
 
     private var today: DayKey { DayKey.today() }
 
@@ -65,6 +74,11 @@ struct WordFeedView: View {
                 topicBar
             }
 
+            if let comboBurst {
+                ComboBurst(combo: comboBurst)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+
             if let verse = savedToast {
                 savedToastView(verse)
                     .frame(maxHeight: .infinity, alignment: .bottom)
@@ -74,6 +88,9 @@ struct WordFeedView: View {
         }
         .environment(\.colorScheme, .dark)
         .sheet(item: $shareCard) { kind in ShareCardSheet(kind: kind).environment(model) }
+        .fullScreenCover(item: $learnStart, onDismiss: refreshLearnCards) { start in
+            LearnRootView(start: start).environment(model)
+        }
         .sheet(isPresented: $showSaved) {
             NavigationStack { SavedVersesView() }
                 .environment(model)
@@ -109,7 +126,17 @@ struct WordFeedView: View {
         .onChange(of: model.username) { _, _ in model.refreshFriendSaves(force: true) }
         .onChange(of: model.settings.ambientSound) { _, on in on ? AmbientSound.shared.start() : AmbientSound.shared.stop() }
         .onAppear {
+            learn.reload()
             if items.isEmpty { rebuild() }
+            #if DEBUG
+            // UI tests: `-openLearn hub|daily5|<lesson id>` opens Learn over the feed (once a launch: the feed's
+            // onAppear runs again when Learn closes).
+            if !Self.openedLearnForTests, learnStart == nil,
+               let raw = ProcessInfo.processInfo.arguments.drop(while: { $0 != "-openLearn" }).dropFirst().first {
+                Self.openedLearnForTests = true
+                learnStart = raw == "hub" ? .hub : (raw == "daily5" ? .daily5 : .lesson(raw))
+            }
+            #endif
             if model.settings.ambientSound { AmbientSound.shared.start() }
             model.refreshFriendSaves()
         }
@@ -191,16 +218,40 @@ struct WordFeedView: View {
         .padding(.top, 6)
     }
 
-    /// "For you" + one feed per topic.
+    /// Learn and the Daily 5, then "For you" + one feed per topic.
     private var topicBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
+                learnChip("Learn", symbol: "graduationcap.fill", id: "word.openLearn") { learnStart = .hub }
+                learnChip("Daily 5", symbol: "square.grid.3x3.fill", id: "word.openDaily5",
+                          done: learn.progress.dailyResult(on: today) != nil) { learnStart = .daily5 }
                 topicChip(nil, title: "For you")
                 ForEach(WordFeedPlanner.topics, id: \.self) { topicChip($0, title: WordFeedPlanner.title(for: $0)) }
             }
             .padding(.horizontal, Spacing.page)
         }
         .scrollClipDisabled()
+    }
+
+    /// Opens Learn: gold-outlined, so it reads as a door rather than a filter.
+    private func learnChip(_ title: String, symbol: String, id: String, done: Bool = false, action: @escaping () -> Void) -> some View {
+        Button {
+            Haptics.tap()
+            action()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: done ? "checkmark.circle.fill" : symbol).font(.caption.weight(.bold))
+                Text(title)
+            }
+            .font(.akFootnote.weight(.semibold))
+            .foregroundStyle(Palette.warmGold)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 34)
+            .background(Capsule().fill(.ultraThinMaterial))
+            .overlay(Capsule().strokeBorder(Palette.gold.opacity(0.7), lineWidth: 1.2))
+        }
+        .accessibilityLabel(done ? "\(title), played today" : title)
+        .accessibilityIdentifier(id)
     }
 
     private func topicChip(_ value: String?, title: String) -> some View {
@@ -263,11 +314,14 @@ struct WordFeedView: View {
             ordered = ForYouRanker.order(ordered, affinity: model.wordProgress.affinity, seed: model.store.wordSeed,
                                          seen: Set(seen), pinFirst: true)
         }
+        // Learn's cards (Jesus said, Where and when, series, Daily 5 / your next lesson) join "For you" only.
+        let learnCards = topic == nil ? FeedLearn.make(library: .shared, progress: learn.progress, today: today) : .empty
         var built = FeedMixer.build(.init(verses: ordered, content: ScrollContent.shared, prompts: model.content.prompts.quick,
                                           topic: topic, seed: model.store.wordSeed &+ UInt64(seen.count / 7),
-                                          seenExtras: model.wordProgress.seenExtras))
+                                          seenExtras: model.wordProgress.seenExtras, learn: learnCards))
         #if DEBUG
-        // UI tests: `-wordCard finish|whoSaid|fact|reflect|send|meaning|pray` opens the feed on that kind of card.
+        // UI tests: `-wordCard finish|whoSaid|fact|reflect|send|meaning|pray|jesusSaid|place|series|lesson` opens the
+        // feed on that kind of card.
         if let raw = model.options.wordCard, let kind = FeedCardKind(rawValue: raw),
            let index = built.firstIndex(where: { $0.kind == kind }) {
             built.insert(built.remove(at: index), at: 0)
@@ -290,9 +344,10 @@ struct WordFeedView: View {
         visibleSince = Date()
         preload(around: id)
         guard let id, let item = items.first(where: { $0.id == id }) else { return }
-        if let extra = item.fact?.id ?? item.who?.id ?? item.finish?.id ?? item.reflection?.id {
+        if let extra = item.fact?.id ?? item.who?.id ?? item.finish?.id ?? item.reflection?.id ?? item.saying?.id ?? item.place?.id {
             model.wordProgress.markExtraSeen(extra)
         }
+        if let part = item.seriesPart { learn.progress.sawSeriesPart(part.seriesID, index: part.index) }
         guard let verse = item.readableVerse else {
             reader.stop()
             return
@@ -355,7 +410,8 @@ struct WordFeedView: View {
                 }
             },
             answer: { choice in answer(choice, on: item) },
-            keepGoing: { keepGoing(from: item) })
+            keepGoing: { keepGoing(from: item) },
+            openLearn: { nudge in openLearn(nudge) })
     }
 
     private func toggleSave(_ item: FeedItem, savedRefs: Set<String>, forceOn: Bool) {
@@ -411,8 +467,43 @@ struct WordFeedView: View {
             return
         }
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { answers[item.id] = choice }
-        if right { Haptics.success() } else { Haptics.warning() }
+        learn.progress.answered(item.finish?.id ?? item.who?.id ?? item.id, right: right)
+        combo = QuizCombo.next(combo, right: right)
+        learn.progress.noteCombo(combo)
+        if QuizCombo.bursts(combo) {
+            QuizCombo.celebrate()
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) { comboBurst = combo }
+            let shown = combo
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
+                if comboBurst == shown { withAnimation(.easeOut(duration: 0.3)) { comboBurst = nil } }
+            }
+        } else if right {
+            Haptics.success()
+        } else {
+            Haptics.warning()
+        }
         celebrate(model.wordProgress.recordQuiz(quiz, right: right, today: today), after: item.id)
+    }
+
+    private func openLearn(_ nudge: LearnNudge) {
+        reader.stop()
+        Haptics.tap()
+        switch nudge {
+        case .daily5: learnStart = .daily5
+        case .lesson(let id, _, _, _, _, _, _): learnStart = .lesson(id)
+        }
+    }
+
+    /// Back from Learn: the feed's Learn cards catch up (today's Daily 5 played → your next lesson).
+    private func refreshLearnCards() {
+        guard topic == nil else { return }
+        let nudges = FeedLearn.make(library: .shared, progress: learn.progress, today: today).nudges
+        guard !nudges.isEmpty else { return }
+        var slot = 0
+        for index in items.indices where items[index].kind == .lesson {
+            items[index].nudge = nudges[slot % nudges.count]
+            slot += 1
+        }
     }
 
     private func keepGoing(from item: FeedItem) {
@@ -440,6 +531,9 @@ struct WordFeedView: View {
             model.startPrayer(style: .quick, source: .manual, seedPrompt: prompt)
         } else if let reflection = item.reflection {
             model.startPrayer(style: .quick, source: .manual, seedPrompt: reflection.question)
+        } else if let saying = item.saying {
+            model.startPrayer(style: .quick, source: .manual,
+                              seedPrompt: "Jesus said, \u{201C}\(saying.quote)\u{201D} (\(saying.ref)). Tell him what these words mean to you today.")
         } else {
             model.startPrayer(style: .quick, source: .manual)
         }

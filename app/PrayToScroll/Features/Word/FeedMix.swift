@@ -20,6 +20,14 @@ enum FeedCardKind: String, CaseIterable, Hashable, Sendable {
     case send
     /// Goal met, a new level or a badge (added as it happens, never planned).
     case milestone
+    /// "Jesus said": his own words, red letter, and who he said them to.
+    case jesusSaid
+    /// "Where and when": a key moment's place and era.
+    case place
+    /// One part of a short series ("The life of Peter, 2 of 5"); the next part comes later in the feed.
+    case series
+    /// Into Learn: today's Daily 5, or "Continue your lesson".
+    case lesson
 
     /// Cards built around a verse (they count as read, and can be saved, shared and prayed).
     var carriesVerse: Bool { self == .verse || self == .meaning || self == .send }
@@ -43,6 +51,10 @@ struct FeedItem: Identifiable, Hashable {
     var finish: FinishVerse?
     var reflection: Reflection?
     var milestone: FeedMilestone?
+    var saying: JesusSaying?
+    var place: PlaceCard?
+    var seriesPart: FeedSeriesPart?
+    var nudge: LearnNudge?
     /// The sky the card falls back to (and the share card uses).
     var scene: FeedScene
     /// Which photo backdrop (an index into FeedBackgrounds).
@@ -50,7 +62,8 @@ struct FeedItem: Identifiable, Hashable {
 
     init(id: String, kind: FeedCardKind, verse: Verse? = nil, prompt: String? = nil, fact: BibleFact? = nil,
          who: WhoSaidQuiz? = nil, finish: FinishVerse? = nil, reflection: Reflection? = nil,
-         milestone: FeedMilestone? = nil, scene: FeedScene = .candle) {
+         milestone: FeedMilestone? = nil, saying: JesusSaying? = nil, place: PlaceCard? = nil,
+         seriesPart: FeedSeriesPart? = nil, nudge: LearnNudge? = nil, scene: FeedScene = .candle) {
         self.id = id
         self.kind = kind
         self.verse = verse
@@ -60,6 +73,10 @@ struct FeedItem: Identifiable, Hashable {
         self.finish = finish
         self.reflection = reflection
         self.milestone = milestone
+        self.saying = saying
+        self.place = place
+        self.seriesPart = seriesPart
+        self.nudge = nudge
         self.scene = verse.map(FeedScene.for) ?? scene
     }
 
@@ -75,6 +92,8 @@ enum FeedMixer {
     static let gaps = [2, 2, 3]
     /// One round of special cards, reshuffled every round (never the same kind twice in a row).
     static let specials: [FeedCardKind] = [.meaning, .finish, .reflect, .whoSaid, .fact, .pray, .send]
+    /// Learn's cards join the round when there's something to show ("For you" only).
+    static let learning: [FeedCardKind] = [.jesusSaid, .place, .series, .lesson]
 
     struct Input {
         var verses: [Verse]
@@ -84,6 +103,8 @@ enum FeedMixer {
         var seed: UInt64
         /// Facts and quizzes already shown, oldest first (they go to the back).
         var seenExtras: [String] = []
+        /// Jesus said, Where and when, series parts and the Learn cards.
+        var learn: FeedLearn = .empty
     }
 
     static func build(_ input: Input) -> [FeedItem] {
@@ -96,6 +117,10 @@ enum FeedMixer {
         let reflections = rotate(input.content.reflect.filter { input.topic == nil || $0.theme == input.topic },
                                  id: \.id, seen: input.seenExtras, seed: input.seed)
         let prompts = input.prompts.filter { !$0.contains("{name}") }
+        let sayings = rotate(input.learn.sayings, id: \.id, seen: input.seenExtras, seed: input.seed)
+        let places = rotate(input.learn.places, id: \.id, seen: input.seenExtras, seed: input.seed)
+        var seriesQueue = input.learn.series
+        let kinds = specials + learning.filter { input.learn.has($0) }
         var used: [FeedCardKind: Int] = [:]
         func next<T>(_ list: [T], _ kind: FeedCardKind) -> (T, Int)? {
             guard !list.isEmpty else { return nil }
@@ -124,6 +149,17 @@ enum FeedMixer {
                 return next(reflections, .reflect).map { FeedItem(id: "r\($0.0.id)-\($0.1)", kind: .reflect, reflection: $0.0) }
             case .pray:
                 return next(prompts, .pray).map { FeedItem(id: "p\($0.1)", kind: .pray, prompt: $0.0) }
+            case .jesusSaid:
+                return next(sayings, .jesusSaid).map { FeedItem(id: "wj\($0.0.id)-\($0.1)", kind: .jesusSaid, saying: $0.0) }
+            case .place:
+                return next(places, .place).map { FeedItem(id: "wp\($0.0.id)-\($0.1)", kind: .place, place: $0.0) }
+            case .series:
+                // Each part once, in order: a series is read through before anything repeats.
+                guard !seriesQueue.isEmpty else { return nil }
+                let part = seriesQueue.removeFirst()
+                return FeedItem(id: "ws-\(part.seriesID)-\(part.index)", kind: .series, seriesPart: part)
+            case .lesson:
+                return next(input.learn.nudges, .lesson).map { FeedItem(id: "wn\($0.1)", kind: .lesson, nudge: $0.0) }
             case .verse, .milestone:
                 return nil
             }
@@ -142,9 +178,14 @@ enum FeedMixer {
             // Time for a special card: the next kind in this round that has something to show.
             var special: FeedItem?
             var kind = FeedCardKind.verse
-            for _ in 0..<(2 * specials.count) where special == nil {
+            // The first special card leads into Learn (today's Daily 5, or your next lesson) when there is one.
+            if lastSpecial == nil, input.learn.has(.lesson) {
+                kind = .lesson
+                special = makeSpecial(.lesson)
+            }
+            for _ in 0..<(2 * kinds.count) where special == nil {
                 if round.isEmpty {
-                    round = specials.shuffled(using: &rng)
+                    round = kinds.shuffled(using: &rng)
                     if round.first == lastSpecial { round.append(round.removeFirst()) }
                 }
                 kind = round.removeFirst()
