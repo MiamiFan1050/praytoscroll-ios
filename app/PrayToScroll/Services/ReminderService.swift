@@ -74,9 +74,12 @@ final class ReminderService {
 
         if r.streakAtRiskEnabled {
             let today = DayKey(now, calendar: calendar)
+            // Rest days never get a heads-up: the streak is resting too.
+            let rest = RestDays.days(settings.restPeriods, through: today.adding(days: 7, calendar: calendar), calendar: calendar)
             for offset in 0..<7 {
                 let day = today.adding(days: offset, calendar: calendar)
                 guard let fire = calendar.date(bySettingHour: 20, minute: 0, second: 0, of: day.noonDate(in: calendar)), fire > now else { continue }
+                if rest.contains(day) { continue }
                 if offset == 0 && (streak.prayedToday || streak.current == 0) { continue }
                 let content = UNMutableNotificationContent()
                 if offset == 0, let message = copy.message("notifications.streakAtRisk") {

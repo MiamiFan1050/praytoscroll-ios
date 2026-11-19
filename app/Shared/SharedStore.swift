@@ -246,8 +246,9 @@ final class SharedStore: @unchecked Sendable {
     func streakSummary(now: Date = Date(), calendar: Calendar = .current) -> StreakSummary {
         let today = DayKey(now, calendar: calendar)
         let prayed = prayedDays
-        let frozen = StreakEngine.reconcileFreezes(prayed: prayed, frozen: frozenDays, today: today, calendar: calendar)
-        return StreakEngine.summary(prayed: prayed, frozen: frozen, today: today, calendar: calendar)
+        let rest = RestDays.days(settings.restPeriods, through: today, calendar: calendar)
+        let frozen = StreakEngine.reconcileFreezes(prayed: prayed, frozen: frozenDays, rest: rest, today: today, calendar: calendar)
+        return StreakEngine.summary(prayed: prayed, frozen: frozen, rest: rest, today: today, calendar: calendar)
     }
 
     // MARK: Circles

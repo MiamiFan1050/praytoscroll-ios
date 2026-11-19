@@ -816,9 +816,10 @@ final class AppModel {
         let days = Set(allSessions().map { DayKey($0.completedAt, calendar: calendar) })
         if days != store.prayedDays { store.prayedDays = days }   // mirror for the widget
         let today = DayKey(now, calendar: calendar)
-        let frozen = StreakEngine.reconcileFreezes(prayed: days, frozen: store.frozenDays, today: today, calendar: calendar)
+        let rest = RestDays.days(settings.restPeriods, through: today, calendar: calendar)
+        let frozen = StreakEngine.reconcileFreezes(prayed: days, frozen: store.frozenDays, rest: rest, today: today, calendar: calendar)
         if frozen != store.frozenDays { store.frozenDays = frozen }
-        let summary = StreakEngine.summary(prayed: days, frozen: frozen, today: today, calendar: calendar)
+        let summary = StreakEngine.summary(prayed: days, frozen: frozen, rest: rest, today: today, calendar: calendar)
         if summary != streak { streak = summary }
     }
 

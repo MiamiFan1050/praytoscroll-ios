@@ -215,6 +215,8 @@ struct AppSettings: Codable, Equatable, Sendable {
     var ambientSound: Bool = false
     /// v1.1 friends: friends see "saved this" on verses I save (only the references). Off by default.
     var shareSavesWithFriends: Bool = false
+    /// A weekly rest day for the streak (a Sabbath), with its history so past streaks stay as they were.
+    var restPeriods: [RestPeriod] = []
 
     init() {}
 
@@ -248,6 +250,7 @@ struct AppSettings: Codable, Equatable, Sendable {
         wordGoal = min(200, max(1, (try? c.decodeIfPresent(Int.self, forKey: .wordGoal)) ?? d.wordGoal))
         ambientSound = (try? c.decodeIfPresent(Bool.self, forKey: .ambientSound)) ?? d.ambientSound
         shareSavesWithFriends = (try? c.decodeIfPresent(Bool.self, forKey: .shareSavesWithFriends)) ?? d.shareSavesWithFriends
+        restPeriods = (try? c.decodeIfPresent([RestPeriod].self, forKey: .restPeriods)) ?? d.restPeriods
         reminders = (try? c.decodeIfPresent(ReminderSettings.self, forKey: .reminders)) ?? d.reminders
         appearance = (try? c.decodeIfPresent(AppearancePreference.self, forKey: .appearance)) ?? d.appearance
         scrollHoursPerDay = try c.decodeIfPresent(Double.self, forKey: .scrollHoursPerDay) ?? d.scrollHoursPerDay

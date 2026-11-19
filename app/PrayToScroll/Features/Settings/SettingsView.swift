@@ -229,6 +229,16 @@ struct SettingsView: View {
             }
             Toggle(isOn: model.binding(\.reminders.streakAtRiskEnabled)) { settingsLabel("Streak heads-up at 8 PM", "flame.fill") }
                 .tint(Palette.gold)
+            Picker(selection: Binding(get: { model.restWeekday ?? 0 }, set: { model.setRestDay($0 == 0 ? nil : $0) })) {
+                Text("None").tag(0)
+                ForEach(restWeekdays, id: \.self) { weekday in
+                    Text(Calendar.current.weekdaySymbols[weekday - 1]).tag(weekday)
+                }
+            } label: {
+                settingsLabel("Sabbath rest day", "leaf.fill")
+            }
+            .tint(Theme.textSecondary)
+            .accessibilityIdentifier("settings.restDay")
             Toggle(isOn: Binding(get: { model.settings.reminders.morningVerseEnabled },
                                  set: { on in
                                      model.updateSettings { $0.reminders.morningVerseEnabled = on }
@@ -282,7 +292,15 @@ struct SettingsView: View {
             }
             .tint(Palette.gold)
             .accessibilityIdentifier("settings.weeklyRecap")
-        } header: { Text("Reminders") }
+        } header: { Text("Reminders") } footer: {
+            Text("Sabbath rest day: your streak rests with you. Pray if you like; skipping that day never breaks your streak. A new choice starts tomorrow.")
+        }
+    }
+
+    /// Weekdays in this calendar's order (1 = Sunday … 7 = Saturday).
+    private var restWeekdays: [Int] {
+        let first = Calendar.current.firstWeekday
+        return (0..<7).map { (first - 1 + $0) % 7 + 1 }
     }
 
     /// "Before you open Instagram": the reminder Your week offers just before the hour you reach for it most.

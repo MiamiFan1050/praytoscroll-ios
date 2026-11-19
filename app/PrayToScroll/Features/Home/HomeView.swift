@@ -272,6 +272,7 @@ struct HomeView: View {
 
     private var streakLine: String {
         if model.streak.prayedToday { return "Today ✓ · \(model.streak.freezeAvailableThisWeek ? "grace day ready" : "grace used")" }
+        if model.streak.isRestDay { return "Rest day · your streak rests too" }
         if model.streak.current > 0 { return "Pray today to keep it" }
         return "Your first day starts now"
     }

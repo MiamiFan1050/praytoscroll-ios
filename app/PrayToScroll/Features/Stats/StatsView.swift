@@ -79,7 +79,9 @@ struct StatsView: View {
                         .font(.akTitle3)
                         .foregroundStyle(Theme.textSecondary)
                 }
-                Text(streak.prayedToday ? "Today's prayer is done." : (streak.current > 0 ? "Pray today to keep it going." : "Your next streak starts with one prayer."))
+                Text(streak.prayedToday ? "Today's prayer is done."
+                     : streak.isRestDay ? "Your rest day. The streak rests with you."
+                     : (streak.current > 0 ? "Pray today to keep it going." : "Your next streak starts with one prayer."))
                     .font(.akFootnote.weight(.semibold))
                     .foregroundStyle(streak.prayedToday ? Theme.sageText : Theme.goldText)
                 Text("Longest: \(streak.longest) \(streak.longest == 1 ? "day" : "days")")
@@ -165,10 +167,11 @@ struct StatsView: View {
                 Spacer()
                 Text("\(model.streak.totalDaysPrayed) days prayed").font(.akFootnote).foregroundStyle(Theme.textSecondary)
             }
-            PrayerHeatmap(prayed: model.prayedDays, frozen: model.streak.frozenDays, counts: dayCounts)
+            PrayerHeatmap(prayed: model.prayedDays, frozen: model.streak.frozenDays, counts: dayCounts, rest: model.streak.restDays)
             HStack(spacing: 14) {
                 legend(color: Palette.gold, "Prayed")
                 legend(color: Color(hex: 0x8FB8E8), "Grace day")
+                if !model.streak.restDays.isEmpty { legend(color: PrayerHeatmap.restColor, "Rest day") }
                 legend(color: Theme.stroke, "Not yet")
             }
         }
@@ -288,7 +291,10 @@ struct PrayerHeatmap: View {
     let prayed: Set<DayKey>
     let frozen: Set<DayKey>
     let counts: [DayKey: Int]
+    var rest: Set<DayKey> = []
     var weeks: Int = 16
+
+    static let restColor = Palette.sage.opacity(0.55)
 
     var body: some View {
         let calendar = Calendar.current
@@ -328,6 +334,9 @@ struct PrayerHeatmap: View {
                 .overlay(shape.strokeBorder(key == today ? Palette.cream : .clear, lineWidth: 1.5))
         } else if frozen.contains(key) {
             shape.fill(Color(hex: 0x8FB8E8).opacity(0.75))
+        } else if rest.contains(key) {
+            shape.fill(Self.restColor)
+                .overlay(shape.strokeBorder(key == today ? Palette.gold : .clear, lineWidth: 1.5))
         } else {
             shape.fill(Theme.stroke)
                 .overlay(shape.strokeBorder(key == today ? Palette.gold : .clear, lineWidth: 1.5))

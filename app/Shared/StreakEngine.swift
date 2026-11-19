@@ -9,14 +9,18 @@ struct StreakSummary: Equatable, Sendable {
     /// The streak is alive but today has no prayer yet.
     var atRisk: Bool
     var frozenDays: Set<DayKey>
+    /// Rest days (a chosen weekly Sabbath): they keep the chain like a grace day, without using it.
+    var restDays: Set<DayKey> = []
+    /// Today is a rest day: nothing is at risk.
+    var isRestDay: Bool = false
 
     static let empty = StreakSummary(current: 0, longest: 0, prayedToday: false, totalDaysPrayed: 0,
                                      freezeAvailableThisWeek: true, atRisk: false, frozenDays: [])
 }
 
-/// Pure streak logic. A streak is a chain of consecutive days where each day was either prayed or
-/// covered by a streak freeze. Only prayed days add to the number; frozen days just keep the chain alive.
-/// Each calendar week has exactly one freeze, applied automatically to a missed day.
+/// Pure streak logic. A streak is a chain of consecutive days where each day was either prayed, covered by a
+/// streak freeze, or a chosen rest day. Only prayed days add to the number; frozen and rest days just keep the
+/// chain alive. Each calendar week has exactly one freeze, applied automatically to a missed day.
 enum StreakEngine {
     static let maxBridgeableGap = 7
 
@@ -27,11 +31,18 @@ enum StreakEngine {
 
     /// Applies streak freezes to missed days between the last active day and today (exclusive).
     /// Freezes are only spent when they save the whole gap, so a broken streak never burns a freeze.
-    static func reconcileFreezes(prayed: Set<DayKey>, frozen: Set<DayKey>, today: DayKey, calendar: Calendar) -> Set<DayKey> {
-        let active = prayed.union(frozen)
+    static func reconcileFreezes(prayed: Set<DayKey>, frozen: Set<DayKey>, rest: Set<DayKey> = [], today: DayKey,
+                                 calendar: Calendar) -> Set<DayKey> {
+        let active = prayed.union(frozen).union(rest)
         guard let lastActive = active.filter({ $0 < today }).max() else { return frozen }
         let yesterday = today.adding(days: -1, calendar: calendar)
         guard lastActive < yesterday else { return frozen }
+        // A run of rest days with no prayer in it keeps nothing alive, so it never spends a freeze.
+        var probe = lastActive
+        while !prayed.contains(probe) {
+            probe = probe.adding(days: -1, calendar: calendar)
+            if !active.contains(probe) { return frozen }
+        }
 
         var gap: [DayKey] = []
         var cursor = lastActive.adding(days: 1, calendar: calendar)
@@ -49,9 +60,11 @@ enum StreakEngine {
         return tentative
     }
 
-    static func summary(prayed: Set<DayKey>, frozen: Set<DayKey>, today: DayKey, calendar: Calendar) -> StreakSummary {
+    static func summary(prayed: Set<DayKey>, frozen: Set<DayKey>, rest: Set<DayKey> = [], today: DayKey,
+                        calendar: Calendar) -> StreakSummary {
         let prayedToday = prayed.contains(today)
-        let active = prayed.union(frozen)
+        let active = prayed.union(frozen).union(rest)
+        let restToday = rest.contains(today)
 
         var current = 0
         var cursor = prayedToday ? today : today.adding(days: -1, calendar: calendar)
@@ -60,7 +73,7 @@ enum StreakEngine {
             cursor = cursor.adding(days: -1, calendar: calendar)
         }
 
-        let longest = max(current, longestChain(prayed: prayed, frozen: frozen, calendar: calendar))
+        let longest = max(current, longestChain(prayed: prayed, frozen: frozen, rest: rest, calendar: calendar))
         let freezeAvailable = !freezeUsed(inWeekOf: today, frozen: frozen, calendar: calendar)
 
         return StreakSummary(
@@ -69,13 +82,15 @@ enum StreakEngine {
             prayedToday: prayedToday,
             totalDaysPrayed: prayed.count,
             freezeAvailableThisWeek: freezeAvailable,
-            atRisk: !prayedToday && current > 0,
-            frozenDays: frozen
+            atRisk: !prayedToday && current > 0 && !restToday,
+            frozenDays: frozen,
+            restDays: rest,
+            isRestDay: restToday
         )
     }
 
-    static func longestChain(prayed: Set<DayKey>, frozen: Set<DayKey>, calendar: Calendar) -> Int {
-        let active = prayed.union(frozen).sorted()
+    static func longestChain(prayed: Set<DayKey>, frozen: Set<DayKey>, rest: Set<DayKey> = [], calendar: Calendar) -> Int {
+        let active = prayed.union(frozen).union(rest).sorted()
         guard !active.isEmpty else { return 0 }
         var best = 0
         var run = 0

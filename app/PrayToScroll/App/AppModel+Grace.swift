@@ -14,7 +14,8 @@ extension AppModel {
     /// Yesterday, when "I prayed offline yesterday" is on offer (see OfflineGrace).
     func offlineOffer(now: Date = Date()) -> DayKey? {
         let calendar = Calendar.current
-        return OfflineGrace.offer(prayed: store.prayedDays, bridged: streak.frozenDays, offline: offlineDays(calendar: calendar),
+        return OfflineGrace.offer(prayed: store.prayedDays, bridged: streak.frozenDays.union(streak.restDays),
+                                  offline: offlineDays(calendar: calendar),
                                   today: DayKey(now, calendar: calendar), calendar: calendar)
     }
 
@@ -41,5 +42,21 @@ extension AppModel {
         Haptics.success()
         toast = streak.current > 1 ? "Yesterday counts. \(streak.current) days with God." : "Yesterday counts."
         return true
+    }
+
+    // MARK: Rest day
+
+    /// The rest weekday chosen now (1 = Sunday … 7 = Saturday), if any.
+    var restWeekday: Int? { RestDays.current(settings.restPeriods) }
+
+    /// Choose a weekly rest day (nil turns it off). It starts tomorrow, so it never rewrites a day already lived.
+    func setRestDay(_ weekday: Int?, now: Date = Date()) {
+        let calendar = Calendar.current
+        let periods = RestDays.choosing(weekday, in: settings.restPeriods, today: DayKey(now, calendar: calendar), calendar: calendar)
+        guard periods != settings.restPeriods else { return }
+        updateSettings { $0.restPeriods = periods }
+        refreshStreak(now: now)
+        refreshReminders()
+        WidgetCenter.shared.reloadAllTimelines()
     }
 }
