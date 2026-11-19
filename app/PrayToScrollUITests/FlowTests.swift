@@ -278,7 +278,33 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(app.buttons["celebration.backTo.instagram"].waitForExistence(timeout: 10),
                       "one automation can't say which app opened, so each gated app is offered")
         XCTAssertTrue(app.buttons["celebration.backTo.tiktok"].exists)
-        XCTAssertTrue(app.buttons["celebration.done"].exists)
+        XCTAssertTrue(app.buttons["celebration.putDown"].exists, "or put it down")
+    }
+
+    /// "I'm good, put it down" after a gate prayer: nothing opens, the win is counted, and the gate stays shut.
+    func testPutItDownAfterAGatePrayerLandsHomeWithTheGateShut() {
+        let app = launch(["-route", "gatepray", "-shortcutsGate"])
+        for _ in 0..<6 {
+            if app.descendants(matching: .any)["amenButton"].exists { break }
+            let next = app.buttons["session.next"]
+            if next.waitForExistence(timeout: 3) { next.tap() }
+        }
+        sayAmen(in: app)
+        let open = app.buttons["celebration.continue"]
+        XCTAssertTrue(open.waitForExistence(timeout: 10))
+        XCTAssertTrue(open.label.contains("Open Instagram"), open.label)
+        let putDown = app.buttons["celebration.putDown"]
+        for _ in 0..<4 where !putDown.isHittable { app.swipeUp() }
+        putDown.tap()
+        let count = app.staticTexts["celebration.putDownCount"]
+        XCTAssertTrue(count.waitForExistence(timeout: 5))
+        XCTAssertTrue(count.label.contains("first") || count.label.contains("time this week"), count.label)
+        let home = app.buttons["celebration.home"]
+        if home.exists, home.isHittable { home.tap() }   // it also closes by itself after a moment
+        XCTAssertTrue(app.buttons["home.prayNow"].waitForExistence(timeout: 10), "lands on Home")
+        let status = app.descendants(matching: .any)["home.gateStatus"].firstMatch
+        XCTAssertTrue(status.waitForExistence(timeout: 5))
+        XCTAssertFalse(status.label.contains("left"), "no unlock window started: \(status.label)")
     }
 
     func testDeepLinkJoinOpensTogether() {

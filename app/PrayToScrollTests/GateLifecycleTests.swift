@@ -146,6 +146,22 @@ final class GateLifecycleTests: XCTestCase {
     }
 
     @MainActor
+    func testPutItDownTakesBackThisPrayersUnlockAndCountsTheWin() throws {
+        let (model, store) = makeModel()
+        let week = WeekWindow.current(now: Date(), calendar: .current)
+        let before = store.activity.count(.putDown, in: week)
+        let start = Date()
+        _ = try XCTUnwrap(pray(model).unlockedUntil, "the Amen writes the window first, as always")
+        XCTAssertEqual(model.putItDown(appID: "instagram"), before + 1, "this week's running count, this time included")
+        XCTAssertNil(store.unlockedUntil, "nothing opened: back to how the gate was before the prayer")
+        XCTAssertNil(store.dailyKeyUntil)
+        XCTAssertNil(store.launchPasses["instagram"], "no launch pass, so the next open asks again")
+        XCTAssertEqual(decide("instagram", store, at: start.addingTimeInterval(60)), .requirePrayer)
+        XCTAssertEqual(store.activity.events(.putDown, in: week).last?.app, "instagram")
+        XCTAssertEqual(model.streak.prayedToday, true, "the prayer itself still counts")
+    }
+
+    @MainActor
     func testAnotherPrayerNeverShortensAnOpenWindow() throws {
         let (model, store) = makeModel()
         model.updateSettings { UnlockChoice.minutes(120).apply(to: &$0) }

@@ -700,6 +700,33 @@ final class AppModel {
         return until
     }
 
+    // MARK: Put it down
+
+    /// "I'm good, put it down" after a gate prayer: this Amen's unlock is taken back (the gate goes back to exactly
+    /// what it was before the prayer), nothing opens, and the win is logged. No launch pass is written, so the next
+    /// open of the app asks again. Returns how many times this week (including this one) they chose not to scroll.
+    @discardableResult
+    func putItDown(appID: String?, now: Date = Date()) -> Int {
+        if let base = lastUnlockBase {
+            store.unlockedUntil = base.unlockedUntil
+            store.dailyKeyUntil = base.dailyKeyUntil
+            if let earlier = base.unlockedUntil, earlier > now {
+                let minutes = max(1, Int((earlier.timeIntervalSince(now) / 60).rounded()))
+                ReminderService.shared.scheduleWindowEnd(at: earlier, minutes: minutes, enabled: settings.windowEndNudge)
+            } else {
+                ReminderService.shared.scheduleWindowEnd(at: now, minutes: nil, enabled: false)   // cancel the nudge
+            }
+            lastUnlockBase = nil
+            reloadGateState()
+            syncLock(now: now)
+        }
+        let app = appID.map { GateEngine.canonicalID($0, customApps: settings.customApps) }
+        store.activity.record(.putDown, app: app, at: now)
+        WidgetCenter.shared.reloadAllTimelines()
+        Haptics.success()
+        return store.activity.count(.putDown, in: WeekWindow.current(now: now, calendar: .current))
+    }
+
     // MARK: People
 
     func fetchPerson(id: UUID) -> Person? {

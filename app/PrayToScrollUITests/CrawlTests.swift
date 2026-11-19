@@ -329,7 +329,7 @@ final class CrawlTests: XCTestCase {
             if back.exists, back.isHittable { back.tap(); return true }
         }
         for label in ["Cancel", "Done", "Close", "Close prayer", "Not now", "Not Now", "Maybe later",
-                      "Dismiss", "Skip", "Stay in Pray to Scroll"] {
+                      "Dismiss", "Skip", "Stay in Pray to Scroll", "Back to Home"] {
             let button = app.buttons.matching(NSPredicate(format: "label == %@", label)).firstMatch
             if button.exists, button.isHittable { button.tap(); return true }
         }

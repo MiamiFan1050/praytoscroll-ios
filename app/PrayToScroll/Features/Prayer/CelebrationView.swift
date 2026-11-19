@@ -1,5 +1,6 @@
 import StoreKit
 import SwiftUI
+import UIKit
 
 /// After the Amen: the streak grows, light rises, and the door opens.
 struct CelebrationView: View {
@@ -14,6 +15,9 @@ struct CelebrationView: View {
     /// "Ask me after each prayer": the length picked on this screen, and the end it gives.
     @State private var pickedUnlock: UnlockChoice?
     @State private var pickedUntil: Date?
+    /// "I'm good, put it down": how many times this week they chose not to scroll (set once they choose it).
+    @State private var putDownCount: Int?
+    @State private var finished = false
     @FocusState private var journalFocused: Bool
     @Namespace private var flameSpace
     @Environment(\.requestReview) private var requestReview
@@ -27,6 +31,8 @@ struct CelebrationView: View {
                     Spacer(minLength: 30)
                     if flow.request.isSample {
                         sampleContent
+                    } else if let count = putDownCount {
+                        putDownContent(count)
                     } else {
                         streakHero
                         unlockPill
@@ -126,7 +132,8 @@ struct CelebrationView: View {
                     Text(unlockTitle(completion: completion, until: until))
                         .font(.akHeadline)
                         .foregroundStyle(Palette.cream)
-                    Text(model.settings.gatedApps.isEmpty ? "Your gate opens the same way once it's set up." : "Your gated apps are open.")
+                    Text(model.settings.gatedApps.isEmpty ? "Your gate opens the same way once it's set up."
+                         : (isGatePrayer ? "Open it, or put it down. Your choice." : "Your gated apps are open."))
                         .font(.akFootnote)
                         .foregroundStyle(Palette.cream.opacity(0.65))
                 }
@@ -229,14 +236,17 @@ struct CelebrationView: View {
         }
     }
 
+    /// A prayer the gate asked for (Instagram, TikTok…): the celebration offers two equal choices, open it or not.
+    private var isGatePrayer: Bool { flow.request.source == .gate && !flow.request.isSample }
+
     private var actions: some View {
         VStack(spacing: 12) {
             if let app = flow.gatedApp {
                 if app.openURL != nil {
-                    PrimaryButton("Continue to \(app.name)", systemImage: "arrow.up.forward.app.fill") {
+                    PrimaryButton("Open \(app.name)", systemImage: "arrow.up.forward.app.fill") {
                         saveJournalIfNeeded()
                         model.openApp(app)
-                        onDone()
+                        finish()
                     }
                     .accessibilityIdentifier("celebration.continue")
                 } else {
@@ -251,24 +261,23 @@ struct CelebrationView: View {
                     .multilineTextAlignment(.center)
                     .accessibilityElement(children: .combine)
                     .accessibilityIdentifier("celebration.openYourself")
+                    PrimaryButton("Done", systemImage: "checkmark") {
+                        saveJournalIfNeeded()
+                        finish()
+                    }
+                    .accessibilityIdentifier("celebration.done")
                 }
-                Button("Stay in \(AppConstants.appName)") {
-                    saveJournalIfNeeded()
-                    onDone()
-                }
-                .font(.akHeadline)
-                .foregroundStyle(Palette.cream.opacity(0.7))
-                .frame(minHeight: 44)
+                putDownButton
             } else if flow.request.gatedAppID == GateEngine.anyAppID, !model.settings.gatedApps.isEmpty {
                 // The all-apps automation can't say which app opened: offer each one.
                 VStack(spacing: 10) {
-                    Text("Back to").akOverline(color: Palette.warmGold)
+                    Text("Open").akOverline(color: Palette.warmGold)
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 10)], spacing: 10) {
                         ForEach(model.settings.gatedApps) { app in
                             Button {
                                 saveJournalIfNeeded()
                                 model.openApp(app)
-                                onDone()
+                                finish()
                             } label: {
                                 Text(app.name)
                                     .font(.akHeadline)
@@ -283,20 +292,14 @@ struct CelebrationView: View {
                         }
                     }
                 }
-                Button("Stay in \(AppConstants.appName)") {
-                    saveJournalIfNeeded()
-                    onDone()
-                }
-                .font(.akHeadline)
-                .foregroundStyle(Palette.cream.opacity(0.7))
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("celebration.done")
+                putDownButton
             } else {
                 PrimaryButton("Done", systemImage: "checkmark") {
                     saveJournalIfNeeded()
-                    onDone()
+                    finish()
                 }
                 .accessibilityIdentifier("celebration.done")
+                if isGatePrayer { putDownButton }
             }
             Button {
                 shareCard = .streak
@@ -308,6 +311,75 @@ struct CelebrationView: View {
             }
         }
         .padding(.top, 4)
+    }
+
+    /// The other choice, the same size as Open: nothing opens and the gate stays shut.
+    private var putDownButton: some View {
+        Button {
+            saveJournalIfNeeded()
+            let count = model.putItDown(appID: flow.request.gatedAppID)
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) { putDownCount = count }
+            // Land on Home by itself after a moment (VoiceOver users get the button instead).
+            if !UIAccessibility.isVoiceOverRunning {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3.2) { finish() }
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "hand.raised.fill").font(.body.weight(.semibold))
+                Text("I'm good, put it down").lineLimit(2).multilineTextAlignment(.center)
+            }
+            .font(.akHeadline)
+            .foregroundStyle(Palette.cream)
+            .frame(maxWidth: .infinity, minHeight: 58)
+            .padding(.horizontal, 20)
+            .background(Capsule(style: .continuous).fill(Color.white.opacity(0.08)))
+            .overlay(Capsule(style: .continuous).strokeBorder(Palette.cream.opacity(0.35), lineWidth: 1))
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityHint("Nothing opens. Your apps keep waiting for your Amen.")
+        .accessibilityIdentifier("celebration.putDown")
+    }
+
+    /// After "put it down": one warm line, the running count, then Home.
+    private func putDownContent(_ count: Int) -> some View {
+        VStack(spacing: 18) {
+            ZStack {
+                Circle().fill(Palette.sage.opacity(0.18)).frame(width: 120, height: 120)
+                if MascotView.hasArt {
+                    MascotView(pose: .praying, size: 110)
+                } else {
+                    Image(systemName: "leaf.fill")
+                        .font(.system(size: 50, weight: .semibold))
+                        .foregroundStyle(Palette.sage)
+                }
+            }
+            Text(PutDownCopy.warmLine(for: count))
+                .font(.system(size: 34, weight: .bold, design: .serif))
+                .foregroundStyle(Palette.cream)
+                .multilineTextAlignment(.center)
+                .accessibilityIdentifier("celebration.putDownTitle")
+            Text(PutDownCopy.countLine(count))
+                .font(.akTitle3)
+                .foregroundStyle(Palette.warmGold)
+                .multilineTextAlignment(.center)
+                .accessibilityIdentifier("celebration.putDownCount")
+            Text("Your apps keep waiting for your Amen.")
+                .font(.akCallout)
+                .foregroundStyle(Palette.cream.opacity(0.7))
+                .multilineTextAlignment(.center)
+            PrimaryButton("Back to Home", systemImage: "house.fill") { finish() }
+                .padding(.top, 8)
+                .accessibilityIdentifier("celebration.home")
+        }
+        .transition(.opacity.combined(with: .scale(scale: 0.96)))
+    }
+
+    /// Closes the prayer once (the put-down screen also closes itself after a moment).
+    private func finish() {
+        guard !finished else { return }
+        finished = true
+        if putDownCount != nil { model.selectedTab = .today }
+        onDone()
     }
 
     private func saveJournalIfNeeded() {
