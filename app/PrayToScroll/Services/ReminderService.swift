@@ -17,7 +17,8 @@ final class ReminderService {
         static let windowEnd = "ak.window.end"
         static let weekly = "ak.week.recap"
         static let nudge = "ak.nudge"
-        static let all = [daily, weekly, nudge]
+        static let night = "ak.night"
+        static let all = [daily, weekly, nudge, night]
     }
 
     func requestAuthorization() async -> Bool {
@@ -121,6 +122,18 @@ final class ReminderService {
             parts.hour = r.nudgeHour
             parts.minute = r.nudgeMinute
             add(ID.nudge, content, UNCalendarNotificationTrigger(dateMatching: parts, repeats: true))
+        }
+
+        if r.bedtimeEnabled {
+            let content = UNMutableNotificationContent()
+            content.title = NightPrayer.title
+            content.body = "A few quiet minutes to look back on today with God, then rest."
+            content.sound = nil
+            content.userInfo = ["url": AppLinks.nightPrayerDeepLink.absoluteString]
+            var parts = DateComponents()
+            parts.hour = r.bedtimeHour
+            parts.minute = r.bedtimeMinute
+            add(ID.night, content, UNCalendarNotificationTrigger(dateMatching: parts, repeats: true))
         }
 
         if r.morningVerseEnabled {

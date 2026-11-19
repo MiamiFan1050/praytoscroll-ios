@@ -11,6 +11,8 @@ enum DeepLink: Equatable {
     case people
     case journal
     case word
+    /// prayscroll://night: Night prayer (the bedtime reminder opens it).
+    case nightPrayer
 
     /// prayscroll://pray, prayscroll://pray?app=instagram, prayscroll://join?c=CODE, prayscroll://challenge/<id>
     /// (the legacy amenkey:// scheme works too)
@@ -59,6 +61,8 @@ enum DeepLink: Equatable {
             self = .journal
         case "word", "scroll", "verses", "feed":
             self = .word
+        case "night", "examen", "nightprayer":
+            self = .nightPrayer
         default:
             return nil
         }

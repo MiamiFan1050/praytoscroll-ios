@@ -318,6 +318,26 @@ final class FlowTests: XCTestCase {
         XCTAssertTrue(app.buttons["stats.week.share"].exists)
     }
 
+    /// Night prayer: five steps (thank, look back, sorry, ask, tomorrow), then Amen like any prayer.
+    func testNightPrayerWalksFiveStepsToTheAmen() {
+        let app = launch(["-night"])
+        let card = app.buttons["home.nightPrayer"]
+        XCTAssertTrue(card.waitForExistence(timeout: 10), "Home suggests Night prayer")
+        card.tap()
+        let label = app.descendants(matching: .any)["session.styleLabel"]
+        XCTAssertTrue(label.waitForExistence(timeout: 10))
+        XCTAssertTrue(label.label.contains("Night prayer") && label.label.contains("of 5"), label.label)
+        for _ in 0..<6 {
+            if app.descendants(matching: .any)["amenButton"].exists { break }
+            let next = app.buttons["session.next"]
+            if next.waitForExistence(timeout: 3) { next.tap() }
+        }
+        XCTAssertTrue(label.label.contains("5 of 5"), label.label)
+        sayAmen(in: app)
+        XCTAssertTrue(app.descendants(matching: .any)["celebration.title"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Rest well. You gave today back to God."].exists)
+    }
+
     func testDeepLinkJoinOpensTogether() {
         let app = launch([])
         XCTAssertTrue(app.buttons["home.prayNow"].waitForExistence(timeout: 10))

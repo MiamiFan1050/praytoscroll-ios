@@ -36,7 +36,7 @@ extension AppModel {
         case .prayTempted:
             startPrayer(style: .quick, source: .manual, mood: .tempted)
         case .nightPrayer:
-            startPrayer(style: .quick, source: .manual, topic: .night)
+            startNightPrayer()
         case .prayNow:
             startPrayer(source: .manual)
         }

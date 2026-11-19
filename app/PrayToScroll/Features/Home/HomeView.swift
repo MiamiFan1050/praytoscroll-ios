@@ -54,6 +54,7 @@ struct HomeView: View {
                         streakCard
                     }
                     .fixedSize(horizontal: false, vertical: true)
+                    if showsNightCard { nightPrayerCard }
                     AdventCard()
                     StoriesCard()
                     quickRow
@@ -176,6 +177,7 @@ struct HomeView: View {
             ForEach(UnlockStyle.allCases) { style in
                 Button { model.startPrayer(style: style, source: .manual) } label: { Label(style.title, systemImage: style.symbol) }
             }
+            Button { model.startNightPrayer() } label: { Label(NightPrayer.title, systemImage: "moon.stars.fill") }
         }
         .accessibilityLabel("Pray now, \(styleSummary)")
         .accessibilityHint("Touch and hold to choose a prayer style")
@@ -191,6 +193,49 @@ struct HomeView: View {
         case .readVerse: return "Read a verse"
         case .devotional: return "Devotional · about a minute"
         }
+    }
+
+    // MARK: Night prayer
+
+    /// After 8 PM (until 3 AM), until tonight's Night prayer is prayed. UI tests only see it with `-night`.
+    private var showsNightCard: Bool {
+        #if DEBUG
+        if model.options.isDemo || model.options.isUITest { return model.options.showsNightCard }
+        #endif
+        return NightPrayer.isEvening(hour: Calendar.current.component(.hour, from: Date())) && !model.prayedNightPrayerTonight()
+    }
+
+    private var nightPrayerCard: some View {
+        Button {
+            Haptics.tap()
+            model.startNightPrayer()
+        } label: {
+            HStack(spacing: 14) {
+                IconBadge(systemImage: "moon.stars.fill", tint: Theme.goldIcon, size: 44)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Tonight").akOverline()
+                    Text(NightPrayer.title)
+                        .font(.akHeadline)
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("Thank, look back, let go, ask, rest. About 3 minutes.")
+                        .font(.akFootnote)
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 8)
+                Text("Begin")
+                    .font(.akSubheadlineSemibold)
+                    .foregroundStyle(Palette.midnight)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 40)
+                    .background(Capsule().fill(Palette.goldButton))
+            }
+            .akCard()
+        }
+        .buttonStyle(PressScaleStyle())
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("home.nightPrayer")
     }
 
     private var streakCard: some View {

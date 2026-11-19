@@ -67,6 +67,7 @@ enum AppLinks {
 
     static let prayDeepLink = URL(string: "\(AppConstants.urlScheme)://pray")!
     static let statsDeepLink = URL(string: "\(AppConstants.urlScheme)://stats")!
+    static let nightPrayerDeepLink = URL(string: "\(AppConstants.urlScheme)://night")!
 
     #if STRICT_LOCK
     /// The pending-gate id the Screen Time shield leaves (no app name: the shield only knows an opaque token).

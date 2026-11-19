@@ -26,6 +26,8 @@ struct LaunchOptions: Sendable {
     let contactsStatus: ContactsAccess?
     /// `-wordCard finish|whoSaid|fact|reflect|send|meaning|pray` (UI tests): Scroll the Word opens on that kind of card.
     let wordCard: String?
+    /// `-night` with `-uitest`: Home shows the after-8-PM Night prayer card whatever the time (it's hidden otherwise in UI tests).
+    let showsNightCard: Bool
 
     static let current = LaunchOptions(arguments: ProcessInfo.processInfo.arguments)
 
@@ -67,6 +69,7 @@ struct LaunchOptions: Sendable {
         } else {
             contactsStatus = nil
         }
+        showsNightCard = arguments.contains("-night")
         if let index = arguments.firstIndex(of: "-wordCard"), arguments.indices.contains(index + 1) {
             wordCard = arguments[index + 1]
         } else {
@@ -85,6 +88,7 @@ struct LaunchOptions: Sendable {
         noPeople = false
         contactsStatus = nil
         wordCard = nil
+        showsNightCard = false
         #endif
     }
 }

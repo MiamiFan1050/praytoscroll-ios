@@ -115,6 +115,7 @@ struct CelebrationView: View {
     }
 
     private var subline: String {
+        if flow.request.isNightPrayer { return "Rest well. You gave today back to God." }
         if !flow.personFirstName.isEmpty { return "You lifted up \(flow.personFirstName) today." }
         if flow.gatedApp != nil { return "You prayed before you scrolled." }
         return "Thanks for showing up today."

@@ -133,6 +133,10 @@ struct ReminderSettings: Codable, Equatable, Sendable {
     var nudgeMinute: Int = 45
     /// The app it's for, by catalog id ("" = your apps).
     var nudgeAppID: String = ""
+    /// Bedtime: a gentle "Night prayer" reminder that opens the evening Examen.
+    var bedtimeEnabled: Bool = false
+    var bedtimeHour: Int = 21
+    var bedtimeMinute: Int = 30
 
     init() {}
 
@@ -151,6 +155,9 @@ struct ReminderSettings: Codable, Equatable, Sendable {
         nudgeHour = min(23, max(0, (try? c.decodeIfPresent(Int.self, forKey: .nudgeHour)) ?? d.nudgeHour))
         nudgeMinute = min(59, max(0, (try? c.decodeIfPresent(Int.self, forKey: .nudgeMinute)) ?? d.nudgeMinute))
         nudgeAppID = (try? c.decodeIfPresent(String.self, forKey: .nudgeAppID)) ?? d.nudgeAppID
+        bedtimeEnabled = (try? c.decodeIfPresent(Bool.self, forKey: .bedtimeEnabled)) ?? d.bedtimeEnabled
+        bedtimeHour = min(23, max(0, (try? c.decodeIfPresent(Int.self, forKey: .bedtimeHour)) ?? d.bedtimeHour))
+        bedtimeMinute = min(59, max(0, (try? c.decodeIfPresent(Int.self, forKey: .bedtimeMinute)) ?? d.bedtimeMinute))
     }
 
     private static let defaultValue = ReminderSettings()

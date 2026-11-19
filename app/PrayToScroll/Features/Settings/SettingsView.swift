@@ -258,6 +258,21 @@ struct SettingsView: View {
                     Text("Time").padding(.leading, 42)
                 }
             }
+            Toggle(isOn: Binding(get: { model.settings.reminders.bedtimeEnabled },
+                                 set: { on in
+                                     model.updateSettings { $0.reminders.bedtimeEnabled = on }
+                                     if on { requestNotifications() }
+                                 })) {
+                settingsLabel("Night prayer reminder", "moon.stars.fill")
+            }
+            .tint(Palette.gold)
+            .accessibilityIdentifier("settings.bedtime")
+            if model.settings.reminders.bedtimeEnabled {
+                DatePicker(selection: timeBinding(hour: \.reminders.bedtimeHour, minute: \.reminders.bedtimeMinute),
+                           displayedComponents: .hourAndMinute) {
+                    Text("Time").padding(.leading, 42)
+                }
+            }
             Toggle(isOn: Binding(get: { model.settings.reminders.weeklyRecapEnabled },
                                  set: { on in
                                      model.updateSettings { $0.reminders.weeklyRecapEnabled = on }

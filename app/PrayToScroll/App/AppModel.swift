@@ -30,6 +30,8 @@ struct SessionRequest: Identifiable, Equatable {
     var friend: FriendProfile?
     /// "Pray to watch" on a Bible Stories episode: the Amen opens that episode for good.
     var storyEpisodeID: String?
+    /// Night prayer: the five-step evening Examen (a guided prayer with its own prompts).
+    var isNightPrayer: Bool = false
 }
 
 /// What happened in a finished prayer.
@@ -47,6 +49,7 @@ struct PrayerOutcome {
     var storyEpisodeID: String?
     /// The mood chip picked, for "Your week" (most-felt mood).
     var mood: PrayerMood?
+    var isNightPrayer: Bool = false
 }
 
 /// What the celebration shows.
@@ -544,17 +547,38 @@ final class AppModel {
                      personID: UUID? = nil, mood: PrayerMood? = nil, isSample: Bool = false,
                      verse: Verse? = nil, seedPrompt: String? = nil, topic: PrayerTopic? = nil,
                      circleRequest: CirclePrayerRequest? = nil, friend: FriendProfile? = nil,
-                     storyEpisodeID: String? = nil) {
-        let request = SessionRequest(style: style ?? defaultSessionStyle, source: source, gatedAppID: gatedAppID,
+                     storyEpisodeID: String? = nil, nightPrayer: Bool = false) {
+        var request = SessionRequest(style: style ?? defaultSessionStyle, source: source, gatedAppID: gatedAppID,
                                      personID: personID, mood: mood, isSample: isSample,
                                      verse: verse, seedPrompt: seedPrompt, topic: topic, circleRequest: circleRequest,
                                      friend: friend, storyEpisodeID: storyEpisodeID)
+        request.isNightPrayer = nightPrayer
         if activeSession != nil {
             activeSession = nil
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { self.activeSession = request }
         } else {
             activeSession = request
         }
+    }
+
+    /// Night prayer: thank, look back, sorry, ask, tomorrow. A guided prayer, so it counts for the streak like any other.
+    func startNightPrayer(source: SessionSource = .manual) {
+        startPrayer(style: .guided, source: source, nightPrayer: true)
+    }
+
+    /// The minimum for Night prayer (about two and a half minutes across its five steps).
+    var nightPrayerSeconds: Double {
+        #if DEBUG
+        if options.isUITest && !options.longMinimum { return 3 }
+        #endif
+        return Double(NightPrayer.seconds)
+    }
+
+    /// Already prayed Night prayer this evening (the evening runs until 3 AM).
+    func prayedNightPrayerTonight(now: Date = Date()) -> Bool {
+        let calendar = Calendar.current
+        let tonight = NightPrayer.eveningKey(for: now, calendar: calendar)
+        return store.activity.events.contains { $0.kind == .nightPrayer && NightPrayer.eveningKey(for: $0.at, calendar: calendar) == tonight }
     }
 
     func gatedApp(id: String?) -> GatedApp? {
@@ -603,6 +627,7 @@ final class AppModel {
                                   at: outcome.completedAt)
         }
         if let mood = outcome.mood { store.activity.record(.mood, detail: mood.rawValue, at: outcome.completedAt) }
+        if outcome.isNightPrayer { store.activity.record(.nightPrayer, at: outcome.completedAt) }
 
         if let personID = outcome.personID {
             let descriptor = FetchDescriptor<Person>(predicate: #Predicate { $0.id == personID })
@@ -975,6 +1000,8 @@ final class AppModel {
             openJournal = true
         case .word:
             selectedTab = .word
+        case .nightPrayer:
+            startNightPrayer(source: .deepLink)
         }
     }
 
@@ -990,6 +1017,7 @@ final class AppModel {
             updateSettings { $0.askUnlockEachTime = true }
             startPrayer(source: .gate, gatedAppID: "instagram")
         case "quick": startPrayer(style: .quick, source: .manual)
+        case "night": startNightPrayer()
         case "someone": startPrayer(style: .forSomeone, source: .manual, personID: suggestedPerson()?.id)
         case "choose": startPrayer(style: .forSomeone, source: .manual)
         case "gate": showGateSetup = true

@@ -66,7 +66,8 @@ final class PrayerFlow {
     init(request: SessionRequest, model: AppModel) {
         self.request = request
         self.model = model
-        self.minimumSeconds = model.minimumSeconds(for: request.style, isSample: request.isSample)
+        self.minimumSeconds = request.isNightPrayer ? model.nightPrayerSeconds
+            : model.minimumSeconds(for: request.style, isSample: request.isSample)
         self.style = request.style
         self.verse = request.verse ?? model.verses.verse()
         self.mood = request.mood
@@ -109,6 +110,7 @@ final class PrayerFlow {
     var progress: Double { minimumSeconds > 0 ? min(1, elapsed / minimumSeconds) : 1 }
 
     var styleLabel: String {
+        if request.isNightPrayer { return "\(NightPrayer.title) · \(stepIndex + 1) of \(max(1, steps.count))" }
         if steps.count > 1 { return "\(style.shortTitle) · \(stepIndex + 1) of \(steps.count)" }
         return style.title
     }
@@ -198,6 +200,11 @@ final class PrayerFlow {
                 built = [PrayerStep(kind: .prompt, overline: "Quick prayer", title: "", prompt: draw("quick", library.quick),
                                     symbol: "bolt.heart.fill", poolKey: "quick")]
             }
+        case .guided where request.isNightPrayer:
+            built = ExamenStep.allCases.map { step in
+                PrayerStep(kind: .prompt, overline: step.title, title: step.caption, prompt: draw(step.poolKey, step.prompts),
+                           symbol: step.symbol, poolKey: step.poolKey)
+            }
         case .guided:
             // In prompts.json {name} means the person being prayed for. Nobody is picked in a guided
             // prayer, so those prompts are skipped here.
@@ -260,7 +267,9 @@ final class PrayerFlow {
         guard let step = currentStep, step.kind == .prompt, !step.poolKey.isEmpty else { return }
         let library = model.content.prompts
         var pool: [String]
-        if step.poolKey.hasPrefix("mood."), let mood = PrayerMood(rawValue: String(step.poolKey.dropFirst(5))) {
+        if let examen = ExamenStep.step(poolKey: step.poolKey) {
+            pool = examen.prompts
+        } else if step.poolKey.hasPrefix("mood."), let mood = PrayerMood(rawValue: String(step.poolKey.dropFirst(5))) {
             pool = model.content.moodPrompts[mood] ?? library.quick
         } else if let acts = ACTSStep(rawValue: step.poolKey.replacingOccurrences(of: ".solo", with: "")) {
             pool = library.prompts(for: acts).filter { !$0.contains("{name}") }
@@ -281,8 +290,9 @@ final class PrayerFlow {
     func select(mood newMood: PrayerMood?) {
         mood = newMood
         model.updateSettings { $0.lastMood = newMood }
+        // Night prayer keeps its own steps; the mood is still remembered for Your week.
         guard let newMood, let pool = model.content.moodPrompts[newMood], stepIndex < steps.count,
-              steps[stepIndex].kind == .prompt, style != .forSomeone else { return }
+              steps[stepIndex].kind == .prompt, style != .forSomeone, !request.isNightPrayer else { return }
         steps[stepIndex].prompt = draw("mood.\(newMood.rawValue)", pool)
         steps[stepIndex].poolKey = "mood.\(newMood.rawValue)"
         Haptics.selection()
@@ -349,7 +359,7 @@ final class PrayerFlow {
                                     startedAt: startedAt, completedAt: Date(), personID: personID,
                                     personName: personName, verseRef: verseRefForHistory,
                                     circleRequest: request.circleRequest, friend: request.friend,
-                                    storyEpisodeID: request.storyEpisodeID, mood: mood)
+                                    storyEpisodeID: request.storyEpisodeID, mood: mood, isNightPrayer: request.isNightPrayer)
         completion = model.completePrayer(outcome)
         // A friend sees "prayed for you" in the app, so there's no text message to offer.
         withAnimationPhase(style == .forSomeone && !personName.isEmpty && request.friend == nil ? .letThemKnow : .celebration)
