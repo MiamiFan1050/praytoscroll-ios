@@ -2,23 +2,28 @@ Free. No ads. No account. No tracking.
 
 Knees before feeds.
 
-Pray to Scroll puts a short prayer between you and your most distracting apps. Open Instagram and Pray to Scroll steps in first: take a breath, pray, then press and hold Amen. Your app opens, and the gate stays quiet for as long as you chose. Pray first. Scroll after.
+Pray to Scroll puts a short prayer between you and your most distracting apps. Open Instagram and Pray to Scroll steps in first: take a breath, pray, then press and hold Amen. Your app opens, and it stays open for as long as you chose. Pray first. Scroll after.
 
 HOW THE PRAYER GATE WORKS
 • Pick the apps that pull you in: Instagram, TikTok, YouTube, X, Snapchat, Facebook, Reddit, Threads, Pinterest, or your own.
-• Set up the gate once for all your apps, in about a minute, with Apple's Shortcuts app. Pray to Scroll walks you through every tap and shows a check mark once your apps are protected.
-• When you open a gated app, Pray to Scroll opens first. Pray, hold Amen, tap Continue, and the gate stays quiet as long as you choose: 5 minutes to 3 hours, a custom time, or the rest of the day.
+• Set up the gate in about a minute with Apple's Shortcuts app. Pray to Scroll walks you through every tap and shows a check mark once each app is protected.
+• When you open a gated app, Pray to Scroll opens first. Pray, hold Amen, tap Continue, and the gate stays quiet for 5, 15, 30 or 60 minutes.
 • Need it now? Once a day, an emergency pass lets you straight through for 5 minutes, counted honestly in your stats.
 
 SCROLL THE WORD
-After you pray, scroll something good. Scroll the Word is a full-screen feed of Bible verses you swipe through one at a time, just like the apps you know, except it leaves you fuller, not emptier. It's the healthy thing to scroll.
+After you pray, scroll something good. Scroll the Word is a full-screen feed of Bible verses on calm photo backdrops that you swipe through one at a time, just like the apps you know, with "Jesus said" cards, "Where and when" cards, Bible facts and quick quizzes. Set a daily goal, save verses to boards, and let the For you feed learn what speaks to you. It leaves you fuller, not emptier.
+
+LEARN THE BIBLE
+Short lessons through Meet Jesus, The Big Story of the Bible and the Parables of Jesus. Plus the Daily 5: five Bible questions a day, the same for everyone, with a score you can share.
+
+BIBLE STORIES
+The Bible told by the people who were there, in short vertical episodes. One short prayer opens each new part.
 
 FOUR WAYS TO PRAY
 • Quick prayer: 30 seconds, one prompt, Amen.
-• Guided: 30 seconds to 5 minutes through Adoration, Confession, Thanksgiving and Supplication.
+• Guided: 1 to 3 minutes through Adoration, Confession, Thanksgiving and Supplication.
 • Verse + prayer: read today's verse one line at a time, then pray it.
 • Pray for someone: choose a person from your prayer list or your contacts, pray for them, then send "I just prayed for you" if you'd like.
-Or unlock by reading: one verse with a line on what it means, or a 60 to 90 second devotional. Every one counts toward your streak.
 
 PEOPLE AND ANSWERED PRAYERS
 Keep a list of the people you love and what they're facing. Pray to Scroll suggests whoever you haven't prayed for in a while. When God answers, mark the request answered and it moves to your Answered Prayers wall, a record of faithfulness to come back to.
@@ -28,9 +33,12 @@ A HABIT THAT GROWS
 • Milestones at 3, 7, 14, 21, 30, 50, 100 and 365 days.
 • A calendar of your prayers, minutes prayed, people prayed for, and every time you prayed instead of scrolling.
 • Challenges: 7-day Fresh Start, 21-day Habit, 40-day Social Media Fast and Pray for 30 People.
+• After you pray at the gate, choose to put it down, and see how often you chose not to scroll.
+• Your Week: your prayers, your most-tempted hour and one idea for the week ahead.
+• Night prayer: a quiet five-step evening prayer, and an optional weekly Sabbath rest day for your streak.
 
 PRAYER CIRCLES
-Invite friends with a six-character code and encourage each other on a weekly board of prayers and streaks. There's no chat and no profile. A circle sees only the nickname and emoji you choose, your weekly prayer count and your streak.
+Invite friends with a six-character code and encourage each other on a weekly board of prayers and streaks. There's no chat and no profile. A circle sees only the nickname you choose, your weekly prayer count and your streak.
 
 ALSO INSIDE
 • A verse for every day of the year from the World English Bible
@@ -40,7 +48,7 @@ ALSO INSIDE
 • Beautiful share cards for milestones and verses
 
 PRIVATE BY DESIGN
-Your prayer list, journal, streaks and settings stay on your iPhone. There's no account to create, no ads, no analytics and no tracking, and we never sell your data. Prayer Circles are optional: if you join one, only your nickname, emoji, weekly prayer count and streak are shared, through Apple's iCloud.
+Your prayer list, journal, streaks and settings stay on your iPhone. There's no account to create, no ads, no analytics and no tracking, and we never sell your data. Prayer Circles and Friends are optional and use Apple's iCloud.
 
 FREE, FOR REAL
 Every feature in Pray to Scroll is free. No trial, no paywall, and no paying to pray.
