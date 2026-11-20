@@ -337,7 +337,9 @@ struct WordFeedView: View {
         let window = BackdropCache.window
         let lower = max(0, index - window), upper = min(items.count - 1, index + window)
         guard lower <= upper else { return }
-        BackdropCache.shared.preload(items[lower...upper].map(\.background))
+        // Nearest first: the decodes run one at a time, so the next card is ready before the ones further away.
+        let nearest = (lower...upper).sorted { abs($0 - index) < abs($1 - index) }
+        BackdropCache.shared.preload(nearest.map { items[$0].background })
     }
 
     private func cardBecameVisible(_ id: String?) {

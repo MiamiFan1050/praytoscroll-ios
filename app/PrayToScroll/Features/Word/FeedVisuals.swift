@@ -18,6 +18,10 @@ enum FeedBackgrounds {
 
 /// Decodes backdrops off the main thread and keeps the cards around the current one (±3) ready to draw, so a swipe
 /// never waits on a decode.
+///
+/// One decode at a time, on its own serial queue, never on the Swift concurrency pool: a HEIC decode blocks its thread
+/// until VideoToolbox answers. Seven at once on the pool deadlocked the simulator's HEVC decoder (every Scroll UI test
+/// hung from Nov 19, CI run 44778230025's samples) and would starve the pool's few threads on any device.
 final class BackdropCache: @unchecked Sendable {
     static let shared = BackdropCache()
     static let window = 3
@@ -25,6 +29,7 @@ final class BackdropCache: @unchecked Sendable {
     private let cache = NSCache<NSNumber, UIImage>()
     private let lock = NSLock()
     private var loading: Set<Int> = []
+    private let queue = DispatchQueue(label: "scroll.backdrops", qos: .userInitiated)
 
     init() {
         cache.countLimit = 2 * Self.window + 3
@@ -37,15 +42,17 @@ final class BackdropCache: @unchecked Sendable {
     /// The backdrop, decoded (from the cache when it's there).
     func image(_ index: Int) async -> UIImage? {
         if let hit = cached(index) { return hit }
-        return await Task.detached(priority: .userInitiated) { [self] in self.decode(index) }.value
+        return await withCheckedContinuation { continuation in
+            queue.async { continuation.resume(returning: self.decode(index)) }
+        }
     }
 
-    /// Starts decoding these (the ±3 around the current card) in the background.
+    /// Queues these (the ±3 around the current card, nearest first) behind any decode already running.
     func preload(_ indices: [Int]) {
         for index in indices where cached(index) == nil {
             let start = lock.withLock { loading.insert(index).inserted }
             guard start else { continue }
-            Task.detached(priority: .utility) { [self] in
+            queue.async {
                 _ = self.decode(index)
                 self.lock.withLock { _ = self.loading.remove(index) }
             }
