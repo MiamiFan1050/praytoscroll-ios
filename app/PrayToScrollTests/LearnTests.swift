@@ -456,8 +456,13 @@ final class LearnContentTests: XCTestCase {
 
     func testIdsAreUnique() throws {
         let library = try LearnFiles.library()
-        let ids = library.paths.flatMap { $0.lessons.map(\.id) } + library.daily.map(\.id) + library.jesusSaid.map(\.id)
-            + library.places.map(\.id) + library.series.map(\.id) + library.lessonQuizzes.map(\.id)
+        // One append at a time: the chained `+` took the type checker past CI's limit (strict job, run 44783752303).
+        var ids: [String] = library.paths.flatMap { $0.lessons.map(\.id) }
+        ids += library.daily.map(\.id)
+        ids += library.jesusSaid.map(\.id)
+        ids += library.places.map(\.id)
+        ids += library.series.map(\.id)
+        ids += library.lessonQuizzes.map(\.id)
         XCTAssertEqual(Set(ids).count, ids.count)
         let facts = try SourceFiles.scroll().facts
         XCTAssertGreaterThanOrEqual(facts.count, 160, "60 facts + 100 Did you know")
