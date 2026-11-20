@@ -529,6 +529,7 @@ struct MilestoneCardContent: View {
                 .scaleEffect(glow ? 1.06 : 0.96)
                 .onAppear {
                     if isCurrent { Haptics.success() }
+                    guard !MotionPolicy.off else { return }
                     withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) { glow = true }
                 }
                 .onChange(of: isCurrent) { _, now in if now { Haptics.success() } }

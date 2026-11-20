@@ -356,7 +356,9 @@ struct LessonDoneContent: View {
         }
         .frame(maxWidth: .infinity)
         .onAppear {
-            withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) { glow = true }
+            if !MotionPolicy.off {
+                withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) { glow = true }
+            }
             withAnimation(.easeOut(duration: 0.8).delay(0.2)) { shownXP = reward.xp }
         }
     }

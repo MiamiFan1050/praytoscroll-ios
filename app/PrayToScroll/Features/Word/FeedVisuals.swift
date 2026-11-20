@@ -69,7 +69,9 @@ struct PhotoBackdrop: View {
     var isCurrent: Bool
     @State private var image: UIImage?
     @State private var drift = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
+    /// Reduce Motion, or `-noMotion` (the UI tests): an endless drift keeps XCUITest from ever reading the screen.
+    private var reduceMotion: Bool { systemReduceMotion || MotionPolicy.off }
 
     init(index: Int, scene: FeedScene, isCurrent: Bool) {
         self.index = index
